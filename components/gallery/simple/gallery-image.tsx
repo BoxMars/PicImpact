@@ -181,7 +181,7 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
             <div className="flex items-center space-x-1">
               <CrosshairIcon className={exifIconClass} size={18} />
               <p className={exifTextClass}>
-                {photo?.exif?.focal_length}
+                {(parseFloat(photo?.exif?.focal_length).toFixed(2) + ' mm')}
               </p>
             </div>
           }

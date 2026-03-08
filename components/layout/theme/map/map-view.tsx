@@ -269,7 +269,7 @@ export function MapView({ images }: MapViewProps) {
                     )}
                     {popupInfo.exif.focal_length && (
                       <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                        {popupInfo.exif.focal_length}
+                        {(parseFloat(popupInfo.exif.focal_length).toFixed(2) + ' mm')}
                       </span>
                     )}
                   </div>

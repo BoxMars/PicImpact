@@ -86,7 +86,7 @@ export default function ExifView(props: Readonly<ImageDataProps>) {
             props.data?.exif?.focal_length &&
             <TableRow key="focal_length">
               <TableCell className="font-medium">焦距</TableCell>
-              <TableCell className="truncate max-w-48">{props.data?.exif?.focal_length}</TableCell>
+              <TableCell className="truncate max-w-48">{`${parseFloat(props.data?.exif?.focal_length).toFixed(2)} mm`}</TableCell>
             </TableRow>
           }
           {

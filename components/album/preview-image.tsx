@@ -300,7 +300,7 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
                   {props.data?.exif?.focal_length && (
                     <ParamBadge 
                       icon={<CrosshairIcon className={badgeIconClass} size={14} />}
-                      value={props.data.exif.focal_length}
+                      value={parseFloat(props.data.exif.focal_length).toFixed(2) + ' mm'}
                     />
                   )}
                   {props.data?.exif?.f_number && (
@@ -363,7 +363,7 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
                     </div>
                   )}
                   {props.data?.exif?.focal_length && (
-                    <Row label={t('Exif.focalLength')} value={props.data.exif.focal_length} />
+                    <Row label={t('Exif.focalLength')} value={parseFloat(props.data.exif.focal_length).toFixed(2) + ' mm'} />
                   )}
                 </div>
               </div>
