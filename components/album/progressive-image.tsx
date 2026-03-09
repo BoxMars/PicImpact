@@ -72,12 +72,12 @@ export default function ProgressiveImage(
         setIsLoading(false)
       } else {
         console.log(`image load error: ${xhr.status}`)
-        setError(t('Tips.imageLoadFailed'))
+        // setError(t('Tips.imageLoadFailed'))
         setIsLoading(false)
       }
     }
     xhr.onerror = () => {
-      setError(t('Tips.imageLoadFailed'))
+      // setError(t('Tips.imageLoadFailed'))
       setIsLoading(false)
     }
     xhr.send()
