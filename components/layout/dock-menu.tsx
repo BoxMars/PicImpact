@@ -52,13 +52,13 @@ export default function DockMenu(props: Readonly<AlbumDataProps>) {
               aria-label={t('Words.album')}
             />
           </DockIcon>
-          <DockIcon>
+          {/* <DockIcon>
             <MapPinIcon
               onClick={() => router.push('/map')}
               size={18}
               aria-label={t('Link.map')}
             />
-          </DockIcon>
+          </DockIcon> */}
           <DockIcon>
             <CompassIcon
               onClick={() => setCommand(true)}

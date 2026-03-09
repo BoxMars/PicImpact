@@ -136,14 +136,14 @@ export default function DefaultGallery(props : Readonly<ImageHandleProps>) {
         )}
       </InfiniteScroll>
       {/* Floating Filter Ball */}
-      <FloatingFilterBall
+      {/* <FloatingFilterBall
         album={props.album}
         selectedCamera={selectedCamera}
         selectedLens={selectedLens}
         onCameraChange={handleCameraChange}
         onLensChange={handleLensChange}
         onReset={handleReset}
-      />
+      /> */}
     </>
   )
 }
