@@ -83,7 +83,7 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
     <div className="flex flex-col sm:flex-row w-full items-start justify-between sm:relative overflow-x-clip">
       <div className="flex flex-1 flex-col px-2 sm:sticky top-4 self-start">
         <div className="flex space-x-2 py-1 sm:justify-end">
-          <div className="font-semibold">{photo.title}</div>
+          <div className="">{photo.title}</div>
         </div>
         {photo?.exif?.data_time &&
           <div className="hidden sm:flex items-center space-x-1 sm:justify-end">
