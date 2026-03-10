@@ -462,7 +462,7 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
               </button>
             </div>
             <div className="text-left text-xs text-gray-500 dark:text-gray-400 select-none">
-              © {copyrightYears} {customAuthor || 'PicImpact'}
+              © {copyrightYears} {customAuthor || 'Felina, Juliana and Box'}
             </div>
           </div>
         </ScrollArea>
