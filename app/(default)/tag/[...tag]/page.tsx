@@ -6,6 +6,8 @@ import 'react-photo-album/masonry.css'
 
 export default async function Label({params}: { params: any }) {
   const { tag } = await params
+  const decodedTag = decodeURIComponent(tag)
+
   const getData = async (pageNum: number, tag: string, _camera?: string, _lens?: string) => {
     'use server'
     // Tag gallery doesn't use camera/lens filters
@@ -20,16 +22,23 @@ export default async function Label({params}: { params: any }) {
 
   const getConfig = async () => {
     'use server'
-    // 什么都不做
-    console.log('')
+    return []
   }
+
+  const [initialImages, initialPageTotal] = await Promise.all([
+    getData(1, decodedTag),
+    getPageTotal(decodedTag),
+  ])
 
   const props: ImageHandleProps = {
     handle: getData,
     args: 'getImages-client-tag',
-    album: `${decodeURIComponent(tag)}`,
+    album: decodedTag,
     totalHandle: getPageTotal,
-    configHandle: getConfig
+    configHandle: getConfig,
+    initialImages,
+    initialPageTotal,
+    initialConfigData: [],
   }
 
   return (

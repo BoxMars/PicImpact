@@ -1,9 +1,8 @@
 'use client'
 
-import type { HandleProps, ImageHandleProps } from '~/types/props'
+import type { ImageHandleProps } from '~/types/props'
 import { useSwrPageTotalHook } from '~/hooks/use-swr-page-total-hook'
 import useSWRInfinite from 'swr/infinite'
-import { useSwrHydrated } from '~/hooks/use-swr-hydrated'
 import { useTranslations } from 'next-intl'
 import { MasonryPhotoAlbum, RenderImageContext, RenderImageProps } from 'react-photo-album'
 import type { ImageType } from '~/types'
@@ -36,12 +35,8 @@ export default function TagGallery(props : Readonly<ImageHandleProps>) {
       revalidateOnFocus: false,
       revalidateIfStale: false,
       revalidateOnReconnect: false,
+      fallbackData: props.initialImages ? [props.initialImages] : undefined,
     })
-  const configProps: HandleProps = {
-    handle: props.configHandle,
-    args: 'system-config',
-  }
-  const { data: configData } = useSwrHydrated(configProps)
   const dataList = data ? [].concat(...data) : []
   const t = useTranslations()
   const router = useRouter()

@@ -11,6 +11,8 @@ import { MotionImage } from '~/components/album/motion-image'
 import { Badge } from '~/components/ui/badge'
 import { useTranslations } from 'next-intl'
 import { useBlurImageDataUrl } from '~/hooks/use-blurhash'
+import { isProxyImageUrl, toProxyImageUrl } from '~/lib/utils/image-proxy'
+import { useEffect, useState } from 'react'
 
 export default function ImageView() {
   const t = useTranslations()
@@ -23,6 +25,13 @@ export default function ImageView() {
   }
 
   const dataURL = useBlurImageDataUrl(imageViewData.blurhash)
+  const rawMediaUrl = imageViewData.preview_url || imageViewData.url || ''
+  const proxyMediaUrl = toProxyImageUrl(rawMediaUrl)
+  const [resolvedMediaUrl, setResolvedMediaUrl] = useState(proxyMediaUrl || rawMediaUrl)
+
+  useEffect(() => {
+    setResolvedMediaUrl(proxyMediaUrl || rawMediaUrl)
+  }, [proxyMediaUrl, rawMediaUrl])
 
   return (
     <Sheet
@@ -46,8 +55,8 @@ export default function ImageView() {
               animate={{ opacity: 1 }}
               transition={{ duration: 1 }}
               className="cursor-pointer"
-              src={"/api/public/url-proxy?url=" + (imageViewData.preview_url || imageViewData.url)}
-              overrideSrc={("/api/public/url-proxy?url=" + (imageViewData.preview_url || imageViewData.url))}
+              src={resolvedMediaUrl}
+              overrideSrc={resolvedMediaUrl}
               alt={imageViewData.detail}
               width={imageViewData.width}
               height={imageViewData.height}
@@ -55,9 +64,17 @@ export default function ImageView() {
               loading="lazy"
               placeholder="blur"
               blurDataURL={dataURL}
+              onError={() => {
+                if (isProxyImageUrl(resolvedMediaUrl) && rawMediaUrl) {
+                  setResolvedMediaUrl(rawMediaUrl)
+                }
+              }}
             />
             :
-            <LivePhoto url={("/api/public/url-proxy?url=" + (imageViewData.preview_url || imageViewData.url))} videoUrl={"/api/public/url-proxy?url=" + (imageViewData.video_url)} />
+            <LivePhoto
+              url={imageViewData.preview_url || imageViewData.url}
+              videoUrl={imageViewData.video_url}
+            />
           }
           {imageViewData?.labels &&
             <div className="space-x-1">

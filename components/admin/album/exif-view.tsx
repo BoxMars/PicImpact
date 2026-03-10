@@ -117,13 +117,13 @@ export default function ExifView(props: Readonly<ImageDataProps>) {
               <TableCell className="truncate max-w-48">{props.data?.exif?.cfa_pattern}</TableCell>
             </TableRow>
           }
-          {
-            props.data?.exif?.color_space &&
+          {/* Temporarily hide color space details */}
+          {false && props.data?.exif?.color_space && (
             <TableRow key="color_space">
               <TableCell className="font-medium">色彩空间</TableCell>
               <TableCell className="truncate max-w-48">{props.data?.exif?.color_space}</TableCell>
             </TableRow>
-          }
+          )}
           {
             props.data?.exif?.white_balance &&
             <TableRow key="white_balance">

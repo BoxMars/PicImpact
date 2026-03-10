@@ -23,26 +23,27 @@ export default async function Home() {
     return await fetchConfigsByKeys([
       'custom_index_download_enable',
       'custom_index_origin_enable',
-      'custom_title'
-    ])
-  }
-
-  const getStyleConfig = async () => {
-    'use server'
-    return await fetchConfigsByKeys([
+      'custom_title',
       'custom_index_style',
     ])
   }
 
-  const style: Config[] = await getStyleConfig()
-  const currentStyle = style.find(a => a.config_key === 'custom_index_style')?.config_value
+  const initialConfigData: Config[] = await getConfig()
+  const [initialImages, initialPageTotal] = await Promise.all([
+    getData(1, '/'),
+    getPageTotal('/'),
+  ])
+  const currentStyle = initialConfigData.find(a => a.config_key === 'custom_index_style')?.config_value
 
   const props: ImageHandleProps = {
     handle: getData,
     args: 'getImages-client',
     album: '/',
     totalHandle: getPageTotal,
-    configHandle: getConfig
+    configHandle: getConfig,
+    initialImages,
+    initialPageTotal,
+    initialConfigData,
   }
 
   return (

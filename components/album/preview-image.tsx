@@ -68,7 +68,7 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
   const [lightboxPhoto, setLightboxPhoto] = useState<boolean>(false)
 
   const exifIconClass = 'dark:text-gray-50 text-gray-500'
-  const badgeIconClass = 'shrink-0 text-gray-500 dark:text-gray-400'
+  const badgeIconClass = 'shrink-0 text-gray-500 dark:text-gray-400 hover:text-gray-500 dark:hover:text-gray-400 transition-none'
 
   const configProps: HandleProps = {
     handle: props.configHandle,
@@ -285,7 +285,8 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
                 {dimensions && <Row label={t('Exif.dimensions')} value={dimensions} />}
                 {megaPixels && <Row label={t('Exif.pixels')} value={megaPixels} />}
                 <Row label={t('Exif.captureTime')} value={formattedDateTime} />
-                {props.data?.exif?.color_space && (
+                {/* Temporarily hide color space details */}
+                {false && props.data?.exif?.color_space && (
                   <Row label={t('Exif.colorSpace')} value={props.data.exif.color_space} />
                 )}
               </div>
@@ -380,7 +381,8 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
                   )}
                   <Row label={t('Exif.exposureMode')} value={props.data?.exif?.exposure_mode} />
                   <Row label={t('Exif.whiteBalance')} value={props.data?.exif?.white_balance} />
-                  {props.data?.exif?.color_space && (
+                  {/* Temporarily hide color space details */}
+                  {false && props.data?.exif?.color_space && (
                     <div className="flex items-center gap-2">
                       <FlaskIcon className={badgeIconClass} size={14} />
                       <span className="text-sm text-gray-700 dark:text-gray-200">

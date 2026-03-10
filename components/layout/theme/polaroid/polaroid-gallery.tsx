@@ -128,7 +128,7 @@ export default function PolaroidGallery(props: Readonly<ImageHandleProps>) {
     handle: props.configHandle,
     args: 'system-config',
   }
-  const { data: configData } = useSwrHydrated(configProps)
+  const { data: configData } = useSwrHydrated(configProps, props.initialConfigData)
 
   const customTitle = configData?.find((item: any) => item.config_key === 'custom_title')?.config_value.toString()
 
@@ -141,6 +141,7 @@ export default function PolaroidGallery(props: Readonly<ImageHandleProps>) {
     revalidateOnFocus: false,
     revalidateIfStale: false,
     revalidateOnReconnect: false,
+    fallbackData: props.initialImages ? [props.initialImages] : undefined,
   })
 
   const dataList = useMemo(() => data ? [].concat(...data) : [], [data])

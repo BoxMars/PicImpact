@@ -26,6 +26,7 @@ export default function SimpleGallery(props: Readonly<ImageHandleProps>) {
       revalidateIfStale: false,
       revalidateOnReconnect: false,
       keepPreviousData: true,
+      fallbackData: props.initialPageTotal,
     }
   )
   // Use SWR Infinite for paginated data with filter support - use debounced values
@@ -41,13 +42,14 @@ export default function SimpleGallery(props: Readonly<ImageHandleProps>) {
       revalidateIfStale: false,
       revalidateOnReconnect: false,
       keepPreviousData: true,
+      fallbackData: props.initialImages ? [props.initialImages] : undefined,
     }
   )
   const configProps: HandleProps = {
     handle: props.configHandle,
     args: 'system-config',
   }
-  const { data: configData } = useSwrHydrated(configProps)
+  const { data: configData } = useSwrHydrated(configProps, props.initialConfigData)
   // Memoize dataList to avoid unnecessary recalculations
   const dataList = useMemo(() => data ? [].concat(...data) : [], [data])
   const t = useTranslations()

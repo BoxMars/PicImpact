@@ -4,14 +4,23 @@ import { useRouter } from 'next-nprogress-bar'
 import { useBlurImageDataUrl, DEFAULT_HASH } from '~/hooks/use-blurhash'
 import { MotionImage } from '~/components/album/motion-image'
 import { Skeleton } from '~/components/ui/skeleton'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { cn } from '~/lib/utils'
+import { isProxyImageUrl, toProxyImageUrl } from '~/lib/utils/image-proxy'
 
-export default function BlurImage({ photo, dataList }: { photo: any, dataList: any }) {
+export default function BlurImage({ photo, dataList: _dataList }: { photo: any, dataList: any }) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
+  const rawSrc = photo?.src || ''
+  const proxySrc = toProxyImageUrl(rawSrc)
+  const [resolvedSrc, setResolvedSrc] = useState(proxySrc || rawSrc)
 
   const dataURL = useBlurImageDataUrl(photo.blurhash)
+
+  useEffect(() => {
+    setResolvedSrc(proxySrc || rawSrc)
+    setIsLoading(true)
+  }, [proxySrc, rawSrc])
 
   return (
     <div className="relative inline-block select-none shadow-sm shadow-gray-200 dark:shadow-gray-800">
@@ -25,8 +34,8 @@ export default function BlurImage({ photo, dataList }: { photo: any, dataList: a
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1 }}
-        src={("/api/public/url-proxy?url=" + (photo.src))}
-        overrideSrc={("/api/public/url-proxy?url=" + (photo.src))}
+        src={resolvedSrc}
+        overrideSrc={resolvedSrc}
         alt={photo.alt}
         width={photo.width}
         height={photo.height}
@@ -36,6 +45,13 @@ export default function BlurImage({ photo, dataList }: { photo: any, dataList: a
         blurDataURL={dataURL}
         onClick={() => router.push(`/preview/${photo?.id}`)}
         onLoad={() => setIsLoading(false)}
+        onError={() => {
+          if (isProxyImageUrl(resolvedSrc) && rawSrc) {
+            setResolvedSrc(rawSrc)
+            return
+          }
+          setIsLoading(false)
+        }}
       />
       {
         photo.type === 2 &&

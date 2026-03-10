@@ -41,6 +41,7 @@ export default function DefaultGallery(props : Readonly<ImageHandleProps>) {
       revalidateIfStale: false,
       revalidateOnReconnect: false,
       keepPreviousData: true,
+      fallbackData: props.initialImages ? [props.initialImages] : undefined,
     }
   )
 
@@ -53,6 +54,7 @@ export default function DefaultGallery(props : Readonly<ImageHandleProps>) {
       revalidateIfStale: false,
       revalidateOnReconnect: false,
       keepPreviousData: true, // Keep previous data while loading new data
+      fallbackData: props.initialPageTotal,
     }
   )
 

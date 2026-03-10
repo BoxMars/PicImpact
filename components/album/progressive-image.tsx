@@ -1,87 +1,115 @@
 'use client'
 
 import type { ProgressiveImageProps } from '~/types/props.ts'
-import { useEffect, useState, useRef, Activity } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { MotionImage } from '~/components/album/motion-image'
 import { useBlurImageDataUrl } from '~/hooks/use-blurhash'
 import { WebGLImageViewer } from '~/components/album/webgl-viewer'
 import type { WebGLImageViewerRef } from '~/components/album/webgl-viewer'
 import { isWebGLSupported } from '~/lib/utils/webgl'
+import { isProxyImageUrl, toProxyImageUrl } from '~/lib/utils/image-proxy'
 
 /**
  * 渐进式图片展示组件，支持 WebGL 高性能渲染
  * - 首先显示预览图
- * - 后台加载原始图片
- * - 加载完成后使用 WebGL 渲染器进行高性能缩放/平移
- * - 如果 WebGL 不可用，fallback 到普通图片显示
+ * - 后台预加载原始图片
+ * - 加载完成后显示高清图并支持全屏查看
  */
 export default function ProgressiveImage(
   props: Readonly<ProgressiveImageProps>,
 ) {
   const t = useTranslations()
 
-  const [loadingProgress, setLoadingProgress] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [highResImageUrl, setHighResImageUrl] = useState<string | null>(null)
   const [highResImageLoaded, setHighResImageLoaded] = useState(false)
   const [showFullScreenViewer, setShowFullScreenViewer] = useState(Boolean(props.showLightbox))
   const [webGLAvailable] = useState(() => isWebGLSupported())
 
   const webglViewerRef = useRef<WebGLImageViewerRef | null>(null)
+  const previewRawSrc = props.previewUrl || ''
+  const highResRawSrc = props.imageUrl || ''
+  const previewProxySrc = useMemo(() => toProxyImageUrl(previewRawSrc), [previewRawSrc])
+  const highResProxySrc = useMemo(() => toProxyImageUrl(highResRawSrc), [highResRawSrc])
+  const [resolvedPreviewSrc, setResolvedPreviewSrc] = useState(previewProxySrc || previewRawSrc)
+  const [resolvedHighResSrc, setResolvedHighResSrc] = useState(highResProxySrc || highResRawSrc)
+
   useEffect(() => {
     return () => {
       webglViewerRef.current?.destroy()
     }
   }, [])
+
   useEffect(() => {
     setShowFullScreenViewer(Boolean(props.showLightbox))
   }, [props.showLightbox])
 
   useEffect(() => {
-    loadHighResolutionImage()
-    return () => {
-      if (highResImageUrl) {
-        URL.revokeObjectURL(highResImageUrl)
+    setResolvedPreviewSrc(previewProxySrc || previewRawSrc)
+  }, [previewProxySrc, previewRawSrc])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadImage = (src: string) => new Promise<boolean>((resolve) => {
+      if (!src) {
+        resolve(false)
+        return
       }
-    }
-  }, [props.imageUrl])
 
-  const loadHighResolutionImage = () => {
-    setIsLoading(true)
-    setLoadingProgress(0)
-    setError(null)
+      const image = new window.Image()
+      image.decoding = 'async'
+      image.src = src
 
-    const xhr = new XMLHttpRequest()
-    xhr.open('GET', props.imageUrl, true)
-    xhr.responseType = 'blob'
-
-    xhr.onprogress = (e) => {
-      if (e.lengthComputable) {
-        const percentComplete = Math.round((e.loaded / e.total) * 100)
-        setLoadingProgress(percentComplete)
+      image.onload = async () => {
+        try {
+          if (typeof image.decode === 'function') {
+            await image.decode()
+          }
+        } catch {
+          // Ignore decode errors and fallback to onload status.
+        }
+        resolve(true)
       }
-    }
 
-    xhr.onload = () => {
-      if (xhr.status === 200) {
-        const imgBlob = xhr.response
-        const imgUrl = URL.createObjectURL(imgBlob)
-        setHighResImageUrl(imgUrl)
+      image.onerror = () => resolve(false)
+    })
+
+    const preloadImage = async () => {
+      setIsLoading(true)
+      setError(null)
+      setHighResImageLoaded(false)
+
+      if (!highResRawSrc) {
+        setError(t('Tips.imageLoadFailed'))
+        setIsLoading(false)
+        return
+      }
+
+      const proxyLoaded = await loadImage(highResProxySrc)
+      const fallbackLoaded = proxyLoaded ? true : await loadImage(highResRawSrc)
+
+      if (cancelled) {
+        return
+      }
+
+      if (fallbackLoaded) {
+        setResolvedHighResSrc(proxyLoaded ? highResProxySrc : highResRawSrc)
+        setHighResImageLoaded(true)
         setIsLoading(false)
       } else {
-        console.log(`image load error: ${xhr.status}`)
-        // setError(t('Tips.imageLoadFailed'))
+        setError(t('Tips.imageLoadFailed'))
         setIsLoading(false)
       }
     }
-    xhr.onerror = () => {
-      // setError(t('Tips.imageLoadFailed'))
-      setIsLoading(false)
+
+    void preloadImage()
+
+    return () => {
+      cancelled = true
     }
-    xhr.send()
-  }
+  }, [highResProxySrc, highResRawSrc, t])
 
   const dataURL = useBlurImageDataUrl(props.blurhash)
 
@@ -94,160 +122,156 @@ export default function ProgressiveImage(
 
   return (
     <div className="relative">
-      {/* 预览图 - 在高清图未加载完成时显示 */}
-      <Activity mode={highResImageLoaded ? 'hidden' : 'visible'}>
+      {!highResImageLoaded && (
         <MotionImage
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1 }}
           className="object-contain md:max-h-[90vh]"
-          src={("/api/public/url-proxy?url=" + (props.previewUrl))}
-          overrideSrc={("/api/public/url-proxy?url=" + (props.previewUrl))}
+          src={resolvedPreviewSrc}
+          overrideSrc={resolvedPreviewSrc}
           placeholder="blur"
           unoptimized
           blurDataURL={dataURL}
           width={props.width}
           height={props.height}
           alt={props.alt || 'image'}
+          onError={() => {
+            if (isProxyImageUrl(resolvedPreviewSrc) && previewRawSrc) {
+              setResolvedPreviewSrc(previewRawSrc)
+            }
+          }}
         />
-        {/* 加载进度条 */}
-        {isLoading && (
-          <div className="absolute bottom-0 left-0 w-full">
-            <div
-              className="h-1 bg-blue-500"
-              style={{ width: `${loadingProgress}%` }}
-            ></div>
-            <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
-              {loadingProgress}%
-            </div>
-          </div>
-        )}
-        {/* 错误提示 */}
-        {error && (
-          <div className="absolute bottom-0 left-0 w-full">
-            <div className="absolute bottom-2 right-2 text-white bg-black/60 text-xs px-2 py-1 rounded">
-              {error}
-            </div>
-          </div>
-        )}
-      </Activity>
-      {highResImageUrl ? (
-        <>
-          <Activity mode={highResImageLoaded && !showFullScreenViewer ? 'visible' : 'hidden'}>
-            <img
-              className="object-contain md:max-h-[90vh] cursor-pointer"
-              src={"/api/public/url-proxy?url=" + highResImageUrl}
-              width={props.width}
-              height={props.height}
-              alt={props.alt || 'image'}
-              onClick={() => {
-                setShowFullScreenViewer(true)
-                if (props.onShowLightboxChange) {
-                  props.onShowLightboxChange(true)
-                }
-              }}
-              onLoad={() => {
-                setHighResImageLoaded(true)
-              }}
-            />
-          </Activity>
-          <Activity mode={showFullScreenViewer ? 'visible' : 'hidden'}>
-            {webGLAvailable ? <div
-              className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
-              onClick={(e) => {
-                // 点击背景关闭
-                if (e.target === e.currentTarget) {
-                  handleCloseViewer()
-                }
-              }}
-            >
-              {/* 关闭按钮 */}
-              <button
-                onClick={handleCloseViewer}
-                className="absolute top-4 right-4 z-[110] p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                aria-label={t('Button.close')}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-white"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
+      )}
 
-              {/* 操作提示 */}
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/50 text-sm pointer-events-none">
-                {t('Tips.zoomHint')}
-              </div>
+      {isLoading && (
+        <div className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-1 text-xs text-white">
+          Loading original...
+        </div>
+      )}
 
-              {/* WebGL 图片查看器 */}
-              <div className="w-full h-full">
-                <WebGLImageViewer
-                  ref={webglViewerRef}
-                  src={("/api/public/url-proxy?url=" + highResImageUrl)}
-                  width={props.width}
-                  height={props.height}
-                  className="w-full h-full"
-                  initialScale={1}
-                  minScale={0.5}
-                  maxScale={10}
-                  limitToBounds={true}
-                  smooth={true}
-                  debug={process.env.NODE_ENV === 'development'}
-                />
-              </div>
-            </div> : <div
-              className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center overflow-auto"
-              onClick={(e) => {
-                if (e.target === e.currentTarget) {
-                  handleCloseViewer()
-                }
-              }}
+      {error && (
+        <div className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-1 text-xs text-white">
+          {error}
+        </div>
+      )}
+
+      {highResImageLoaded && !showFullScreenViewer && (
+        <img
+          className="object-contain md:max-h-[90vh]"
+          src={resolvedHighResSrc}
+          width={props.width}
+          height={props.height}
+          alt={props.alt || 'image'}
+          loading="eager"
+          decoding="async"
+          onError={() => {
+            if (isProxyImageUrl(resolvedHighResSrc) && highResRawSrc) {
+              setResolvedHighResSrc(highResRawSrc)
+              return
+            }
+            setError(t('Tips.imageLoadFailed'))
+          }}
+        />
+      )}
+
+      {showFullScreenViewer ? (
+        webGLAvailable ? (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                handleCloseViewer()
+              }
+            }}
+          >
+            <button
+              onClick={handleCloseViewer}
+              className="absolute right-4 top-4 z-[110] rounded-full bg-white/10 p-2 transition-colors hover:bg-white/20"
+              aria-label={t('Button.close')}
             >
-              <button
-                onClick={handleCloseViewer}
-                className="absolute top-4 right-4 z-[110] p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                aria-label={t('Button.close')}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-white"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-white"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-              {/* WebGL 不可用提示 */}
-              <div className="absolute top-4 left-4 text-white/70 text-sm bg-black/50 px-3 py-1 rounded">
-                {t('Tips.webglUnavailable')}
-              </div>
-              <img
-                className="max-w-full max-h-full object-contain"
-                src={highResImageUrl}
-                alt={props.alt || 'image'}
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+
+            <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 text-sm text-white/50">
+              {t('Tips.zoomHint')}
+            </div>
+
+            <div className="h-full w-full">
+              <WebGLImageViewer
+                ref={webglViewerRef}
+                src={resolvedHighResSrc}
+                width={props.width}
+                height={props.height}
+                className="h-full w-full"
+                initialScale={1}
+                minScale={0.5}
+                maxScale={10}
+                limitToBounds={true}
+                smooth={true}
+                debug={process.env.NODE_ENV === 'development'}
               />
-            </div>}
-          </Activity>
-        </>
-      ) : null}
+            </div>
+          </div>
+        ) : (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center overflow-auto bg-black/90"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                handleCloseViewer()
+              }
+            }}
+          >
+            <button
+              onClick={handleCloseViewer}
+              className="absolute right-4 top-4 z-[110] rounded-full bg-white/10 p-2 transition-colors hover:bg-white/20"
+              aria-label={t('Button.close')}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-white"
+              >
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
 
+            <div className="absolute left-4 top-4 rounded bg-black/50 px-3 py-1 text-sm text-white/70">
+              {t('Tips.webglUnavailable')}
+            </div>
+
+            <img
+              className="max-h-full max-w-full object-contain"
+              src={resolvedHighResSrc}
+              alt={props.alt || 'image'}
+              loading="eager"
+              decoding="async"
+            />
+          </div>
+        )
+      ) : null}
     </div>
   )
 }

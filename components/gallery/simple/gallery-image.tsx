@@ -22,7 +22,8 @@ import { useRouter } from 'next-nprogress-bar'
 import { useBlurImageDataUrl, DEFAULT_HASH } from '~/hooks/use-blurhash.ts'
 import { MotionImage } from '~/components/album/motion-image'
 import { Skeleton } from '~/components/ui/skeleton'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { isProxyImageUrl, toProxyImageUrl } from '~/lib/utils/image-proxy'
 
 export default function GalleryImage({ photo, configData }: { photo: ImageType, configData: any }) {
   const router = useRouter()
@@ -40,6 +41,14 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
   }
 
   const customIndexOriginEnable = configData?.find((item: any) => item.config_key === 'custom_index_origin_enable')?.config_value.toString() === 'true'
+  const displayUrl = customIndexOriginEnable ? photo.url || photo.preview_url : photo.preview_url || photo.url
+  const proxyDisplayUrl = toProxyImageUrl(displayUrl)
+  const [resolvedImageSrc, setResolvedImageSrc] = useState(proxyDisplayUrl || displayUrl || '')
+
+  useEffect(() => {
+    setResolvedImageSrc(proxyDisplayUrl || displayUrl || '')
+    setIsLoading(true)
+  }, [proxyDisplayUrl, displayUrl])
 
   async function downloadImg() {
     setDownload(true)
@@ -112,8 +121,8 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1 }}
-          src={("/api/public/url-proxy?url=" + (customIndexOriginEnable ? photo.url || photo.preview_url : photo.preview_url || photo.url))}
-          overrideSrc={("/api/public/url-proxy?url=" + (customIndexOriginEnable ? photo.url || photo.preview_url : photo.preview_url || photo.url))}
+          src={resolvedImageSrc}
+          overrideSrc={resolvedImageSrc}
           alt={photo.title}
           width={photo.width}
           height={photo.height}
@@ -123,6 +132,13 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
           blurDataURL={dataURL}
           onClick={() => router.push(`/preview/${photo?.id}`)}
           onLoad={() => setIsLoading(false)}
+          onError={() => {
+            if (isProxyImageUrl(resolvedImageSrc) && displayUrl) {
+              setResolvedImageSrc(displayUrl)
+              return
+            }
+            setIsLoading(false)
+          }}
         />
         {
           photo.type === 2 &&

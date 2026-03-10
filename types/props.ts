@@ -23,6 +23,9 @@ export type ImageHandleProps = {
   album: string
   totalHandle: (album: string, camera?: string, lens?: string) => any
   configHandle: () => any
+  initialImages?: ImageType[]
+  initialPageTotal?: number
+  initialConfigData?: any
 }
 
 export type PreviewImageHandleProps = {
