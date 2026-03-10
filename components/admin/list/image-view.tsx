@@ -46,8 +46,8 @@ export default function ImageView() {
               animate={{ opacity: 1 }}
               transition={{ duration: 1 }}
               className="cursor-pointer"
-              src={imageViewData.preview_url || imageViewData.url}
-              overrideSrc={imageViewData.preview_url || imageViewData.url}
+              src={"/api/public/url-proxy?url=" + (imageViewData.preview_url || imageViewData.url)}
+              overrideSrc={("/api/public/url-proxy?url=" + (imageViewData.preview_url || imageViewData.url))}
               alt={imageViewData.detail}
               width={imageViewData.width}
               height={imageViewData.height}
@@ -57,7 +57,7 @@ export default function ImageView() {
               blurDataURL={dataURL}
             />
             :
-            <LivePhoto url={imageViewData.preview_url || imageViewData.url} videoUrl={imageViewData.video_url} />
+            <LivePhoto url={("/api/public/url-proxy?url=" + (imageViewData.preview_url || imageViewData.url))} videoUrl={"/api/public/url-proxy?url=" + (imageViewData.video_url)} />
           }
           {imageViewData?.labels &&
             <div className="space-x-1">

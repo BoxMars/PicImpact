@@ -101,8 +101,8 @@ export default function ProgressiveImage(
           animate={{ opacity: 1 }}
           transition={{ duration: 1 }}
           className="object-contain md:max-h-[90vh]"
-          src={props.previewUrl}
-          overrideSrc={props.previewUrl}
+          src={("/api/public/url-proxy?url=" + (props.previewUrl))}
+          overrideSrc={("/api/public/url-proxy?url=" + (props.previewUrl))}
           placeholder="blur"
           unoptimized
           blurDataURL={dataURL}
@@ -136,7 +136,7 @@ export default function ProgressiveImage(
           <Activity mode={highResImageLoaded && !showFullScreenViewer ? 'visible' : 'hidden'}>
             <img
               className="object-contain md:max-h-[90vh] cursor-pointer"
-              src={highResImageUrl}
+              src={"/api/public/url-proxy?url=" + highResImageUrl}
               width={props.width}
               height={props.height}
               alt={props.alt || 'image'}
@@ -193,7 +193,7 @@ export default function ProgressiveImage(
               <div className="w-full h-full">
                 <WebGLImageViewer
                   ref={webglViewerRef}
-                  src={highResImageUrl}
+                  src={("/api/public/url-proxy?url=" + highResImageUrl)}
                   width={props.width}
                   height={props.height}
                   className="w-full h-full"

@@ -112,8 +112,8 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1 }}
-          src={customIndexOriginEnable ? photo.url || photo.preview_url : photo.preview_url || photo.url}
-          overrideSrc={customIndexOriginEnable ? photo.url || photo.preview_url : photo.preview_url || photo.url}
+          src={("/api/public/url-proxy?url=" + (customIndexOriginEnable ? photo.url || photo.preview_url : photo.preview_url || photo.url))}
+          overrideSrc={("/api/public/url-proxy?url=" + (customIndexOriginEnable ? photo.url || photo.preview_url : photo.preview_url || photo.url))}
           alt={photo.title}
           width={photo.width}
           height={photo.height}

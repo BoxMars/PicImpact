@@ -25,8 +25,8 @@ export default function BlurImage({ photo, dataList }: { photo: any, dataList: a
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1 }}
-        src={photo.src}
-        overrideSrc={photo.src}
+        src={("/api/public/url-proxy?url=" + (photo.src))}
+        overrideSrc={("/api/public/url-proxy?url=" + (photo.src))}
         alt={photo.alt}
         width={photo.width}
         height={photo.height}
