@@ -20,31 +20,7 @@ function parseTargetUrl(target: string | null) {
   }
 }
 
-function isSameOriginRequest(request: Request): boolean {
-  const requestUrl = new URL(request.url)
-  const origin = request.headers.get('origin')
-  const referer = request.headers.get('referer')
-
-  if (origin) {
-    return origin === requestUrl.origin
-  }
-
-  if (!referer) {
-    return false
-  }
-
-  try {
-    return new URL(referer).origin === requestUrl.origin
-  } catch {
-    return false
-  }
-}
-
 export async function GET(request: Request) {
-  if (!isSameOriginRequest(request)) {
-    return NextResponse.json({ error: 'Forbidden origin' }, { status: 403 })
-  }
-
   const { searchParams } = new URL(request.url)
   const target = searchParams.get('url')
   const result = parseTargetUrl(target)
