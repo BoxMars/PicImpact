@@ -75,6 +75,9 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
     args: 'system-config',
   }
   const { data: configData } = useSwrHydrated(configProps)
+  const customAuthor = configData?.find((item: any) => item.config_key === 'custom_author')?.config_value
+  const currentYear = new Date().getFullYear()
+  const copyrightYears = `2024-${currentYear}`
 
   // Format date time
   const formattedDateTime = useMemo(() => {
@@ -457,6 +460,9 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
                 <CopyIcon className={exifIconClass} size={16} />
                 <span>{t('Exif.copyExif')}</span>
               </button>
+            </div>
+            <div className="text-left text-xs text-gray-500 dark:text-gray-400 select-none">
+              © {copyrightYears} {customAuthor || 'PicImpact'}
             </div>
           </div>
         </ScrollArea>

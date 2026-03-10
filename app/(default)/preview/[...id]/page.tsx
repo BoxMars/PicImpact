@@ -14,7 +14,8 @@ export default async function PreView({params}: { params: any }) {
   const getConfig = async () => {
     'use server'
     return await fetchConfigsByKeys([
-      'custom_index_download_enable'
+      'custom_index_download_enable',
+      'custom_author',
     ])
   }
 

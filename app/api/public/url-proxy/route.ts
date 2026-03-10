@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 const CACHE_CONTROL_MEDIA = 'public, max-age=31536000, immutable, stale-while-revalidate=604800'
 const CACHE_CONTROL_DEFAULT = 'public, max-age=300, stale-while-revalidate=3600'
-const ALLOWED_TARGET_HOST = 'felian-asset.boxz.dev'
+const ALLOWED_TARGET_HOST = 'felina-asset.boxz.dev'
 
 function parseTargetUrl(target: string | null) {
   if (!target) {

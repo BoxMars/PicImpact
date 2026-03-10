@@ -26,6 +26,32 @@ export async function fetchConfigsByKeys(keys: string[]): Promise<Config[]> {
   })
 }
 
+export type SiteBranding = {
+  title: string
+  logoUrl: string
+}
+
+/**
+ * 获取站点品牌配置（标题和 Logo）
+ * Logo 优先使用 custom_logo_url，不存在时回退到 custom_favicon_url。
+ */
+export async function fetchSiteBranding(): Promise<SiteBranding> {
+  const data = await fetchConfigsByKeys([
+    'custom_title',
+    'custom_logo_url',
+    'custom_favicon_url',
+  ])
+
+  const title = data.find((item) => item.config_key === 'custom_title')?.config_value || 'PicImpact'
+  const customLogoUrl = data.find((item) => item.config_key === 'custom_logo_url')?.config_value
+  const customFaviconUrl = data.find((item) => item.config_key === 'custom_favicon_url')?.config_value
+
+  return {
+    title,
+    logoUrl: customLogoUrl || customFaviconUrl || '/favicon.svg',
+  }
+}
+
 /**
  * 根据 key 获取单个配置值
  * @param key 配置键

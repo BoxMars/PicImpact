@@ -30,7 +30,12 @@ import { FingerprintIcon } from '~/components/icons/fingerprint'
 import { LoaderPinwheelIcon } from '~/components/icons/loader-pinwheel'
 import { KeySquareIcon } from '~/components/icons/key-square'
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
+  logoUrl: string
+  siteTitle: string
+}
+
+export function AppSidebar({ logoUrl, siteTitle, ...props }: Readonly<AppSidebarProps>) {
   const router = useRouter()
   const t = useTranslations()
 
@@ -97,7 +102,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <NavTitle />
+        <NavTitle logoUrl={logoUrl} title={siteTitle} />
       </SidebarHeader>
       <SidebarContent className="select-none">
         <NavMain items={data.navMain} />

@@ -1,11 +1,12 @@
-import favicon from '~/public/favicon.svg'
 import Image from 'next/image'
 import Link from 'next/link'
 import { fetchContributors } from '~/lib/github/get-contributors'
 import { EvervaultCard, Icon } from '~/components/ui/origin/evervault-card'
+import { fetchSiteBranding } from '~/server/db/query/configs'
 
 export default async function About() {
   const contributors = await fetchContributors('besscroft', 'PicImpact')
+  const branding = await fetchSiteBranding()
 
   return (
     <div className="flex flex-col space-y-4 h-full flex-1 w-full mx-auto items-center p-2">
@@ -14,11 +15,12 @@ export default async function About() {
         target="_blank"
       >
         <Image
-          className="my-4 select-none"
-          src={favicon}
+          className="my-4 select-none h-16 w-16 rounded-lg object-cover"
+          src={branding.logoUrl}
           alt="Logo"
           width={64}
           height={64}
+          unoptimized
         />
       </Link>
       <span className="select-none">PicImpact 是一个支持自部署的摄影作品展示网站，基于 Next.js + Hono.js 开发。</span>
