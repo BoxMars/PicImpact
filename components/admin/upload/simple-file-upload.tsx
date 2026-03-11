@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import useSWR from 'swr'
 import { fetcher } from '~/lib/utils/fetcher'
@@ -34,6 +34,7 @@ import { X } from 'lucide-react'
 import { UploadIcon } from '~/components/icons/upload'
 import { heicTo, isHeic } from 'heic-to'
 import { encodeBrowserThumbHash } from '~/lib/utils/blurhash-client.ts'
+import { persistDefaultAlbum, resolveDefaultAlbum } from '~/components/admin/upload/default-album'
 
 export default function SimpleFileUpload() {
   const [openListStorage, setOpenListStorage] = useState([])
@@ -65,6 +66,13 @@ export default function SimpleFileUpload() {
   const previewImageMaxWidthLimitSwitchOn = configs?.find(config => config.config_key === 'preview_max_width_limit_switch')?.config_value === '1'
   const previewImageMaxWidthLimit = parseInt(configs?.find(config => config.config_key === 'preview_max_width_limit')?.config_value || '0')
   const previewCompressQuality = parseFloat(configs?.find(config => config.config_key === 'preview_quality')?.config_value || '0.2')
+
+  useEffect(() => {
+    if (!data || data.length === 0) {
+      return
+    }
+    setAlbum((currentAlbum) => resolveDefaultAlbum(data as AlbumType[], currentAlbum))
+  }, [data])
 
   async function loadExif(file: any) {
     try {
@@ -361,9 +369,10 @@ export default function SimpleFileUpload() {
           </Select>
           <Select
             disabled={isLoading}
-            defaultValue={album}
-            onValueChange={async (value: string) => {
+            value={album}
+            onValueChange={(value: string) => {
               setAlbum(value)
+              persistDefaultAlbum(value)
             }}
           >
             <SelectTrigger>

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import useSWR from 'swr'
 import { fetcher } from '~/lib/utils/fetcher'
@@ -32,6 +32,7 @@ import { X } from 'lucide-react'
 import { UploadIcon } from '~/components/icons/upload'
 import { heicTo, isHeic } from 'heic-to'
 import { encodeBrowserThumbHash } from '~/lib/utils/blurhash-client'
+import { persistDefaultAlbum, resolveDefaultAlbum } from '~/components/admin/upload/default-album'
 
 export default function LivephotoFileUpload() {
   const [openListStorage, setOpenListStorage] = useState([])
@@ -61,6 +62,13 @@ export default function LivephotoFileUpload() {
   const previewImageMaxWidthLimitSwitchOn = configs?.find(config => config.config_key === 'preview_max_width_limit_switch')?.config_value === '1'
   const previewImageMaxWidthLimit = parseInt(configs?.find(config => config.config_key === 'preview_max_width_limit')?.config_value || '0')
   const previewCompressQuality = parseFloat(configs?.find(config => config.config_key === 'preview_quality')?.config_value || '0.2')
+
+  useEffect(() => {
+    if (!data || data.length === 0) {
+      return
+    }
+    setAlbum((currentAlbum) => resolveDefaultAlbum(data as AlbumType[], currentAlbum))
+  }, [data])
 
   async function loadExif(file: File | any) {
     try {
@@ -405,8 +413,11 @@ export default function LivephotoFileUpload() {
           </Select>
           <Select
             disabled={isLoading}
-            defaultValue={album}
-            onValueChange={(value: string) => setAlbum(value)}
+            value={album}
+            onValueChange={(value: string) => {
+              setAlbum(value)
+              persistDefaultAlbum(value)
+            }}
           >
             <SelectTrigger>
               <SelectValue placeholder={t('Upload.selectAlbum')} />

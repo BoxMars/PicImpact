@@ -15,8 +15,6 @@ import { DownloadIcon } from '~/components/icons/download.tsx'
 import PreviewImageExif from '~/components/album/preview-image-exif.tsx'
 import useSWR from 'swr'
 import type { ImageDataProps } from '~/types/props.ts'
-import { ClockIcon } from '~/components/icons/clock.tsx'
-import dayjs from 'dayjs'
 import { Badge } from '~/components/ui/badge.tsx'
 import { useRouter } from 'next-nprogress-bar'
 import { useBlurImageDataUrl, DEFAULT_HASH } from '~/hooks/use-blurhash.ts'
@@ -24,6 +22,7 @@ import { MotionImage } from '~/components/album/motion-image'
 import { Skeleton } from '~/components/ui/skeleton'
 import { useEffect, useState } from 'react'
 import { isProxyImageUrl, toProxyImageUrl } from '~/lib/utils/image-proxy'
+import { formatExifDateTimeForDisplay } from '~/lib/utils/exif-time'
 
 export default function GalleryImage({ photo, configData }: { photo: ImageType, configData: any }) {
   const router = useRouter()
@@ -95,13 +94,9 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
           <div className="font-semibold">{photo.title}</div>
         </div>
         {photo?.exif?.data_time &&
-          <div className="hidden sm:flex items-center space-x-1 sm:justify-end">
-            <ClockIcon className={exifIconClass} size={18} />
+          <div className="hidden sm:flex items-center sm:justify-end">
             <p className={exifTextClass}>
-              {dayjs(photo?.exif?.data_time, 'YYYY:MM:DD HH:mm:ss').isValid() ?
-                dayjs(photo?.exif?.data_time, 'YYYY:MM:DD HH:mm:ss').format('YYYY-MM-DD HH:mm:ss')
-                : photo?.exif.data_time
-              }
+              {formatExifDateTimeForDisplay(photo?.exif?.data_time)}
             </p>
           </div>
         }

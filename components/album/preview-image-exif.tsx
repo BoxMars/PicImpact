@@ -15,8 +15,6 @@ import { ApertureIcon } from '~/components/icons/aperture'
 import { TimerIcon } from '~/components/icons/timer'
 import { CrosshairIcon } from '~/components/icons/crosshair'
 import { GaugeIcon } from '~/components/icons/gauge'
-import { ClockIcon } from '~/components/icons/clock'
-import dayjs from 'dayjs'
 import { TelescopeIcon } from '~/components/icons/telescope'
 import { FlaskIcon } from '~/components/icons/flask'
 import { toast } from 'sonner'
@@ -25,6 +23,7 @@ import { useTranslations } from 'next-intl'
 import { ScrollArea } from '~/components/ui/scroll-area'
 import HistogramChart from '~/components/album/histogram-chart'
 import ToneAnalysis from '~/components/album/tone-analysis'
+import { formatExifDateTimeForDisplay } from '~/lib/utils/exif-time'
 
 // Row component for unified key-value display
 function Row({ label, value }: { label: string; value: string | number | null | undefined }) {
@@ -67,8 +66,7 @@ export default function PreviewImageExif(props: Readonly<ImageDataProps>) {
   // Format date time
   const formattedDateTime = React.useMemo(() => {
     if (!props.data?.exif?.data_time) return null
-    const parsed = dayjs(props.data.exif.data_time, 'YYYY:MM:DD HH:mm:ss')
-    return parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm:ss') : props.data.exif.data_time
+    return formatExifDateTimeForDisplay(props.data.exif.data_time)
   }, [props.data?.exif?.data_time])
 
   // Calculate file info

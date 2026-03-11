@@ -10,10 +10,7 @@ import {
 } from '~/components/ui/table.tsx'
 import { Card } from '~/components/ui/card.tsx'
 import type { ImageDataProps } from '~/types/props.ts'
-import dayjs from 'dayjs'
-import customParseFormat from 'dayjs/plugin/customParseFormat'
-
-dayjs.extend(customParseFormat)
+import { formatExifDateTimeForDisplay, normalizeExifDateTime } from '~/lib/utils/exif-time'
 
 export default function ExifView(props: Readonly<ImageDataProps>) {
   return (
@@ -48,10 +45,10 @@ export default function ExifView(props: Readonly<ImageDataProps>) {
             </TableRow>
           }
           {
-            dayjs(props.data?.exif?.data_time, 'YYYY:MM:DD HH:mm:ss').isValid() &&
+            normalizeExifDateTime(props.data?.exif?.data_time) &&
             <TableRow key="data_time">
               <TableCell className="font-medium">拍摄时间</TableCell>
-              <TableCell className="truncate max-w-48">{dayjs(props.data?.exif?.data_time, 'YYYY:MM:DD HH:mm:ss').format('YYYY-MM-DD HH:mm:ss')}</TableCell>
+              <TableCell className="truncate max-w-48">{formatExifDateTimeForDisplay(props.data?.exif?.data_time)}</TableCell>
             </TableRow>
           }
           {

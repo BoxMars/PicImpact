@@ -5,7 +5,6 @@ import LivePhoto from '~/components/album/live-photo'
 import { toast } from 'sonner'
 import { LinkIcon } from '~/components/icons/link'
 import { DownloadIcon } from '~/components/icons/download'
-import dayjs from 'dayjs'
 import useSWR from 'swr'
 import { useRouter } from 'next-nprogress-bar'
 import { CameraIcon } from '~/components/icons/camera'
@@ -30,6 +29,7 @@ import { Separator } from '~/components/ui/separator'
 import { TelescopeIcon } from '~/components/icons/telescope'
 import { FlaskIcon } from '~/components/icons/flask'
 import { ScrollArea } from '~/components/ui/scroll-area'
+import { formatExifDateTimeForDisplay } from '~/lib/utils/exif-time'
 
 // Row component for unified key-value display
 function Row({ label, value }: { label: string; value: string | number | null | undefined }) {
@@ -82,8 +82,7 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
   // Format date time
   const formattedDateTime = useMemo(() => {
     if (!props.data?.exif?.data_time) return null
-    const parsed = dayjs(props.data.exif.data_time, 'YYYY:MM:DD HH:mm:ss')
-    return parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm:ss') : props.data.exif.data_time
+    return formatExifDateTimeForDisplay(props.data.exif.data_time)
   }, [props.data?.exif?.data_time])
 
   // Calculate file info

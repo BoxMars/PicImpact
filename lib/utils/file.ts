@@ -1,6 +1,7 @@
 import ExifReader from 'exifreader'
 import type { ExifType } from '~/types'
 import { createId } from '@paralleldrive/cuid2'
+import { extractCaptureTimeFromExifTags } from '~/lib/utils/exif-time'
 
 /**
  * 解析图片中的 exif 信息
@@ -30,7 +31,7 @@ export async function exifReader(file: ArrayBuffer | SharedArrayBuffer | Buffer)
   exifObj.make = tags?.Make?.description
   exifObj.model = tags?.Model?.description
   exifObj.bits = tags?.['Bits Per Sample']?.description
-  exifObj.data_time = tags?.DateTimeOriginal?.description !== '' ? tags?.DateTimeOriginal?.description : tags?.DateTime?.description
+  exifObj.data_time = extractCaptureTimeFromExifTags(tags as any)
   exifObj.exposure_time = tags?.ExposureTime?.description
   exifObj.f_number = tags?.FNumber?.description
   exifObj.exposure_program = tags?.ExposureProgram?.description

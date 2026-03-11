@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import useSWR from 'swr'
 import { fetcher } from '~/lib/utils/fetcher'
@@ -29,6 +29,7 @@ import { Button } from '~/components/ui/button'
 import { X } from 'lucide-react'
 import { heicTo, isHeic } from 'heic-to'
 import { encodeBrowserThumbHash } from '~/lib/utils/blurhash-client'
+import { persistDefaultAlbum, resolveDefaultAlbum } from '~/components/admin/upload/default-album'
 
 export default function MultipleFileUpload() {
   const [openListStorage, setOpenListStorage] = useState([])
@@ -48,6 +49,13 @@ export default function MultipleFileUpload() {
   const previewImageMaxWidthLimit = parseInt(configs?.find(config => config.config_key === 'preview_max_width_limit')?.config_value || '0')
   const previewCompressQuality = parseFloat(configs?.find(config => config.config_key === 'preview_quality')?.config_value || '0.2')
   const maxUploadFiles = parseInt(configs?.find(config => config.config_key === 'max_upload_files')?.config_value || '5')
+
+  useEffect(() => {
+    if (!data || data.length === 0) {
+      return
+    }
+    setAlbum((currentAlbum) => resolveDefaultAlbum(data as AlbumType[], currentAlbum))
+  }, [data])
 
   async function getOpenListStorage() {
     if (openListStorage.length > 0) {
@@ -294,8 +302,11 @@ export default function MultipleFileUpload() {
         </Select>
         <Select
           disabled={isLoading}
-          defaultValue={album}
-          onValueChange={(value: string) => setAlbum(value)}
+          value={album}
+          onValueChange={(value: string) => {
+            setAlbum(value)
+            persistDefaultAlbum(value)
+          }}
         >
           <SelectTrigger>
             <SelectValue placeholder={t('Upload.selectAlbum')} />
@@ -371,4 +382,3 @@ export default function MultipleFileUpload() {
     </div>
   )
 }
-

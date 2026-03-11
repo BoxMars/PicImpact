@@ -10,10 +10,11 @@ import { fetchConfigValue } from './configs'
 const ALBUM_IMAGE_SORTING_ORDER = [
   null,
   'image.created_at DESC, image.updated_at DESC',
-  'COALESCE(TO_TIMESTAMP(image.exif->>\'data_time\', \'YYYY:MM:DD HH24:MI:SS\'), \'1970-01-01 00:00:00\') DESC, image.created_at DESC, image.updated_at DESC',
+  'COALESCE(TO_TIMESTAMP(COALESCE(image.exif->>\'data_time\', image.exif->>\'date_time\'), \'YYYY:MM:DD HH24:MI:SS\'), \'1970-01-01 00:00:00\') DESC, image.created_at DESC, image.updated_at DESC',
   'image.created_at ASC, image.updated_at ASC',
-  'COALESCE(TO_TIMESTAMP(image.exif->>\'data_time\', \'YYYY:MM:DD HH24:MI:SS\'), \'1970-01-01 00:00:00\') ASC, image.created_at ASC, image.updated_at ASC',
+  'COALESCE(TO_TIMESTAMP(COALESCE(image.exif->>\'data_time\', image.exif->>\'date_time\'), \'YYYY:MM:DD HH24:MI:SS\'), \'1970-01-01 00:00:00\') ASC, image.created_at ASC, image.updated_at ASC',
 ]
+const HOME_IMAGE_SORTING_ORDER = 'COALESCE(TO_TIMESTAMP(COALESCE(image.exif->>\'data_time\', image.exif->>\'date_time\'), \'YYYY:MM:DD HH24:MI:SS\'), \'1970-01-01 00:00:00\') DESC, image.created_at DESC, image.updated_at DESC'
 
 const DEFAULT_SIZE = 24
 
@@ -190,7 +191,7 @@ export async function fetchClientImagesListByAlbum(
         image.show_on_mainpage = 0
     ${camera ? Prisma.sql`AND COALESCE(image.exif->>'model', 'Unknown') = ${camera}` : Prisma.empty}
     ${lens ? Prisma.sql`AND COALESCE(image.exif->>'lens_model', 'Unknown') = ${lens}` : Prisma.empty}
-    ORDER BY image.sort DESC, image.created_at DESC, image.updated_at DESC
+    ORDER BY image.sort DESC, ${Prisma.sql([HOME_IMAGE_SORTING_ORDER])}
     LIMIT ${DEFAULT_SIZE} OFFSET ${(pageNum - 1) * DEFAULT_SIZE}
   `
   }
