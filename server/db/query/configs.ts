@@ -42,7 +42,7 @@ export async function fetchSiteBranding(): Promise<SiteBranding> {
     'custom_favicon_url',
   ])
 
-  const title = data.find((item) => item.config_key === 'custom_title')?.config_value || 'PicImpact'
+  const title = data.find((item) => item.config_key === 'custom_title')?.config_value || '大福映画 Felina Gallery'
   const customLogoUrl = data.find((item) => item.config_key === 'custom_logo_url')?.config_value
   const customFaviconUrl = data.find((item) => item.config_key === 'custom_favicon_url')?.config_value
 

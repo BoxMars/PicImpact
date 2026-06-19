@@ -2,6 +2,7 @@ import { fetchAlbumsShow } from '~/server/db/query/albums'
 import type { AlbumType } from '~/types'
 import type { AlbumDataProps } from '~/types/props'
 import DockMenu from '~/components/layout/dock-menu'
+import { IslandCursor } from '~/components/layout/island-cursor'
 
 export default async function ThemeAlbumLayout({
   children,
@@ -21,9 +22,9 @@ export default async function ThemeAlbumLayout({
   }
 
   return (
-    <>
+    <IslandCursor>
       <DockMenu {...props} />
       {children}
-    </>
+    </IslandCursor>
   )
 }

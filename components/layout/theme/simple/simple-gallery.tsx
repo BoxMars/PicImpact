@@ -9,15 +9,16 @@ import GalleryImage from '~/components/gallery/simple/gallery-image.tsx'
 import InfiniteScroll from '~/components/ui/origin/infinite-scroll.tsx'
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import useSWR from 'swr'
-import FloatingFilterBall from "~/components/album/floating-filter-ball.tsx";
+import { Title, Divider, Footer, Time, Icon, Typewriter } from 'animal-island-ui'
+
 
 export default function SimpleGallery(props: Readonly<ImageHandleProps>) {
   const [selectedCamera, setSelectedCamera] = useState('')
   const [selectedLens, setSelectedLens] = useState('')
-  // Debounced filter values for API requests
   const [debouncedCamera, setDebouncedCamera] = useState('')
   const [debouncedLens, setDebouncedLens] = useState('')
   const [, startTransition] = useTransition()
+
   const { data: pageTotal } = useSWR(
     [`pageTotal-${props.args}-${props.album}`, debouncedCamera, debouncedLens],
     () => props.totalHandle(props.album, debouncedCamera || undefined, debouncedLens || undefined),
@@ -29,14 +30,10 @@ export default function SimpleGallery(props: Readonly<ImageHandleProps>) {
       fallbackData: props.initialPageTotal,
     }
   )
-  // Use SWR Infinite for paginated data with filter support - use debounced values
+
   const { data, isValidating, size, setSize } = useSWRInfinite(
-    (index) => {
-      return [`client-${props.args}-${index}-${props.album}-${debouncedCamera}-${debouncedLens}`, index]
-    },
-    ([, index]) => {
-      return props.handle(index + 1, props.album, debouncedCamera || undefined, debouncedLens || undefined)
-    },
+    (index) => [`client-${props.args}-${index}-${props.album}-${debouncedCamera}-${debouncedLens}`, index],
+    ([, index]) => props.handle(index + 1, props.album, debouncedCamera || undefined, debouncedLens || undefined),
     {
       revalidateOnFocus: false,
       revalidateIfStale: false,
@@ -45,16 +42,12 @@ export default function SimpleGallery(props: Readonly<ImageHandleProps>) {
       fallbackData: props.initialImages ? [props.initialImages] : undefined,
     }
   )
-  const configProps: HandleProps = {
-    handle: props.configHandle,
-    args: 'system-config',
-  }
+
+  const configProps: HandleProps = { handle: props.configHandle, args: 'system-config' }
   const { data: configData } = useSwrHydrated(configProps, props.initialConfigData)
-  // Memoize dataList to avoid unnecessary recalculations
   const dataList = useMemo(() => data ? [].concat(...data) : [], [data])
   const t = useTranslations()
 
-  // Debounce filter changes
   useEffect(() => {
     const timer = setTimeout(() => {
       startTransition(() => {
@@ -65,58 +58,104 @@ export default function SimpleGallery(props: Readonly<ImageHandleProps>) {
     return () => clearTimeout(timer)
   }, [selectedCamera, selectedLens])
 
-  // Reset pagination when debounced filters change - SWR key change will auto-refetch
   const prevFiltersRef = useRef({ camera: '', lens: '' })
   useEffect(() => {
     const prev = prevFiltersRef.current
     if (prev.camera !== debouncedCamera || prev.lens !== debouncedLens) {
       prevFiltersRef.current = { camera: debouncedCamera, lens: debouncedLens }
-      // Only reset size, SWR will auto-refetch due to key change
-      if (size > 1) {
-        setSize(1)
-      }
+      if (size > 1) setSize(1)
     }
   }, [debouncedCamera, debouncedLens, size, setSize])
 
-  const handleCameraChange = useCallback((camera: string) => {
-    setSelectedCamera(camera)
-  }, [])
-
-  const handleLensChange = useCallback((lens: string) => {
-    setSelectedLens(lens)
-  }, [])
-
-  const handleReset = useCallback(() => {
-    setSelectedCamera('')
-    setSelectedLens('')
-  }, [])
+  const handleCameraChange = useCallback((camera: string) => setSelectedCamera(camera), [])
+  const handleLensChange = useCallback((lens: string) => setSelectedLens(lens), [])
 
   return (
     <>
+      {/* Island header */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2.5rem 1rem 0.5rem', gap: 12, position: 'relative' }}>
+        {/* AC clock top-right */}
+        <div style={{ position: 'absolute', top: 24, right: 24 }}>
+          <Time />
+        </div>
+
+        {/* Critterpedia icon + title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Icon name="icon-critterpedia" size={36} bounce />
+          <Title size="large" color="app-pink">大福映画 Felina Gallery</Title>
+          <Icon name="icon-camera" size={36} bounce />
+        </div>
+
+        {/* Typewriter subtitle */}
+        <Typewriter speed={60}>
+          <p style={{ color: '#9f927d', fontSize: 14, fontWeight: 500, letterSpacing: '0.04em' }}>
+            光と影で綴る、パパとママと私の物語。
+          </p>
+        </Typewriter>
+
+        {/* Nook Miles style photo counter */}
+        {dataList.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgb(247,243,223)', border: '1.5px solid #c4b89e', borderRadius: 20, padding: '4px 14px', boxShadow: '0 2px 0 0 #bdaea0' }}>
+            <Icon name="icon-miles" size={18} />
+            <span style={{ fontSize: 12, fontWeight: 800, color: '#725d42', letterSpacing: '0.04em' }}>
+              {dataList.length} 张照片已收集
+            </span>
+          </div>
+        )}
+      </div>
+
+      <Divider type="wave-yellow" style={{ margin: '0.75rem 0 0' }} />
+
       <InfiniteScroll
-        className="w-full p-2 space-y-4"
+        className="w-full"
         hasMore={size < pageTotal}
         isLoading={isValidating}
         next={() => setSize(size + 1)}
       >
-        {dataList?.map((item: ImageType) => (
-          <GalleryImage key={item.id} photo={item} configData={configData} />
-        ))}
+        {/* Masonry waterfall grid — constrained width, 3 columns, side padding */}
+        <div
+          style={{ maxWidth: 1280, margin: '0 auto', padding: '16px 40px' }}
+        >
+        <div className="columns-1 sm:columns-2 lg:columns-3" style={{ columnGap: 16 }}>
+          {dataList?.map((item: ImageType, idx: number) => (
+            <div key={item.id} className="masonry-item">
+              {/* Island card */}
+              <div
+                className="island-simple-card"
+                style={{
+                  borderRadius: 18,
+                  background: 'rgb(247, 243, 223)',
+                  border: '2px solid #c4b89e',
+                  boxShadow: '0 3px 0 0 #bdaea0, 0 4px 16px rgba(121,79,39,0.08)',
+                  transition: 'box-shadow 0.25s ease, transform 0.25s ease',
+                }}
+              >
+                <GalleryImage photo={item} configData={configData} />
+              </div>
+            </div>
+          ))}
+        </div>
+        </div>
+
         {dataList.length === 0 && !isValidating && (
-          <div className="flex items-center justify-center my-4">
-            {t('Tips.noImg')}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: 16, color: '#9f927d' }}>
+            <div style={{ display: 'flex', gap: 16, fontSize: 40 }}>
+              <span className="ac-leaf">🍃</span>
+              <span style={{ fontSize: 56 }}>🏝</span>
+              <span className="ac-leaf" style={{ animationDelay: '1s' }}>🌺</span>
+            </div>
+            <Icon name="icon-critterpedia" size={48} bounce />
+            <p style={{ fontSize: 16, fontWeight: 700, letterSpacing: '0.02em', color: '#794f27' }}>{t('Tips.noImg')}</p>
+            <Typewriter speed={50}>
+              <p style={{ fontSize: 13, fontWeight: 500 }}>小岛上还没有照片，快去拍一张吧！🌿</p>
+            </Typewriter>
           </div>
         )}
       </InfiniteScroll>
-      {/* Floating Filter Ball */}
-      {/* <FloatingFilterBall
-        album={props.album}
-        selectedCamera={selectedCamera}
-        selectedLens={selectedLens}
-        onCameraChange={handleCameraChange}
-        onLensChange={handleLensChange}
-        onReset={handleReset}
-      /> */}
+
+      <div style={{ marginBottom: 80 }}>
+        <Footer type="tree" />
+      </div>
     </>
   )
 }

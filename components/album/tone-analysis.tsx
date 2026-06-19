@@ -218,28 +218,31 @@ export default function ToneAnalysis({ imageUrl, className = '' }: Readonly<Tone
     return null
   }
 
+  const labelStyle = { color: '#9f927d', fontWeight: 500, fontSize: 13 }
+  const valueStyle = { color: '#725d42', fontWeight: 600, fontSize: 13 }
+
   return (
     <div className={cn('space-y-2', className)}>
-      <div className="flex justify-between text-sm">
-        <span className="text-gray-500 dark:text-gray-400">{t('Exif.toneType')}</span>
-        <span className="dark:text-gray-50 text-gray-700 font-medium">{getToneTypeLabel(toneData.toneType)}</span>
+      <div className="flex justify-between">
+        <span style={labelStyle}>{t('Exif.toneType')}</span>
+        <span style={{ ...valueStyle, fontWeight: 700 }}>{getToneTypeLabel(toneData.toneType)}</span>
       </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
         <div className="flex justify-between">
-          <span className="text-gray-500 dark:text-gray-400">{t('Exif.brightness')}</span>
-          <span className="dark:text-gray-50 text-gray-700">{toneData.brightness}%</span>
+          <span style={labelStyle}>{t('Exif.brightness')}</span>
+          <span style={valueStyle}>{toneData.brightness}%</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-500 dark:text-gray-400">{t('Exif.contrast')}</span>
-          <span className="dark:text-gray-50 text-gray-700">{toneData.contrast}%</span>
+          <span style={labelStyle}>{t('Exif.contrast')}</span>
+          <span style={valueStyle}>{toneData.contrast}%</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-500 dark:text-gray-400">{t('Exif.shadowRatio')}</span>
-          <span className="dark:text-gray-50 text-gray-700">{Math.round(toneData.shadowRatio * 100)}%</span>
+          <span style={labelStyle}>{t('Exif.shadowRatio')}</span>
+          <span style={valueStyle}>{Math.round(toneData.shadowRatio * 100)}%</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-500 dark:text-gray-400">{t('Exif.highlightRatio')}</span>
-          <span className="dark:text-gray-50 text-gray-700">{Math.round(toneData.highlightRatio * 100)}%</span>
+          <span style={labelStyle}>{t('Exif.highlightRatio')}</span>
+          <span style={valueStyle}>{Math.round(toneData.highlightRatio * 100)}%</span>
         </div>
       </div>
     </div>

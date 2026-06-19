@@ -1,7 +1,7 @@
 'use client'
 
-import { FrameIcon } from '~/components/icons/frame'
 import * as React from 'react'
+import { Icon } from 'animal-island-ui'
 import type { ImageDataProps } from '~/types/props'
 import {
   Dialog,
@@ -86,11 +86,10 @@ export default function PreviewImageExif(props: Readonly<ImageDataProps>) {
 
   return (
     <Dialog>
-      <DialogTrigger>
-        <FrameIcon
-          className={exifIconClass}
-          size={20}
-        />
+      <DialogTrigger asChild>
+        <span style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>
+          <Icon name="icon-chat" size={18} />
+        </span>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] sm:max-w-lg">
         <DialogHeader>

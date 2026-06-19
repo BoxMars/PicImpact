@@ -41,7 +41,20 @@ export default function InfiniteScroll({
         <div className={className}>
             {children}
             <div ref={observerTarget} className="h-4 w-full flex items-center justify-center mt-4">
-                {isLoading && <ReloadIcon className="h-4 w-4 animate-spin" />}
+                {isLoading && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    color: '#19c8b9',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    letterSpacing: '0.04em',
+                  }}>
+                    <ReloadIcon style={{ color: '#19c8b9', width: 16, height: 16 }} className="animate-spin" />
+                    <span>加载中...</span>
+                  </div>
+                )}
             </div>
         </div>
     )

@@ -1,21 +1,12 @@
 'use client'
 
 import type { ImageType } from '~/types'
-import { CameraIcon } from '~/components/icons/camera.tsx'
-import { ApertureIcon } from '~/components/icons/aperture.tsx'
-import { TimerIcon } from '~/components/icons/timer.tsx'
-import { CrosshairIcon } from '~/components/icons/crosshair.tsx'
-import { GaugeIcon } from '~/components/icons/gauge.tsx'
-import { CopyIcon } from '~/components/icons/copy.tsx'
 import { toast } from 'sonner'
-import { LinkIcon } from '~/components/icons/link.tsx'
 import { RefreshCWIcon } from '~/components/icons/refresh-cw.tsx'
 import { cn } from '~/lib/utils'
-import { DownloadIcon } from '~/components/icons/download.tsx'
 import PreviewImageExif from '~/components/album/preview-image-exif.tsx'
 import useSWR from 'swr'
 import type { ImageDataProps } from '~/types/props.ts'
-import { Badge } from '~/components/ui/badge.tsx'
 import { useRouter } from 'next-nprogress-bar'
 import { useBlurImageDataUrl, DEFAULT_HASH } from '~/hooks/use-blurhash.ts'
 import { MotionImage } from '~/components/album/motion-image'
@@ -23,31 +14,32 @@ import { Skeleton } from '~/components/ui/skeleton'
 import { useEffect, useState } from 'react'
 import { isProxyImageUrl, toProxyImageUrl } from '~/lib/utils/image-proxy'
 import { formatExifDateTimeForDisplay } from '~/lib/utils/exif-time'
+import { Icon, Tooltip } from 'animal-island-ui'
 
 export default function GalleryImage({ photo, configData }: { photo: ImageType, configData: any }) {
   const router = useRouter()
 
-  const exifIconClass = 'dark:text-gray-50 text-gray-500'
-  const exifTextClass = 'text-tiny text-sm select-none items-center dark:text-gray-50 text-gray-500'
-
   const { data: download = false, mutate: setDownload } = useSWR(['masonry/download', photo?.url ?? ''], null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [thumbLoading, setThumbLoading] = useState(true)
+  const [hdLoaded, setHdLoaded] = useState(false)
 
   const dataURL = useBlurImageDataUrl(photo.blurhash)
+  const exifProps: ImageDataProps = { data: photo }
 
-  const exifProps: ImageDataProps = {
-    data: photo,
-  }
+  const thumbUrl = photo.preview_url || photo.url || ''
+  const hdUrl = photo.url || photo.preview_url || ''
+  const proxyThumb = toProxyImageUrl(thumbUrl)
+  const proxyHd = toProxyImageUrl(hdUrl)
 
-  const customIndexOriginEnable = configData?.find((item: any) => item.config_key === 'custom_index_origin_enable')?.config_value.toString() === 'true'
-  const displayUrl = customIndexOriginEnable ? photo.url || photo.preview_url : photo.preview_url || photo.url
-  const proxyDisplayUrl = toProxyImageUrl(displayUrl)
-  const [resolvedImageSrc, setResolvedImageSrc] = useState(proxyDisplayUrl || displayUrl || '')
+  const [resolvedThumb, setResolvedThumb] = useState(proxyThumb || thumbUrl)
+  const [resolvedHd, setResolvedHd] = useState(proxyHd || hdUrl)
 
   useEffect(() => {
-    setResolvedImageSrc(proxyDisplayUrl || displayUrl || '')
-    setIsLoading(true)
-  }, [proxyDisplayUrl, displayUrl])
+    setResolvedThumb(proxyThumb || thumbUrl)
+    setResolvedHd(proxyHd || hdUrl)
+    setThumbLoading(true)
+    setHdLoaded(false)
+  }, [thumbUrl, hdUrl])
 
   async function downloadImg() {
     setDownload(true)
@@ -56,16 +48,10 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
       if (photo?.album_license != null) {
         msg += '图片版权归作者所有, 分享转载需遵循 ' + photo.album_license + ' 许可协议！'
       }
-
       toast.warning(msg, { duration: 1500 })
-
-      // 获取存储类型
       const storageType = photo?.url?.includes('s3') ? 's3' : 'r2'
-
-      // 使用新的下载 API
       let response = await fetch(`/api/public/download/${photo.id}?storage=${storageType}`)
       const contentType = response.headers.get('content-type')
-
       if (contentType?.includes('application/json')) {
         const data = await response.json()
         response = await fetch(data.url)
@@ -87,37 +73,28 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
     }
   }
 
+  const hasExif = photo?.exif?.make || photo?.exif?.f_number || photo?.exif?.exposure_time ||
+    photo?.exif?.focal_length || photo?.exif?.iso_speed_rating
+
   return (
-    <div className="flex flex-col sm:flex-row w-full items-start justify-between sm:relative overflow-x-clip">
-      <div className="flex flex-1 flex-col px-2 sm:sticky top-4 self-start">
-        <div className="flex space-x-2 py-1 sm:justify-end">
-          <div className="font-semibold">{photo.title}</div>
-        </div>
-        {photo?.exif?.data_time &&
-          <div className="hidden sm:flex items-center sm:justify-end">
-            <p className={exifTextClass}>
-              {formatExifDateTimeForDisplay(photo?.exif?.data_time)}
-            </p>
-          </div>
-        }
-        <article className="hidden sm:flex text-wrap text-right dark:text-gray-50 text-gray-500">
-          <p className="w-full">{photo?.detail}</p>
-        </article>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {/* Image — full card width, progressive loading */}
       <div
-        className="relative inline-block select-none sm:w-[66.667%] mx-auto shadow-gray-200 dark:shadow-gray-800">
-        {
-          (photo.blurhash === DEFAULT_HASH || !photo.blurhash) && isLoading && (
-            <Skeleton className="absolute inset-0 z-10 rounded-none" />
-          )
-        }
+        style={{ position: 'relative', width: '100%', cursor: 'pointer', borderRadius: '16px 16px 0 0', overflow: 'hidden' }}
+        onClick={() => router.push(`/preview/${photo?.id}`)}
+      >
+{(photo.blurhash === DEFAULT_HASH || !photo.blurhash) && thumbLoading && (
+          <Skeleton className="absolute inset-0 z-10 rounded-none" />
+        )}
+
+        {/* Thumbnail (bottom layer) */}
         <MotionImage
-          className={cn(isLoading && "animate-pulse")}
+          className={cn(thumbLoading && 'animate-pulse')}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 1 }}
-          src={resolvedImageSrc}
-          overrideSrc={resolvedImageSrc}
+          transition={{ duration: 0.6 }}
+          src={resolvedThumb}
+          overrideSrc={resolvedThumb}
           alt={photo.title}
           width={photo.width}
           height={photo.height}
@@ -125,149 +102,221 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
           unoptimized
           placeholder={(photo.blurhash === DEFAULT_HASH || !photo.blurhash) ? 'empty' : 'blur'}
           blurDataURL={dataURL}
-          onClick={() => router.push(`/preview/${photo?.id}`)}
-          onLoad={() => setIsLoading(false)}
+          onLoad={() => setThumbLoading(false)}
           onError={() => {
-            if (isProxyImageUrl(resolvedImageSrc) && displayUrl) {
-              setResolvedImageSrc(displayUrl)
+            if (isProxyImageUrl(resolvedThumb) && thumbUrl) {
+              setResolvedThumb(thumbUrl)
               return
             }
-            setIsLoading(false)
+            setThumbLoading(false)
           }}
         />
-        {
-          photo.type === 2 &&
-          <div className="absolute top-2 left-2 p-5 rounded-full">
-            <svg xmlns="http://www.w3.org/2000/svg" className="absolute bottom-3 right-3 text-white opacity-75 z-10"
-              width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none"
-              strokeLinecap="round" strokeLinejoin="round">
-              <path stroke="none" fill="none"></path>
-              <circle cx="12" cy="12" r="1"></circle>
-              <circle cx="12" cy="12" r="5"></circle>
-              <line x1="15.9" y1="20.11" x2="15.9" y2="20.12"></line>
-              <line x1="19.04" y1="17.61" x2="19.04" y2="17.62"></line>
-              <line x1="20.77" y1="14" x2="20.77" y2="14.01"></line>
-              <line x1="20.77" y1="10" x2="20.77" y2="10.01"></line>
-              <line x1="19.04" y1="6.39" x2="19.04" y2="6.4"></line>
-              <line x1="15.9" y1="3.89" x2="15.9" y2="3.9"></line>
-              <line x1="12" y1="3" x2="12" y2="3.01"></line>
-              <line x1="8.1" y1="3.89" x2="8.1" y2="3.9"></line>
-              <line x1="4.96" y1="6.39" x2="4.96" y2="6.4"></line>
-              <line x1="3.23" y1="10" x2="3.23" y2="10.01"></line>
-              <line x1="3.23" y1="14" x2="3.23" y2="14.01"></line>
-              <line x1="4.96" y1="17.61" x2="4.96" y2="17.62"></line>
-              <line x1="8.1" y1="20.11" x2="8.1" y2="20.12"></line>
-              <line x1="12" y1="21" x2="12" y2="21.01"></line>
-            </svg>
+
+        {/* HD original (top layer, fades in) */}
+        {resolvedHd && resolvedHd !== resolvedThumb && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={resolvedHd}
+            alt={photo.title}
+            width={photo.width}
+            height={photo.height}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              opacity: hdLoaded ? 1 : 0,
+              transition: 'opacity 0.8s ease',
+            }}
+            onLoad={() => setHdLoaded(true)}
+            onError={() => {
+              if (isProxyImageUrl(resolvedHd) && hdUrl) setResolvedHd(hdUrl)
+            }}
+          />
+        )}
+
+        {photo.type === 2 && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 8,
+              left: 8,
+              background: 'rgba(247,243,223,0.92)',
+              border: '1.5px solid #c4b89e',
+              borderRadius: 20,
+              padding: '2px 8px',
+              fontSize: 10,
+              fontWeight: 700,
+              color: '#725d42',
+              letterSpacing: '0.05em',
+              backdropFilter: 'blur(4px)',
+            }}
+          >
+            LIVE
           </div>
-        }
+        )}
+
+        {/* HD badge — shows when HD is loaded */}
+        {hdLoaded && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              background: 'rgba(25,200,185,0.85)',
+              borderRadius: 20,
+              padding: '2px 7px',
+              fontSize: 9,
+              fontWeight: 800,
+              color: '#fff',
+              letterSpacing: '0.06em',
+            }}
+          >
+            HD
+          </div>
+        )}
       </div>
-      <div className="flex flex-col flex-1 sm:sticky px-2 py-1 sm:py-0 sm:space-y-1 top-4 self-start">
-        <div className="flex flex-wrap space-x-2 sm:space-x-0 sm:flex-col flex-1 text-gray-500 sm:sticky">
-          {photo?.exif?.make && photo?.exif?.model &&
-            <div className="flex items-center space-x-1">
-              <CameraIcon className={exifIconClass} size={18} />
-              <p className={exifTextClass}>
-                {`${photo?.exif?.make} ${photo?.exif?.model}`}
-              </p>
-            </div>
-          }
-          {photo?.exif?.f_number &&
-            <div className="flex items-center space-x-1">
-              <ApertureIcon className={exifIconClass} size={18} />
-              <p className={exifTextClass}>
-                {photo?.exif?.f_number}
-              </p>
-            </div>
-          }
-          {photo?.exif?.exposure_time &&
-            <div className="flex items-center space-x-1">
-              <TimerIcon className={exifIconClass} size={18} />
-              <p className={exifTextClass}>
-                {photo?.exif?.exposure_time}
-              </p>
-            </div>
-          }
-          {photo?.exif?.focal_length &&
-            <div className="flex items-center space-x-1">
-              <CrosshairIcon className={exifIconClass} size={18} />
-              <p className={exifTextClass}>
-                {(parseFloat(photo?.exif?.focal_length).toFixed(2) + ' mm')}
-              </p>
-            </div>
-          }
-          {photo?.exif?.iso_speed_rating &&
-            <div className="flex items-center space-x-1">
-              <GaugeIcon className={exifIconClass} size={18} />
-              <p className={exifTextClass}>
-                {photo?.exif?.iso_speed_rating}
-              </p>
-            </div>
-          }
-        </div>
-        {photo?.labels &&
-          <div className="flex flex-wrap space-x-2 sm:sticky">
-            {photo?.labels.map((tag: string) => (
-              <Badge
-                variant="secondary"
-                className="cursor-pointer select-none"
+
+      {/* Card info */}
+      <div style={{ padding: '10px 14px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+
+        {/* Title + date */}
+        {(photo.title || photo?.exif?.data_time) && (
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+            {photo.title && (
+              <span style={{ fontWeight: 700, color: '#794f27', fontSize: 13, lineHeight: 1.4, flex: 1, minWidth: 0 }}>
+                {photo.title}
+              </span>
+            )}
+            {photo?.exif?.data_time && (
+              <span style={{ color: '#c4b89e', fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                {formatExifDateTimeForDisplay(photo.exif.data_time)}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Description */}
+        {photo?.detail && (
+          <p style={{ color: '#9f927d', fontSize: 12, lineHeight: 1.5, margin: 0 }}>
+            {photo.detail}
+          </p>
+        )}
+
+        {/* EXIF row */}
+        {hasExif && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', marginTop: 2 }}>
+            {photo?.exif?.make && photo?.exif?.model && (
+              <Tooltip title="相机" variant="island" placement="top">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#9f927d', fontSize: 11, fontWeight: 600, cursor: 'default' }}>
+                  <Icon name="icon-camera" size={14} style={{ flexShrink: 0 }} />
+                  {photo.exif.make} {photo.exif.model}
+                </span>
+              </Tooltip>
+            )}
+            {photo?.exif?.f_number && (
+              <Tooltip title="光圈" variant="island" placement="top">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#9f927d', fontSize: 11, fontWeight: 600, cursor: 'default' }}>
+                  <Icon name="icon-variant" size={14} style={{ flexShrink: 0 }} />
+                  {photo.exif.f_number}
+                </span>
+              </Tooltip>
+            )}
+            {photo?.exif?.exposure_time && (
+              <Tooltip title="曝光时间" variant="island" placement="top">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#9f927d', fontSize: 11, fontWeight: 600, cursor: 'default' }}>
+                  <Icon name="icon-miles" size={14} style={{ flexShrink: 0 }} />
+                  {photo.exif.exposure_time}
+                </span>
+              </Tooltip>
+            )}
+            {photo?.exif?.focal_length && (
+              <Tooltip title="焦距" variant="island" placement="top">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#9f927d', fontSize: 11, fontWeight: 600, cursor: 'default' }}>
+                  <Icon name="icon-map" size={14} style={{ flexShrink: 0 }} />
+                  {parseFloat(photo.exif.focal_length).toFixed(0)}mm
+                </span>
+              </Tooltip>
+            )}
+            {photo?.exif?.iso_speed_rating && (
+              <Tooltip title="感光度 ISO" variant="island" placement="top">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#9f927d', fontSize: 11, fontWeight: 600, cursor: 'default' }}>
+                  <Icon name="icon-critterpedia" size={14} style={{ flexShrink: 0 }} />
+                  ISO {photo.exif.iso_speed_rating}
+                </span>
+              </Tooltip>
+            )}
+          </div>
+        )}
+
+        {/* Tags */}
+        {photo?.labels && photo.labels.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
+            {photo.labels.map((tag: string) => (
+              <span
                 key={tag}
-                onClick={() => {
-                  router.push(`/tag/${tag}`)
+                onClick={() => router.push(`/tag/${tag}`)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '1px 8px',
+                  borderRadius: 20,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.03em',
+                  cursor: 'pointer',
+                  background: '#e6f9f6',
+                  border: '1.5px solid #19c8b9',
+                  color: '#19c8b9',
+                  userSelect: 'none',
                 }}
-              >{tag}</Badge>
+              >
+                🏷 {tag}
+              </span>
             ))}
           </div>
-        }
-        <div className="flex flex-wrap space-x-1 sm:sticky">
-          <CopyIcon
-            className={exifIconClass}
-            size={20}
-            onClick={async () => {
+        )}
+
+        {/* Separator + actions */}
+        <div style={{ height: 1, background: '#c4b89e', opacity: 0.35, margin: '2px 0' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, height: 24 }}>
+          <Tooltip title="复制图片链接" variant="island" placement="top">
+            <span style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }} onClick={async () => {
               try {
-                const url = photo?.url
-                // @ts-ignore
-                await navigator.clipboard.writeText(url)
+                await navigator.clipboard.writeText(photo?.url ?? '')
                 let msg = '复制图片链接成功！'
-                if (photo?.album_license != null) {
-                  msg = '图片版权归作者所有, 分享转载需遵循 ' + photo?.album_license + ' 许可协议！'
-                }
+                if (photo?.album_license != null) msg = '图片版权归作者所有, 分享转载需遵循 ' + photo?.album_license + ' 许可协议！'
                 toast.success(msg, { duration: 1500 })
-              } catch (error) {
-                toast.error('复制图片链接失败！', { duration: 500 })
-              }
-            }}
-          />
-          <LinkIcon
-            className={exifIconClass}
-            size={20}
-            onClick={async () => {
+              } catch { toast.error('复制图片链接失败！', { duration: 500 }) }
+            }}>
+              <Icon name="icon-diy" size={18} />
+            </span>
+          </Tooltip>
+          <Tooltip title="复制分享直链" variant="island" placement="top">
+            <span style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }} onClick={async () => {
               try {
-                const url = window.location.origin + '/preview/' + photo.id
-                // @ts-ignore
-                await navigator.clipboard.writeText(url)
+                await navigator.clipboard.writeText(window.location.origin + '/preview/' + photo.id)
                 toast.success('复制分享直链成功！', { duration: 500 })
-              } catch (error) {
-                toast.error('复制分享直链失败！', { duration: 500 })
-              }
-            }}
-          />
-          {configData?.find((item: any) => item.config_key === 'custom_index_download_enable')?.config_value.toString() === 'true'
-            && <>
-              {download ?
-                <RefreshCWIcon
-                  className={cn(exifIconClass, 'animate-spin cursor-not-allowed')}
-                  size={20}
-                /> :
-                <DownloadIcon
-                  className={exifIconClass}
-                  size={20}
-                  onClick={() => downloadImg()}
-                />
-              }
-            </>
-          }
-          <PreviewImageExif {...exifProps} />
+              } catch { toast.error('复制分享直链失败！', { duration: 500 }) }
+            }}>
+              <Icon name="icon-helicopter" size={18} />
+            </span>
+          </Tooltip>
+          {configData?.find((item: any) => item.config_key === 'custom_index_download_enable')?.config_value.toString() === 'true' && (
+            download
+              ? <RefreshCWIcon style={{ color: '#c4b89e' }} className={cn('animate-spin cursor-not-allowed')} size={18} />
+              : (
+                <Tooltip title="下载原图" variant="island" placement="top">
+                  <span style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }} onClick={() => downloadImg()}>
+                    <Icon name="icon-shopping" size={18} />
+                  </span>
+                </Tooltip>
+              )
+          )}
+          <Tooltip title="查看 EXIF 信息" variant="island" placement="top">
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}><PreviewImageExif {...exifProps} /></span>
+          </Tooltip>
         </div>
       </div>
     </div>

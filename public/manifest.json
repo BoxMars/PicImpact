@@ -1,7 +1,7 @@
 {
-  "name": "PicImpact",
-  "short_name": "PicImpact",
-  "description": "A powerful image processing and enhancement platform",
+  "name": "大福映画 Felina Gallery",
+  "short_name": "Felina Gallery",
+  "description": "大福映画 Felina Gallery — 摄影作品展示",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

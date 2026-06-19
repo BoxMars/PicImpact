@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 @import "tw-animate-css";
+@import "animal-island-ui/style";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -79,72 +80,74 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.21 0.006 285.885);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.705 0.015 286.067);
+  /* Island palette overrides — warm parchment + teal */
+  --radius: 1.125rem;
+  --background: #f8f8f0;
+  --foreground: #725d42;
+  --card: rgb(247, 243, 223);
+  --card-foreground: #725d42;
+  --popover: rgb(247, 243, 223);
+  --popover-foreground: #725d42;
+  --primary: #19c8b9;
+  --primary-foreground: #f8f8f0;
+  --secondary: #f0ece2;
+  --secondary-foreground: #794f27;
+  --muted: #f0ece2;
+  --muted-foreground: #9f927d;
+  --accent: #e6f9f6;
+  --accent-foreground: #19c8b9;
+  --destructive: #e05a5a;
+  --border: #c4b89e;
+  --input: #c4b89e;
+  --ring: #19c8b9;
+  --chart-1: #e59266;
+  --chart-2: #82d5bb;
+  --chart-3: #889df0;
+  --chart-4: #f7cd67;
+  --chart-5: #f8a6b2;
+  --sidebar: rgb(247, 243, 223);
+  --sidebar-foreground: #794f27;
+  --sidebar-primary: #19c8b9;
+  --sidebar-primary-foreground: #f8f8f0;
+  --sidebar-accent: #e6f9f6;
+  --sidebar-accent-foreground: #19c8b9;
+  --sidebar-border: #c4b89e;
+  --sidebar-ring: #19c8b9;
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.92 0.004 286.32);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
+  /* Island dark — deeper warm tones, not cold blue */
+  --background: #3d2e1e;
+  --foreground: #f0ece2;
+  --card: #4a3928;
+  --card-foreground: #f0ece2;
+  --popover: #4a3928;
+  --popover-foreground: #f0ece2;
+  --primary: #19c8b9;
+  --primary-foreground: #f8f8f0;
+  --secondary: #5a4530;
+  --secondary-foreground: #f0ece2;
+  --muted: #5a4530;
+  --muted-foreground: #c4b89e;
+  --accent: #2a4a3a;
+  --accent-foreground: #82d5bb;
+  --destructive: #e05a5a;
+  --border: #6a5535;
+  --input: #6a5535;
+  --ring: #19c8b9;
+  --chart-1: #e59266;
+  --chart-2: #82d5bb;
+  --chart-3: #889df0;
+  --chart-4: #f7cd67;
+  --chart-5: #f8a6b2;
+  --sidebar: #4a3928;
+  --sidebar-foreground: #f0ece2;
+  --sidebar-primary: #19c8b9;
+  --sidebar-primary-foreground: #f8f8f0;
+  --sidebar-accent: #2a4a3a;
+  --sidebar-accent-foreground: #82d5bb;
+  --sidebar-border: #6a5535;
+  --sidebar-ring: #19c8b9;
 }
 
 @layer base {
@@ -154,7 +157,125 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: Nunito, 'Noto Sans SC', -apple-system, 'PingFang SC', sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    cursor: url('/cursor-icon.png') 4 0, auto;
+    background-color: #f8f8f0;
+    background-image:
+      radial-gradient(circle, rgba(25, 200, 185, 0.04) 1.5px, transparent 1.5px) 0 0/40px 40px,
+      radial-gradient(circle, rgba(25, 200, 185, 0.025) 1px, transparent 1px) 10px 10px/20px 20px;
   }
+
+  .dark body {
+    background-color: #3d2e1e;
+    background-image:
+      radial-gradient(circle, rgba(25, 200, 185, 0.06) 1.5px, transparent 1.5px) 0 0/40px 40px,
+      radial-gradient(circle, rgba(25, 200, 185, 0.03) 1px, transparent 1px) 10px 10px/20px 20px;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #794f27;
+  }
+
+  .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+    color: #f0ece2;
+  }
+}
+
+/* Island blur image card — pure CSS hover, no React state re-render */
+.island-blur-image {
+  position: relative;
+  display: inline-block;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 2px solid #c4b89e;
+  box-shadow: 0 3px 0 0 #bdaea0, 0 4px 12px rgba(121, 79, 39, 0.10);
+  transition:
+    border-color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  user-select: none;
+}
+
+.island-blur-image:hover {
+  border-color: #19c8b9;
+  box-shadow: 0 3px 0 0 #19c8b9, 0 6px 20px rgba(25, 200, 185, 0.15);
+}
+
+.island-blur-image .island-live-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(247, 243, 223, 0.92);
+  border: 1.5px solid #c4b89e;
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #725d42;
+  letter-spacing: 0.05em;
+  backdrop-filter: blur(4px);
+}
+
+.island-blur-image .island-hover-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(25, 200, 185, 0.08) 0%, transparent 60%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.island-blur-image:hover .island-hover-shimmer {
+  opacity: 1;
+}
+
+/* Simple gallery photo card */
+.island-simple-card:hover {
+  box-shadow: 0 3px 0 0 #19c8b9, 0 8px 24px rgba(25, 200, 185, 0.12) !important;
+  transform: translateY(-2px);
+}
+
+/* AC custom cursor — applied globally so it covers the entire viewport */
+*, *::before, *::after {
+  cursor: url('/cursor-icon.png') 4 0, auto !important;
+}
+
+/* ---- AC decorative animations ---- */
+
+/* Floating leaf */
+@keyframes leaf-float {
+  0%   { transform: translateY(0) rotate(0deg) translateX(0); opacity: 0.9; }
+  25%  { transform: translateY(-18px) rotate(8deg) translateX(6px); }
+  50%  { transform: translateY(-8px) rotate(-5deg) translateX(12px); }
+  75%  { transform: translateY(-22px) rotate(10deg) translateX(18px); }
+  100% { transform: translateY(0) rotate(0deg) translateX(0); opacity: 0.9; }
+}
+
+.ac-leaf {
+  display: inline-block;
+  animation: leaf-float 4s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+/* Star sparkle */
+@keyframes star-sparkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.7) rotate(0deg); }
+  50%       { opacity: 1;    transform: scale(1.2) rotate(20deg); }
+}
+
+.ac-sparkle {
+  display: inline-block;
+  animation: star-sparkle 2.2s ease-in-out infinite;
+}
+
+/* Masonry waterfall grid */
+.masonry-item {
+  break-inside: avoid;
+  margin-bottom: 14px;
 }
 
 @layer utilities {

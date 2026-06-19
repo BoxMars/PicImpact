@@ -21,6 +21,11 @@ let nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
+    localPatterns: [
+      {
+        pathname: '/api/public/url-proxy',
+      },
+    ],
     remotePatterns: [
       {
         protocol: 'https',

@@ -27,13 +27,13 @@ export async function generateMetadata(): Promise<Metadata> {
   ])
 
   return {
-    title: data?.find((item: ConfigItem) => item.config_key === 'custom_title')?.config_value || 'PicImpact',
+    title: data?.find((item: ConfigItem) => item.config_key === 'custom_title')?.config_value || '大福映画 Felina Gallery',
     icons: { icon: data?.find((item: ConfigItem) => item.config_key === 'custom_favicon_url')?.config_value || './favicon.ico' },
     manifest: '/manifest.json',
     appleWebApp: {
       capable: true,
       statusBarStyle: 'default',
-      title: 'PicImpact',
+      title: '大福映画 Felina Gallery',
     }
   }
 }
@@ -73,7 +73,7 @@ export default async function RootLayout({
       <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       <meta name="apple-mobile-web-app-capable" content="yes" />
       <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-      <meta name="apple-mobile-web-app-title" content="PicImpact" />
+      <meta name="apple-mobile-web-app-title" content="大福映画 Felina Gallery" />
     </head>
     <body>
     <NextIntlClientProvider messages={messages}>

@@ -69,18 +69,22 @@ const PolaroidCard = memo(function PolaroidCard({
 
   return (
     <DraggableCardBody
-      className="absolute flex flex-col p-0 shadow-xl min-h-0 h-auto bg-white dark:bg-neutral-50 rounded-sm"
-      style={{ 
-        ...style, 
-        zIndex, 
-        width: `${cardWidth}px`, 
+      className="absolute flex flex-col p-0 min-h-0 h-auto rounded-sm"
+      style={{
+        ...style,
+        zIndex,
+        width: `${cardWidth}px`,
         height: `${cardHeight}px`,
-        padding: `${paddingTop}px ${paddingSide}px ${paddingBottom}px ${paddingSide}px`
+        padding: `${paddingTop}px ${paddingSide}px ${paddingBottom}px ${paddingSide}px`,
+        background: 'rgb(247, 243, 223)',
+        border: '2px solid #c4b89e',
+        boxShadow: '0 4px 0 0 #bdaea0, 0 8px 24px rgba(121,79,39,0.15)',
       }}
       onMouseDown={() => onMouseDown(item.id)}
     >
-      <div 
-        className="relative overflow-hidden bg-neutral-200 dark:bg-neutral-800 shrink-0 w-full h-full shadow-inner"
+      <div
+        className="relative overflow-hidden shrink-0 w-full h-full"
+        style={{ background: '#e8dcc8' }}
       >
         {isLoading && (
           <Skeleton className="absolute inset-0 z-20 rounded-none" />
@@ -106,12 +110,24 @@ const PolaroidCard = memo(function PolaroidCard({
           priority={false}
         />
       </div>
-      {/* 标题区域：绝对定位在底部留白处，不影响相纸尺寸 */}
-      <div 
+      <div
         className="absolute bottom-0 left-0 right-0 flex items-center justify-center px-2 overflow-hidden"
         style={{ height: `${paddingBottom}px` }}
       >
-        <h3 className="w-full text-center text-sm font-medium text-neutral-600 dark:text-neutral-400 truncate opacity-80">
+        <h3
+          style={{
+            width: '100%',
+            textAlign: 'center',
+            fontSize: 12,
+            fontWeight: 700,
+            color: '#9f927d',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            letterSpacing: '0.02em',
+            fontFamily: 'Nunito, sans-serif',
+          }}
+        >
           {item.title}
         </h3>
       </div>
@@ -180,9 +196,25 @@ export default function PolaroidGallery(props: Readonly<ImageHandleProps>) {
 
   return (
     <DraggableCardContainer className="relative flex min-h-screen w-full items-center justify-center overflow-clip">
-      <p className="absolute top-1/2 mx-auto max-w-sm -translate-y-3/4 text-center text-2xl font-black text-neutral-400 md:text-4xl dark:text-neutral-800">
-        {customTitle || '大福映画 Felina Gallery'}
-      </p>
+      <div
+        className="absolute top-1/2 -translate-y-3/4 flex flex-col items-center gap-3 pointer-events-none"
+        style={{ zIndex: 0 }}
+      >
+        <p
+          className="mx-auto max-w-sm text-center text-2xl md:text-4xl"
+          style={{
+            fontWeight: 900,
+            color: '#c4b89e',
+            letterSpacing: '0.04em',
+            fontFamily: 'Nunito, sans-serif',
+          }}
+        >
+          {customTitle || '大福映画 Felina Gallery'}
+        </p>
+        <p style={{ color: '#d4c9b4', fontSize: 14, fontWeight: 600, letterSpacing: '0.06em' }}>
+          🏝 拖动照片探索小岛
+        </p>
+      </div>
       {dataList?.map((item: ImageType) => (
         <PolaroidCard
           key={item.id}

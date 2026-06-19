@@ -45,7 +45,7 @@ export default function Authenticator() {
     }
     const { data, error } = await authClient.twoFactor.enable({
       password: password,
-      issuer: 'PicImpact',
+      issuer: '大福映画 Felina Gallery',
     })
 
     if (error) {

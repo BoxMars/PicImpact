@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 export async function generateMetadata() {
   const data = await fetchConfigsByKeys(['custom_title'])
-  const siteTitle = data?.find(item => item.config_key === 'custom_title')?.config_value || 'PicImpact'
+  const siteTitle = data?.find(item => item.config_key === 'custom_title')?.config_value || '大福映画 Felina Gallery'
   return {
     title: `Map | ${siteTitle}`,
   }
