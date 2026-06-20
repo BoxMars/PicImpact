@@ -74,16 +74,16 @@ export default function SimpleGallery(props: Readonly<ImageHandleProps>) {
     <>
       {/* Island header */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2.5rem 1rem 0.5rem', gap: 12, position: 'relative' }}>
-        {/* AC clock top-right */}
-        <div style={{ position: 'absolute', top: 24, right: 24 }}>
+        {/* AC clock top-right — hidden on mobile */}
+        <div className="hidden xl:block" style={{ position: 'absolute', top: 24, right: 24 }}>
           <Time />
         </div>
 
         {/* Critterpedia icon + title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Icon name="icon-critterpedia" size={36} bounce />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon name="icon-critterpedia" size={28} bounce />
           <Title size="large" color="app-pink">大福映画 Felina Gallery</Title>
-          <Icon name="icon-camera" size={36} bounce />
+          <Icon name="icon-camera" size={28} bounce />
         </div>
 
         {/* Typewriter subtitle */}
@@ -113,8 +113,8 @@ export default function SimpleGallery(props: Readonly<ImageHandleProps>) {
         next={() => setSize(size + 1)}
       >
         {/* Masonry waterfall grid — constrained width, 3 columns, side padding */}
-        <div
-          style={{ maxWidth: 1280, margin: '0 auto', padding: '16px 40px' }}
+        <div className="px-3 sm:px-6 md:px-10"
+          style={{ maxWidth: 1280, margin: '0 auto', paddingTop: 16, paddingBottom: 16 }}
         >
         <div className="columns-1 sm:columns-2 lg:columns-3" style={{ columnGap: 16 }}>
           {dataList?.map((item: ImageType, idx: number) => (
@@ -128,6 +128,7 @@ export default function SimpleGallery(props: Readonly<ImageHandleProps>) {
                   border: '2px solid #c4b89e',
                   boxShadow: '0 3px 0 0 #bdaea0, 0 4px 16px rgba(121,79,39,0.08)',
                   transition: 'box-shadow 0.25s ease, transform 0.25s ease',
+                  contain: 'layout style',
                 }}
               >
                 <GalleryImage photo={item} configData={configData} />

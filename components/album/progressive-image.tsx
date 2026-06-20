@@ -122,49 +122,41 @@ export default function ProgressiveImage(
 
   return (
     <div className="relative">
-      {!highResImageLoaded && (
-        <MotionImage
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1 }}
-          className="object-contain md:max-h-[90vh]"
-          src={resolvedPreviewSrc}
-          overrideSrc={resolvedPreviewSrc}
-          placeholder="blur"
-          unoptimized
-          blurDataURL={dataURL}
-          width={props.width}
-          height={props.height}
-          alt={props.alt || 'image'}
-          onError={() => {
-            if (isProxyImageUrl(resolvedPreviewSrc) && previewRawSrc) {
-              setResolvedPreviewSrc(previewRawSrc)
-            }
-          }}
-        />
-      )}
+      {/* Preview — always in DOM as base layer; provides layout dimensions */}
+      <MotionImage
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6 }}
+        className="object-contain md:max-h-[90vh]"
+        src={resolvedPreviewSrc}
+        overrideSrc={resolvedPreviewSrc}
+        placeholder="blur"
+        unoptimized
+        blurDataURL={dataURL}
+        width={props.width}
+        height={props.height}
+        alt={props.alt || 'image'}
+        onError={() => {
+          if (isProxyImageUrl(resolvedPreviewSrc) && previewRawSrc) {
+            setResolvedPreviewSrc(previewRawSrc)
+          }
+        }}
+      />
 
-      {isLoading && (
-        <div className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-1 text-xs text-white">
-          Loading original...
-        </div>
-      )}
-
-      {error && (
-        <div className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-1 text-xs text-white">
-          {error}
-        </div>
-      )}
-
-      {highResImageLoaded && !showFullScreenViewer && (
+      {/* HD — absolute overlay, crossfades in after full decode. Never causes a blank frame. */}
+      {!showFullScreenViewer && (
         <img
-          className="object-contain md:max-h-[90vh]"
+          className="absolute inset-0 h-full w-full object-contain md:max-h-[90vh]"
           src={resolvedHighResSrc}
           width={props.width}
           height={props.height}
           alt={props.alt || 'image'}
           loading="eager"
           decoding="async"
+          style={{
+            opacity: highResImageLoaded ? 1 : 0,
+            transition: highResImageLoaded ? 'opacity 0.8s ease' : 'none',
+          }}
           onError={() => {
             if (isProxyImageUrl(resolvedHighResSrc) && highResRawSrc) {
               setResolvedHighResSrc(highResRawSrc)
@@ -173,6 +165,12 @@ export default function ProgressiveImage(
             setError(t('Tips.imageLoadFailed'))
           }}
         />
+      )}
+
+      {error && (
+        <div className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-1 text-xs text-white">
+          {error}
+        </div>
       )}
 
       {showFullScreenViewer ? (

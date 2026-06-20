@@ -93,7 +93,7 @@ export default function DefaultGallery(props: Readonly<ImageHandleProps>) {
       {/* Island header */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2.5rem 1rem 0.5rem', gap: 12, position: 'relative' }}>
         {/* AC clock */}
-        <div style={{ position: 'absolute', top: 24, right: 24 }}>
+        <div className="hidden xl:block" style={{ position: 'absolute', top: 24, right: 24 }}>
           <Time />
         </div>
 

@@ -11,12 +11,12 @@ import { useRouter } from 'next-nprogress-bar'
 import { useBlurImageDataUrl, DEFAULT_HASH } from '~/hooks/use-blurhash.ts'
 import { MotionImage } from '~/components/album/motion-image'
 import { Skeleton } from '~/components/ui/skeleton'
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { isProxyImageUrl, toProxyImageUrl } from '~/lib/utils/image-proxy'
 import { formatExifDateTimeForDisplay } from '~/lib/utils/exif-time'
 import { Icon, Tooltip } from 'animal-island-ui'
 
-export default function GalleryImage({ photo, configData }: { photo: ImageType, configData: any }) {
+function GalleryImage({ photo, configData }: { photo: ImageType, configData: any }) {
   const router = useRouter()
 
   const { data: download = false, mutate: setDownload } = useSWR(['masonry/download', photo?.url ?? ''], null)
@@ -40,6 +40,25 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
     setThumbLoading(true)
     setHdLoaded(false)
   }, [thumbUrl, hdUrl])
+
+  // Preload HD with decode() so the browser has the full image ready before crossfade.
+  // Avoids progressive-JPEG stripe rendering that appears when setting src directly on <img>.
+  useEffect(() => {
+    if (!resolvedHd || resolvedHd === resolvedThumb) return
+    let cancelled = false
+    const img = new window.Image()
+    img.src = resolvedHd
+    img.onload = async () => {
+      try { await img.decode() } catch { /* ignore */ }
+      if (!cancelled) setHdLoaded(true)
+    }
+    img.onerror = () => {
+      if (!cancelled && isProxyImageUrl(resolvedHd) && hdUrl) {
+        setResolvedHd(hdUrl)
+      }
+    }
+    return () => { cancelled = true }
+  }, [resolvedHd, resolvedThumb, hdUrl])
 
   async function downloadImg() {
     setDownload(true)
@@ -112,7 +131,7 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
           }}
         />
 
-        {/* HD original (top layer, fades in) */}
+        {/* HD original (top layer, fades in after full decode via preloader effect) */}
         {resolvedHd && resolvedHd !== resolvedThumb && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -127,11 +146,7 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
               height: '100%',
               objectFit: 'cover',
               opacity: hdLoaded ? 1 : 0,
-              transition: 'opacity 0.8s ease',
-            }}
-            onLoad={() => setHdLoaded(true)}
-            onError={() => {
-              if (isProxyImageUrl(resolvedHd) && hdUrl) setResolvedHd(hdUrl)
+              transition: hdLoaded ? 'opacity 0.8s ease' : 'none',
             }}
           />
         )}
@@ -322,3 +337,5 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
     </div>
   )
 }
+
+export default memo(GalleryImage)

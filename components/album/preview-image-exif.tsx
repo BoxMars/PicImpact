@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import dynamic from 'next/dynamic'
 import { Icon } from 'animal-island-ui'
 import type { ImageDataProps } from '~/types/props'
 import {
@@ -10,20 +11,23 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '~/components/ui/dialog'
-import { CameraIcon } from '~/components/icons/camera'
-import { ApertureIcon } from '~/components/icons/aperture'
-import { TimerIcon } from '~/components/icons/timer'
-import { CrosshairIcon } from '~/components/icons/crosshair'
-import { GaugeIcon } from '~/components/icons/gauge'
-import { TelescopeIcon } from '~/components/icons/telescope'
-import { FlaskIcon } from '~/components/icons/flask'
 import { toast } from 'sonner'
-import { CopyIcon } from '~/components/icons/copy'
 import { useTranslations } from 'next-intl'
 import { ScrollArea } from '~/components/ui/scroll-area'
-import HistogramChart from '~/components/album/histogram-chart'
-import ToneAnalysis from '~/components/album/tone-analysis'
 import { formatExifDateTimeForDisplay } from '~/lib/utils/exif-time'
+
+// Heavy canvas-analysis components — only loaded when dialog opens
+const HistogramChart = dynamic(() => import('~/components/album/histogram-chart'), { ssr: false })
+const ToneAnalysis = dynamic(() => import('~/components/album/tone-analysis'), { ssr: false })
+
+// Animated icon components each bundle framer-motion — lazy-load so they don't block initial paint
+const CameraIcon = dynamic(() => import('~/components/icons/camera').then(m => ({ default: m.CameraIcon })))
+const ApertureIcon = dynamic(() => import('~/components/icons/aperture').then(m => ({ default: m.ApertureIcon })))
+const TimerIcon = dynamic(() => import('~/components/icons/timer').then(m => ({ default: m.TimerIcon })))
+const CrosshairIcon = dynamic(() => import('~/components/icons/crosshair').then(m => ({ default: m.CrosshairIcon })))
+const GaugeIcon = dynamic(() => import('~/components/icons/gauge').then(m => ({ default: m.GaugeIcon })))
+const TelescopeIcon = dynamic(() => import('~/components/icons/telescope').then(m => ({ default: m.TelescopeIcon })))
+const CopyIcon = dynamic(() => import('~/components/icons/copy').then(m => ({ default: m.CopyIcon })))
 
 // Row component for unified key-value display
 function Row({ label, value }: { label: string; value: string | number | null | undefined }) {

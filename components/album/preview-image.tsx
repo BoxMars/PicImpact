@@ -180,9 +180,9 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
 
   return (
     <div className="flex flex-col overflow-y-auto scrollbar-hide h-full rounded-none! max-w-none gap-0 p-2">
-      <div className="relative h-full flex flex-col space-y-2 sm:grid sm:gap-4 sm:grid-cols-3 w-full">
+      <div className="relative flex flex-col space-y-2 sm:h-full sm:grid sm:gap-4 sm:grid-cols-3 w-full">
 
-        {/* Left: photo */}
+        {/* Left: photo — natural aspect ratio on mobile, height-constrained on desktop */}
         <div className="sm:col-span-2 sm:flex sm:justify-center sm:max-h-[90vh] select-none">
           {props.data.type === 1
             ? <ProgressiveImage
@@ -201,7 +201,7 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
           }
         </div>
 
-        {/* Right: island info panel — single unified scrollable card */}
+        {/* Right: island info panel */}
         <ScrollArea className="sm:max-h-[90vh] scrollbar-hide">
           <div
             style={{

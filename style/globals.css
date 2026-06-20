@@ -239,8 +239,8 @@
   transform: translateY(-2px);
 }
 
-/* AC custom cursor — applied globally so it covers the entire viewport */
-*, *::before, *::after {
+/* AC custom cursor */
+* {
   cursor: url('/cursor-icon.png') 4 0, auto !important;
 }
 

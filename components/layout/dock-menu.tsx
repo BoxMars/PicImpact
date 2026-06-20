@@ -32,14 +32,14 @@ export default function DockMenu(props: Readonly<AlbumDataProps>) {
       <div
         style={{
           position: 'fixed',
-          bottom: 28,
+          bottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 50,
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
-          padding: '10px 20px',
+          gap: 6,
+          padding: '8px 16px',
           background: 'rgb(247, 243, 223)',
           border: '2.5px solid #c4b89e',
           borderRadius: 50,
