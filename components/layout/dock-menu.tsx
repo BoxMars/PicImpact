@@ -54,8 +54,6 @@ export default function DockMenu(props: Readonly<AlbumDataProps>) {
           <Icon name="icon-map" size={22} />
         </DockButton>
 
-        <div style={{ width: 1, height: 28, background: '#c4b89e', margin: '0 4px' }} />
-
         <DockButton
           label={t('Words.album')}
           onClick={() => setIsOpen(true)}
@@ -64,7 +62,6 @@ export default function DockMenu(props: Readonly<AlbumDataProps>) {
           <Icon name="icon-critterpedia" size={22} />
         </DockButton>
 
-        <div style={{ width: 1, height: 28, background: '#c4b89e', margin: '0 4px' }} />
 
         <DockButton
           label={t('Link.settings')}
