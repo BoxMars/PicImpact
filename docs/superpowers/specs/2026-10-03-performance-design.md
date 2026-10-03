@@ -143,6 +143,33 @@ Cloudflare Containers 明确要求 Workers 付费计划（API 返回 401 `Deploy
 
 **影响**：首屏慢与滚动掉帧的主因，单项即解释大部分报障。
 
+#### R1.1 实施后的实测修正（2026-10-03）
+
+计划里"Task 1 可省 82.73 MB"的估计**不准确**，实测如下：
+
+| 阶段 | 首屏图片字节 | 说明 |
+|---|---|---|
+| 改动前 | 122.78 MB | 16 preview + 24 原图（原图既作缩略图兜底又作 HD 图层） |
+| Task 1 后（实测） | **68.55 MB** | 省 **54.23 MB**；HD 图层与冗余预加载已消除 |
+| P0.2 后（预期） | ≈ 2–3 MB | 生成真实 400px 缩略图后 |
+
+**剩余 68.55 MB 的构成**：
+
+| 来源 | 字节 |
+|---|---|
+| 8 张**空 `preview_url`** 的照片 → 回退加载原图 | 28.50 MB |
+| 16 张 preview（其中 2 张是 12MP PNG） | 40.05 MB（35.88 MB 来自那 2 张 PNG） |
+
+#### R1.2 新发现的数据缺陷：`preview_url` 为空字符串（不是 NULL）
+
+**证据**：只读查询实测——`images` 表中 `del = 0` 共 39 行，其中 **8 行 `preview_url = ''`（空字符串）**，`preview_url IS NULL` 为 0 行。首页精确复现查询（`server/db/query/images.ts:181-196`，条件 `del = 0 AND show = 0 AND show_on_mainpage = 0`，按 EXIF 拍摄时间排序，`LIMIT 24`）返回的 24 行里正好有 **8 行**为空。
+
+**为什么之前被漏判**：初版聚合查询用 `COUNT(preview_url)` 统计"有缩略图"的覆盖率，而 SQL 的 `COUNT(col)` **不把空字符串视为 NULL**，因此 8 行空串被计为"有值"，得出"39/39 都有 preview"的错误结论。
+
+**后果**：`components/gallery/simple/gallery-image.tsx:29` 的 `thumbUrl = photo.preview_url || photo.url` 对空字符串求值为假 → 回退到全分辨率原图作为网格缩略图。经 HTML 逐条比对，这 8 个 id 与页面中 8 个 `src=原图` 的 `<img>` **完全一一对应**。
+
+**归属**：由 P0.2 的历史数据迁移修复（迁移脚本必须同时处理 NULL、空字符串、以及"格式/尺寸不合格"三类不合格值，判据是"最长边 ≤ 400 且为 webp"，而不是"非 NULL"）。
+
 ### R2（高）网格无虚拟化、无限追加、CSS 多列全量重排
 
 **证据**：`server/db/query/images.ts:19` `DEFAULT_SIZE = 24`；`components/layout/theme/simple/simple-gallery.tsx:48` `[].concat(...data)` 只追加不回收；同文件 `:119` `columns-1 sm:columns-2 lg:columns-3`（CSS `columns` 每次追加都重排整个容器）；全仓库无虚拟化库。
