@@ -68,6 +68,24 @@ export async function generateThumbnail(input: Buffer | Uint8Array): Promise<Thu
 }
 
 /**
+ * 读取原图**应用 EXIF 方向之后**的显示尺寸。
+ *
+ * sharp 的 `metadata()` 返回的是存储尺寸，不含方向信息。当 EXIF orientation 为 5~8 时
+ * 宽高需要互换。原实现客户端用 `checkOrientation: false`，导致 `images.width/height`
+ * 与实际显示方向不一致（实测有行存成 `4284x5712` 而文件是 `5712x4284`），
+ * 网格的宽高比因此错位。上传时用本函数把真实显示尺寸写回。
+ */
+export async function readDisplaySize(
+  input: Buffer | Uint8Array,
+): Promise<{ width: number; height: number }> {
+  const meta = await sharp(input, { failOn: 'none' }).metadata()
+  const swap = meta.orientation != null && meta.orientation >= 5 && meta.orientation <= 8
+  const width = (swap ? meta.height : meta.width) ?? 0
+  const height = (swap ? meta.width : meta.height) ?? 0
+  return { width, height }
+}
+
+/**
  * 由原图 object key 推导缩略图 key，沿用既有目录约定 `<dir>/preview/<name>.webp`。
  *
  * 例：`images/daily/abc.jpeg` → `images/daily/preview/<newName>.webp`

@@ -153,33 +153,13 @@ export default function MultipleFileUpload() {
     }
   }
 
-  async function uploadPreviewImage(file: File, type: string, url: string) {
-    new Compressor(file, {
-      quality: previewCompressQuality,
-      checkOrientation: false,
-      mimeType: 'image/webp',
-      maxWidth: previewImageMaxWidthLimitSwitchOn && previewImageMaxWidthLimit > 0 ? previewImageMaxWidthLimit : undefined,
-      async success(compressedFile) {
-        const res = await uploadFile(compressedFile, type, storage, openListMountPath)
-        if (res?.code === 200) {
-          await autoSubmit(file, url, res?.data?.url)
-        } else {
-          throw new Error('Upload failed')
-        }
-      },
-      error() {
-        throw new Error('Upload failed')
-      },
-    })
-  }
-
   async function resHandle(res: any, file: File) {
     try {
-      if (album === '/') {
-        await uploadPreviewImage(file, '/preview', res?.data?.url)
-      } else {
-        await uploadPreviewImage(file, album + '/preview', res?.data?.url)
-      }
+      // 缩略图不再由客户端生成：服务端在 `POST /api/v1/images/add` 里用 sharp 生成
+      // （见 hono/images.ts 的 attachManagedPreview）。原逻辑用 Compressor.js 且
+      // `maxWidth` 被配置项（preview_max_width_limit=0）求值为 undefined，
+      // 只重编码不缩放，产出的是 12MP 的"缩略图"。这里传空串让服务端接管。
+      await autoSubmit(file, res?.data?.url, '')
     } catch (e) {
       throw new Error('Upload failed')
     }

@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 import useSWR from 'swr'
 import { fetcher } from '~/lib/utils/fetcher'
 import type { ExifType, AlbumType, ImageType } from '~/types'
-import Compressor from 'compressorjs'
 import {
   Select,
   SelectContent,
@@ -58,10 +57,6 @@ export default function LivephotoFileUpload() {
 
   const { data, isLoading } = useSWR('/api/v1/albums/get', fetcher)
   const { data: configs } = useSWR<{ config_key: string, config_value: string }[]>('/api/v1/settings/get-custom-info', fetcher)
-
-  const previewImageMaxWidthLimitSwitchOn = configs?.find(config => config.config_key === 'preview_max_width_limit_switch')?.config_value === '1'
-  const previewImageMaxWidthLimit = parseInt(configs?.find(config => config.config_key === 'preview_max_width_limit')?.config_value || '0')
-  const previewCompressQuality = parseFloat(configs?.find(config => config.config_key === 'preview_quality')?.config_value || '0.2')
 
   useEffect(() => {
     if (!data || data.length === 0) {
@@ -195,26 +190,6 @@ export default function LivephotoFileUpload() {
     }
   ]
 
-  async function uploadPreviewImage(file: File, type: string) {
-    new Compressor(file, {
-      quality: previewCompressQuality,
-      checkOrientation: false,
-      mimeType: 'image/webp',
-      maxWidth: previewImageMaxWidthLimitSwitchOn && previewImageMaxWidthLimit > 0 ? previewImageMaxWidthLimit : undefined,
-      async success(compressedFile) {
-        const res = await uploadFile(compressedFile, type, storage, openListMountPath)
-        if (res?.code === 200) {
-          setPreviewUrl(res?.data?.url)
-        } else {
-          throw new Error('Upload failed')
-        }
-      },
-      error() {
-        throw new Error('Upload failed')
-      },
-    })
-  }
-
   async function resHandle(res: any, file: File, type: number) {
     if (type === 2) {
       if (res?.code === 200) {
@@ -224,15 +199,9 @@ export default function LivephotoFileUpload() {
       }
     } else {
       if (res?.code === 200) {
-        try {
-          if (album === '/') {
-            await uploadPreviewImage(file, '/preview')
-          } else {
-            await uploadPreviewImage(file, album + '/preview')
-          }
-        } catch (e) {
-          throw new Error('Upload failed')
-        }
+        // 缩略图不再由客户端生成：服务端在入库时用 sharp 生成受管缩略图。
+        // （原逻辑用 Compressor.js，其 maxWidth 被 preview_max_width_limit=0 求值为
+        //  undefined，只重编码不缩放，产出 12MP 的"缩略图"。）
         await loadExif(file)
         setHash(await encodeBrowserThumbHash(file))
         setUrl(res?.data?.url)
