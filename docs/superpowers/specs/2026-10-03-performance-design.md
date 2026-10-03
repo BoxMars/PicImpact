@@ -2,7 +2,7 @@
 
 - **日期**：2026-10-03
 - **目标仓库**：`/Users/box/Work/PicImpact` @ `f1bfcdb`
-- **生产地址**：`https://felina.boxz.dev`（Cloudflare 前置，回源 Next.js standalone）
+- **生产地址**：`https://felina.boxz.dev`（**Cloudflare 代理/CDN → Vercel 源站**；见 §1.1.1 的更正）
 - **资产域**：`https://felina-asset.boxz.dev`（R2 自定义域）
 - **状态**：设计待评审 → 通过后进入 `writing-plans`
 
@@ -49,7 +49,18 @@
 
 **修正后的结论**：资产域自身的边缘缓存是**正常工作的**。真正的损失是**所有图片都被强制绕经 `/api/public/url-proxy`** —— 这个路径不可缓存，于是每次图片请求都要多一次源站往返，边缘缓存带来的收益被完全抵消。因此图片链路的首要修复是**把代理从图片路径上摘掉**（纯代码改动），而不是新增边缘缓存规则。
 
-Cloudflare Containers 明确要求 Workers 付费计划（API 返回 401 `Deploying containers requires the Workers Paid plan`），账号下的 4 个 Worker 脚本均与本项目无关 → **本项目的 Next.js 源站跑在 Cloudflare 之外的服务器上**，这解释了 2.4s 的 TTFB（源站 + 东京数据库往返）。
+**⚠️ 源站更正（2026-10-03，用户指出）**：本项目**部署在 Vercel**，Cloudflare 只是前面的代理/CDN。用户最初口述"部署在 CF"是记错了。
+
+生产响应头实测证据：
+```
+server: cloudflare
+x-vercel-id: sin1::iad1::tmqd9-…
+x-vercel-cache: MISS          ← HTML（动态渲染）
+cf-ray: a44c04543ac9b486-SIN
+```
+以及静态资源的 `x-vercel-cache: HIT`（`age: 183411`）。
+
+我最初的推断（"Cloudflare Containers 需要付费计划、账号下 4 个 Worker 与本项目无关 → 源站在 CF 之外的某台服务器"）**方向对但结论错**：源站确实在 CF 之外，但不是自建服务器，而是 Vercel。这一点推翻了下文若干判断的前提，最直接的一个是 `unoptimized` 的处理（见 §12.7）。
 
 ### 1.2 首屏图片字节明细（24 张卡片）
 
@@ -568,7 +579,7 @@ Cloudflare Containers 明确要求 Workers 付费计划（API 返回 401 `Deploy
 
 1. **P2.1 的语言方案**（`Accept-Language` 协商 vs `[locale]` 路由段）——影响 URL 结构与 SEO，需用户单独拍板。
 2. **`/[album]` 的实际 `pageTotal`**（当前图库仅 39 行，收益会随增长放大）。
-3. **生产回源位置**（Cloudflare Containers / Workers / VPS）——决定 Prisma 连接与缓存手段；用户已完成 `wrangler login` 后需核对。
+3. ~~**生产回源位置**~~ —— 已确认：**Vercel**（Cloudflare 仅作代理）。见 §1.1.1 的更正。
 4. **`@fontsource` 覆盖 vs PostCSS 剥离**哪条路在生产构建下确定生效——必须实测，不接受推断。
 5. **`tone-analysis`/`histogram-chart` 的 `_t=` 分支是否在生产实际触发**（取决于 `preview_url` 是否与站同源）。
 6. **`typewriter`/`Time`/`bounce` 等动效的保留边界**——P1.3 涉及观感，需在计划评审时逐项确认。
@@ -678,3 +689,75 @@ TTFB 的实现方式：`unstable_cache` 覆盖 configs / albums / 画廊列表�
 - **新增索引 3 条**（已通过 `prisma migrate deploy` 应用并验证）：`images_albums_relation_album_value_imageId_idx`、`images_visible_sort_created_idx`、`images_labels_gin_idx`。
 - **一次失败的迁移已按流程处理**：首次 `images_labels_gin_idx` 因 `labels` 列真实类型是 `json`（非 jsonb）报 42704，事务回滚（0/3 索引）；修正为表达式索引 `((labels)::jsonb)` 后 `migrate resolve --rolled-back` + 重新 `deploy`，最终 3/3 成功。
 - **未部署**：以上改动均只落在本地 git，生产 `felina.boxz.dev` 仍是旧版本，需要一次部署才能生效。
+
+---
+
+## 12.7 因源站更正而改判的一项：`next/image` 优化
+
+**原判断（错）**：不摘 `unoptimized`，理由是"`/_next/image` 无扩展名、Cloudflare Standard 缓存级别不存储它、每次请求都要打源站跑 sharp，摘掉会让 TTFB 与源站 CPU 更糟"。
+
+**为什么错**：那套推理假定源站是 CF，而 CF 对无扩展名路径不缓存。真实源站是 **Vercel**，`/_next/image` 的优化结果由边缘缓存（实测 `cf-cache-status: HIT` + `vary: Accept`）。
+
+**改判后的实测**（同一张 800px 缩略图，直连 75,012 B，浏览器 `Accept` 下返回 AVIF）：
+
+| 请求宽度 | 优化后 | 体积变化 | 对应真实场景 |
+|---|---|---|---|
+| `w=384` | 18,307 B | −76% | —（真实布局不会请求这个宽度） |
+| `w=640` | 36,383 B | **−51%** | 桌面 1x（3 列容器约 420px） |
+| `w=828` | 63,599 B | −15% | 手机 DPR 2（390 CSS px） |
+| `w>=1080` | 63,599 B | −15% | 手机 DPR 3（受源图 800px 上限，不放大） |
+
+**诚实修正**：我在对话中一度引用"−75%"（那是 `w=384` 的数字，真实布局不请求该宽度）。**真实收益是桌面 1x 约 −51%、手机约 −15%。**
+
+**代价**：首页 HTML 从 289 KB 涨到 326 KB（24 个 `srcSet` 各含约 10 个候选 URL），gzip 后增幅远小于此；另需消耗 Vercel 的图片转换额度（本项目 39 张图 × 数个宽度，月度量级几百，远低于额度）。
+
+**保留 `unoptimized` 的位置**：`nav-title`（32×32 logo）、`login`/`sign-up`/`admin/about`（40×40 / 64×64 logo）、`admin/list` 与 `admin/list/image-view`（后台，避免消耗额度）。优化几十像素的图没有收益。
+
+---
+
+## 13. P2.1 的重估：现在是最大的一块（待用户决策）
+
+### 13.1 为什么重估
+
+我在 §12.4 把 P2.1（locale 移出 `cookies()` → 静态化）判为"收益边际化"，依据是**本地热缓存 TTFB 已到 15 ms**。但那是本地单进程的表现。**生产实测**：
+
+| | 本地热缓存 | 生产（Vercel） |
+|---|---|---|
+| TTFB | 0.015 s | **1.18 / 1.95 / 2.50 s** |
+| HTML 缓存 | — | `x-vercel-cache: MISS`（动态渲染，永不进边缘） |
+| 对比：静态资源 | — | `x-vercel-cache: HIT`（`age: 183411`） |
+
+Vercel 的 Data Cache 在 serverless 下没能把 HTML 变成边缘可缓存的——页面是动态渲染，所以每次都进函数（冷启动 + Prisma 到东京建连）。**而 Vercel 的边缘缓存对静态内容是工作得很好的**（静态资源 `age` 已 2 天）。
+
+因此：**只要让公开页可静态化/ISR，HTML 就会进 Vercel 边缘缓存，TTFB 预期从 1.2–2.5 s 降到几十毫秒**，比已完成的任何一项都大。
+
+### 13.2 技术现状（已核实）
+
+- `getLocale()` / `getMessages()` **只在 `app/layout.tsx:57,59` 一处**调用。
+- 除 auth 外，`cookies()` 只出现在 `lib/utils/locale.ts:10,14`。
+- 唯一显式 `force-dynamic` 的公开路由是 `app/(theme)/map/page.tsx:5`。
+
+也就是说，把根 layout 的 locale 读取改成使用 `defaultLocale` + 静态导入的 messages，公开路由就具备静态化条件。**语言切换器只在 admin（`components/layout/admin/nav-user.tsx`），公开站没有入口**。
+
+### 13.3 必须按路由审计的风险（这是我上次没说透、也是我不擅自做的原因）
+
+**`/preview/[id]` 必须保持动态。** 该页读 auth（`fetchImageByIdAndAuth`）且可能渲染非公开图片。若它被静态化并进入 Vercel 边缘缓存，**私密图片的预览页可能被缓存后提供给未登录访客 —— 这是私密内容泄露**。同理 `/login`、`/sign-up`（依赖 `checkUserExists` 的用户态）、`/admin/*`（鉴权）都必须显式 `force-dynamic`。
+
+可安全静态化/ISR 的白名单（仅这些，且内容对所有访客一致）：
+
+| 路由 | 依据 |
+|---|---|
+| `/` | 公开画廊 |
+| `/[album]` | 公开相册 |
+| `/tag/[tag]` | 公开标签页 |
+| `/map` | 公开地图（需去掉现有的 `force-dynamic`） |
+| `/rss.xml` | 公开 feed |
+
+### 13.4 两个行为取舍（需你确认）
+
+1. **站主在 admin 里选的语言不再作用于公开页**：公开页将固定使用 `defaultLocale`（`zh`）。对访客无影响（他们本来就没有切换入口），只影响你自己浏览公开页时的语言。
+2. **新照片在公开页最多延迟约 60 秒出现**：需要给公开页加 ISR `revalidate`（否则静态页只在重新部署时更新）。缓解：图片写入时已调用 `revalidateTag('images')`，正常情况下应立即刷新；60 秒是兜底。
+
+### 13.5 建议
+
+值得做，收益远大于取舍。但因为它触及鉴权相关路由的缓存语义，**我按 §12.4 的承诺把它留给你拍板**：确认后我会只对 §13.3 的白名单加 ISR，并对 `/preview/[id]`、`/login`、`/sign-up`、`/admin/*` **显式**加 `export const dynamic = 'force-dynamic'`（加注释说明原因），然后用构建输出验证「白名单是静态/ISR、其余仍是动态」，再推。
