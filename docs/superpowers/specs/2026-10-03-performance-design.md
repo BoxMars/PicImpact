@@ -804,3 +804,32 @@ async function i({formats, locale, messages, now, timeZone, ...g}) {
 **已知取舍（如 §13.4 所述，已生效）**：站主在 admin 选的语言不再作用于公开页；新照片在公开页最多延迟约 60 秒（图片写入已调用 `revalidateTag('images')`，正常情况下立即刷新）。
 
 **踩坑记录**：`json_array_elements_text` 没有 jsonb 重载，jsonb 版本名为 `jsonb_array_elements_text`；`labels` 列真实类型是 `json`，需 `::jsonb` 转换并用 `jsonb_typeof(...) = 'array'` 兜住脏数据。这个错误由构建期的 `generateStaticParams` 直接暴露出来。
+
+### 13.7 生产验证与测量口径修正（重要）
+
+**结构目标已达成**，`/daily` 连续三次请求实测：
+
+| 次序 | `x-vercel-cache` | `age` |
+|---|---|---|
+| 1 | `STALE` | 99（超过 60s 的 `revalidate`，触发后台再生） |
+| 2 | `HIT` | 1（刚再生） |
+| 3 | `HIT` | 8 |
+
+即：**函数 + Prisma 到东京的查询不再发生在每次请求上，只在每 60 秒的再生时执行一次**。改动前是恒定的 `x-vercel-cache: MISS`（每次请求都进 serverless 函数）。
+
+**但必须修正测量口径**：我**无法**从本机证明用户可感知的 TTFB 改善，因为瓶颈在测量链路上。对照实验：
+
+| 对象 | TTFB（同一时段 3 次） |
+|---|---|
+| 纯静态 JS chunk（`cf-cache-status: HIT`，`age: 1547`，92 KB） | 0.88 / 4.17 / 2.42 s |
+| 本页 HTML（`x-vercel-cache: HIT`，309 KB） | 1.12 / 2.24 / 1.84 s |
+
+**一个早已边缘命中的静态资源与我们的 HTML 一样慢** —— 说明绝对 TTFB 由本机到 CF/Vercel 的网络链路主导（吞吐仅约 100 KB/s），而非应用层。因此：
+
+- ✅ 可以证实的：缓存语义（`MISS` → `HIT`/`STALE`）、响应头、以及函数与数据库离开热路径。
+- ❌ 不能凭本机数据宣称的：TTFB 降到几十毫秒。**要验证真实用户体感，需从中立位置测量**（WebPageTest、或换一条网络）。
+
+**仍留在桌面上的两项（按收益排序）**：
+
+1. **让 Cloudflare 缓存 HTML**。当前 Vercel 把 `Cache-Control` 改写为 `public, max-age=0, must-revalidate`，因此 `cf-cache-status: DYNAMIC` —— 每次请求仍要跨到 Vercel（`x-vercel-id` 显示回源在 `iad1`，美东）。给公开路径加一条 CF Cache Rule（Cache Everything，Edge TTL 60s，**排除 `/preview/*`、`/admin/*`、`/api/*`**）可让 HTML 由 CF 边缘直接命中。需要 zone 级 API 权限（当前 OAuth token 无此权限）或面板操作。
+2. **换用更近的 Vercel 区域**（当前回源在美东 `iad1`，而数据库在东京、用户在亚洲）。Vercel 项目的 Region 改成 `hnd1`（东京）可同时缩短 函数→数据库 与 边缘→函数 的距离。
