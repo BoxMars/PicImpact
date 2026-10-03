@@ -31,8 +31,6 @@
     "@aws-sdk/client-s3": "3.1000.0",
     "@aws-sdk/s3-request-presigner": "3.1000.0",
     "@better-auth/passkey": "1.5.0",
-    "@heroui/react": "3.0.0-beta.7",
-    "@heroui/styles": "3.0.0-beta.7",
     "@hono/node-server": "1.19.9",
     "@hookform/resolvers": "3.10.0",
     "@paralleldrive/cuid2": "2.2.2",
