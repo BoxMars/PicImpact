@@ -7,6 +7,9 @@ import { getRSSImages } from '~/server/db/query/images'
  * RSS 是纯公开、变动缓慢的资源，但此前没有任何缓存指令，每次抓取都会
  * 触发 `getRSSImages`（对整张 images 表的窗口函数查询）。交给 Next 的 ISR 缓存。
  */
+// Route Handler 默认是动态的，仅声明 revalidate 不够 —— 必须显式 force-static
+// 才会在构建期生成并按 revalidate 周期再生（否则响应不带任何 cache-control，实测）。
+export const dynamic = 'force-static'
 export const revalidate = 600
 
 export async function GET(request: Request) {

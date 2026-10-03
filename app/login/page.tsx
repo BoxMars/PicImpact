@@ -3,6 +3,13 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { fetchSiteBranding } from '~/server/db/query/configs'
 
+/**
+ * 必须保持动态渲染。
+ * 该页依赖鉴权/用户态：一旦被静态化并进入边缘缓存，边缘会在**不调用函数与中间件**
+ * 的情况下直接返回缓存内容，从而把非公开数据暴露给未登录访客。
+ */
+export const dynamic = 'force-dynamic'
+
 export default async function Login() {
   const branding = await fetchSiteBranding()
 

@@ -761,3 +761,46 @@ Vercel 的 Data Cache 在 serverless 下没能把 HTML 变成边缘可缓存的�
 ### 13.5 建议
 
 值得做，收益远大于取舍。但因为它触及鉴权相关路由的缓存语义，**我按 §12.4 的承诺把它留给你拍板**：确认后我会只对 §13.3 的白名单加 ISR，并对 `/preview/[id]`、`/login`、`/sign-up`、`/admin/*` **显式**加 `export const dynamic = 'force-dynamic'`（加注释说明原因），然后用构建输出验证「白名单是静态/ISR、其余仍是动态」，再推。
+
+### 13.6 实施结果（已完成）
+
+用户批准后实施完成。**关键发现：真正的阻塞点不是 `cookies()`，而是 `next-intl` 的 provider。**
+
+移除根 layout 的 `getLocale()`/`getMessages()` 之后，公开路由**仍然是 `ƒ (Dynamic)`**。用最小探针页二分定位（`app/probe-root/page.tsx` 只经过根 layout，同样 `ƒ`），最终锁定到 `NextIntlClientProvider`。读 next-intl 4.8.3 源码确认，服务端入口的实现在**所有 props 都给全**的情况下仍有条件 await：
+
+```js
+async function i({formats, locale, messages, now, timeZone, ...g}) {
+  return <Provider
+    formats={formats===undefined ? await getFormats() : formats}
+    locale={locale ?? await getLocale()}
+    messages={messages===undefined ? await getMessages() : messages}
+    now={now ?? await getConfigNow()}
+    timeZone={timeZone ?? await getTimeZone()} .../>
+}
+```
+
+即只要 `formats` / `now` 未传，就会 `await getFormats()` / `await getConfigNow()` → 走 `i18n.ts` → `lib/utils/locale.ts` 的 `cookies()` → 整棵树动态。
+
+**解法**：把 provider 放进 `'use client'` 模块（新增 `app/providers/intl-provider.tsx`）。客户端入口解析到 `shared/NextIntlClientProvider.js`，是纯取 props、无 await 的组件。语言包同时从"每次随不可缓存 HTML 下发"移到"可长期缓存的 JS chunk"（`messages/zh.json` 仅 15.8 KB）。`useNow`/`useFormatter`/`useTimeZone` 全站未使用，故不传 `now`/`formats`，无水合不一致风险。
+
+**另一处必备条件**：动态路由段（`[...album]`、`[...tag]`）必须提供 `generateStaticParams`，否则即使声明 `revalidate`，响应仍是 `private, no-cache, no-store`。已分别用 `fetchAlbumsShow()` 与新增的 `fetchAllTags()` 提供。Route Handler（`/rss.xml`）还需显式 `dynamic = 'force-static'`。
+
+**实测 Cache-Control**（本地生产构建）：
+
+| 路由 | 之前 | 现在 |
+|---|---|---|
+| `/` | `no-store` | **`s-maxage=60, stale-while-revalidate=31535940`** |
+| `/[album]`（`/daily`） | `no-store` | **`s-maxage=60, …`** |
+| `/map` | `no-store`（且 `force-dynamic`） | **`s-maxage=60, …`** |
+| `/tag/[...tag]` | `no-store` | **`s-maxage=60, …`** |
+| `/rss.xml` | 无 cache-control | **`s-maxage=300, …`** |
+| `/preview/[id]` | `no-store` | `no-store`（**刻意保持**） |
+| `/login`、`/sign-up`、`/admin/*` | `no-store` | `no-store`（**刻意保持**） |
+
+**路由表验证**：`○ /`、`● /[...album]`（`└ /daily` 预渲染）、`○ /map`、`○ /rss.xml`、`● /tag/[...tag]` 为静态/ISR；`ƒ /preview/[...id]`、`ƒ /(...)preview/[id]`、`ƒ /login`、`ƒ /sign-up`、`ƒ /admin/*` 保持动态。**鉴权与私密内容不会被边缘缓存**。
+
+**回归验证**：翻译正常（`首页`/`相册`/`设置` 均出现在 SSR HTML 中）；`/_next/image` 引用 252 处、`srcSet` 24 个；eslint 0 errors。
+
+**已知取舍（如 §13.4 所述，已生效）**：站主在 admin 选的语言不再作用于公开页；新照片在公开页最多延迟约 60 秒（图片写入已调用 `revalidateTag('images')`，正常情况下立即刷新）。
+
+**踩坑记录**：`json_array_elements_text` 没有 jsonb 重载，jsonb 版本名为 `jsonb_array_elements_text`；`labels` 列真实类型是 `json`，需 `::jsonb` 转换并用 `jsonb_typeof(...) = 'array'` 兜住脏数据。这个错误由构建期的 `generateStaticParams` 直接暴露出来。

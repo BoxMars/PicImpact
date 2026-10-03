@@ -1,7 +1,7 @@
 import { fetchClientImagesListByAlbum, fetchClientImagesPageTotalByAlbum } from '~/server/db/query/images.ts'
 import type { ImageHandleProps } from '~/types/props.ts'
 import { fetchConfigsByKeys } from '~/server/db/query/configs.ts'
-import { fetchAlbumByRouter } from '~/server/db/query/albums.ts'
+import { fetchAlbumByRouter, fetchAlbumsShow } from '~/server/db/query/albums.ts'
 import dynamic from 'next/dynamic'
 import 'react-photo-album/masonry.css'
 import type { AlbumType, Config } from '~/types'
@@ -14,6 +14,29 @@ const DefaultGallery = dynamic(() => import('~/components/layout/theme/default/d
 const PolaroidGallery = dynamic(() => import('~/components/layout/theme/polaroid/polaroid-gallery'))
 
 const ALBUM_CONFIG_KEYS = ['custom_index_download_enable']
+
+/**
+ * ISR：本页内容对所有访客一致且无需鉴权，可进 Vercel 边缘缓存。
+ * 原先因根 layout 读 cookie 而永远动态渲染（x-vercel-cache: MISS）。
+ * 图片写入时会调用 revalidateTag('images')，正常情况下新照片立即出现；
+ * 60 秒是兜底，避免标签失效未覆盖到路由缓存时长期不更新。
+ */
+export const revalidate = 60
+
+/**
+ * 动态路由段必须提供 generateStaticParams，Next 才会在构建期预渲染这些路径并给出
+ * 可缓存的响应头。否则即使声明了 `revalidate`，响应仍是
+ * `Cache-Control: private, no-cache, no-store`（实测），边缘无法缓存。
+ *
+ * `[...album]` 是 catch-all 段，因此参数以数组形式返回。
+ */
+export async function generateStaticParams() {
+  const albums = await fetchAlbumsShow()
+  return albums
+    .map((a) => a.album_value?.replace(/^\//, ''))
+    .filter((v): v is string => Boolean(v))
+    .map((album) => ({ album: [album] }))
+}
 
 export default async function Page({
   params

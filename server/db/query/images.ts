@@ -323,6 +323,28 @@ async function fetchClientImagesPageTotalByAlbumImpl(
   return Number(pageTotal[0].total) > 0 ? Math.ceil(Number(pageTotal[0].total) / DEFAULT_SIZE) : 0
 }
 
+/**
+ * 全部标签（去重）。供 `/tag/[...tag]` 的 `generateStaticParams` 使用 ——
+ * 动态段只有提供了具体路径，Next 才会在构建期预渲染并给出可缓存的响应头。
+ *
+ * 注意 `labels` 列的真实类型是 `json`（非 jsonb），需先转换；并用
+ * `jsonb_typeof(...) = 'array'` 兜住历史脏数据（非数组的值会让
+ * `json_array_elements_text` 直接报错）。
+ */
+export async function fetchAllTags(): Promise<string[]> {
+  const rows = await db.$queryRaw<Array<{ tag: string }>>`
+    SELECT DISTINCT tag
+    FROM "public"."images" AS image,
+         jsonb_array_elements_text((image.labels)::jsonb) AS tag
+    WHERE image.del = 0
+      AND image.show = 0
+      AND image.labels IS NOT NULL
+      AND jsonb_typeof((image.labels)::jsonb) = 'array'
+    ORDER BY tag
+  `
+  return rows.map((r) => r.tag).filter((t) => Boolean(t))
+}
+
 /** 画廊总数（带跨请求缓存）。缓存策略同 `fetchClientImagesListByAlbum`。 */
 export const fetchClientImagesPageTotalByAlbum = unstable_cache(
   fetchClientImagesPageTotalByAlbumImpl,

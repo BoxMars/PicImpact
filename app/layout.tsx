@@ -8,10 +8,13 @@ import { ButtonStoreProvider } from '~/app/providers/button-store-providers'
 import '~/style/globals.css'
 import { fetchConfigsByKeys } from '~/server/db/query/configs'
 
-import { NextIntlClientProvider } from 'next-intl'
-import { getLocale, getMessages } from 'next-intl/server'
+// 公开页的 intl provider 放在客户端模块里（见该文件注释：从服务端入口导入
+// NextIntlClientProvider 会 await getFormats()/getConfigNow()，从而读 cookie
+// 并把整棵路由树变成动态渲染）。管理端仍按 cookie 选语言，见 app/admin/layout.tsx。
+import { IntlProvider } from '~/app/providers/intl-provider'
 import { ConfigStoreProvider } from '~/app/providers/config-store-providers'
 import Script from 'next/script'
+import { defaultLocale } from '~/i18n'
 
 type ConfigItem = {
   id: string;
@@ -54,10 +57,6 @@ export default async function RootLayout({
   modal: React.ReactNode;
 }>) {
 
-  const locale = await getLocale()
-
-  const messages = await getMessages()
-
   const data = await fetchConfigsByKeys([
     'umami_analytics',
     'umami_host'
@@ -67,7 +66,7 @@ export default async function RootLayout({
   const umamiAnalytics = data?.find((item: ConfigItem) => item.config_key === 'umami_analytics')?.config_value
 
   return (
-    <html className="overflow-y-auto scrollbar-hide" lang={locale} suppressHydrationWarning>
+    <html className="overflow-y-auto scrollbar-hide" lang={defaultLocale} suppressHydrationWarning>
     <head>
       <link rel="manifest" href="/manifest.json" />
       <meta name="theme-color" content="#000000" />
@@ -77,7 +76,7 @@ export default async function RootLayout({
       <meta name="apple-mobile-web-app-title" content="大福映画 Felina Gallery" />
     </head>
     <body>
-    <NextIntlClientProvider messages={messages}>
+    <IntlProvider>
       <ConfigStoreProvider>
         <ButtonStoreProvider>
           <ThemeProvider>
@@ -89,7 +88,7 @@ export default async function RootLayout({
           </ThemeProvider>
         </ButtonStoreProvider>
       </ConfigStoreProvider>
-    </NextIntlClientProvider>
+    </IntlProvider>
     <div id="modal-root" />
     <Script
       id="umami-analytics"
