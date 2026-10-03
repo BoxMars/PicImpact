@@ -10,6 +10,8 @@ import {
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { normalizeExifDateTime } from '~/lib/utils/exif-time'
+import { revalidateTag } from 'next/cache'
+import { IMAGES_TAG } from '~/server/db/query/images'
 import { fetchConfigsByKeys } from '~/server/db/query/configs'
 import {
   R2_CONFIG_KEYS,
@@ -19,6 +21,18 @@ import {
 } from '~/server/lib/preview-storage'
 
 const app = new Hono()
+
+/**
+ * 失效图片相关缓存（画廊列表 / 总数）。包 try/catch：失效失败不应让写操作失败。
+ * 图片有新写入而不失效的话，画廊最长 60 秒看不到变化。
+ */
+function invalidateImages() {
+  try {
+    revalidateTag(IMAGES_TAG)
+  } catch (e) {
+    console.warn('[cache] revalidateTag(images) 失败：', e)
+  }
+}
 
 /**
  * 入库前由**服务端**生成受管缩略图并写回 `preview_url`，同时用原图的真实显示尺寸
@@ -88,6 +102,7 @@ app.post('/add', async (c) => {
     await attachManagedPreview(body)
     // 保存图片信息
     const res = await insertImage(body)
+    invalidateImages()
     return Response.json({
       code: 200,
       data: res
@@ -101,6 +116,7 @@ app.delete('/batch-delete', async (c) => {
   try {
     const data = await c.req.json()
     await deleteBatchImage(data)
+    invalidateImages()
     return c.json({ code: 200, message: 'Success' })
   } catch (e) {
     throw new HTTPException(500, { message: 'Failed', cause: e })
@@ -111,6 +127,7 @@ app.delete('/delete/:id', async (c) => {
   try {
     const { id } = c.req.param()
     await deleteImage(id)
+    invalidateImages()
     return c.json({ code: 200, message: 'Success' })
   } catch (e) {
     throw new HTTPException(500, { message: 'Failed', cause: e })
@@ -130,6 +147,7 @@ app.put('/update', async (c) => {
   }
   try {
     await updateImage(image)
+    invalidateImages()
     return c.json({ code: 200, message: 'Success' })
   } catch (e) {
     throw new HTTPException(500, { message: 'Failed', cause: e })
@@ -139,6 +157,7 @@ app.put('/update', async (c) => {
 app.put('/update-show', async (c) => {
   const image = await c.req.json()
   const data = await updateImageShow(image.id, image.show)
+  invalidateImages()
   return c.json(data)
 })
 
@@ -146,6 +165,7 @@ app.put('/update-Album', async (c) => {
   const image = await c.req.json()
   try {
     await updateImageAlbum(image.imageId, image.albumId)
+    invalidateImages()
     return c.json({
       code: 200,
       message: 'Success'

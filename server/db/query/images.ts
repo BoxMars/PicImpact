@@ -1,8 +1,8 @@
 // 图片表
 
-'use server'
 
 import { Prisma } from '@prisma/client'
+import { unstable_cache } from 'next/cache'
 import { db } from '~/server/lib/db'
 import type { ImageType } from '~/types'
 import { fetchConfigValue } from './configs'
@@ -17,6 +17,12 @@ const ALBUM_IMAGE_SORTING_ORDER = [
 const HOME_IMAGE_SORTING_ORDER = 'COALESCE(TO_TIMESTAMP(COALESCE(image.exif->>\'data_time\', image.exif->>\'date_time\'), \'YYYY:MM:DD HH24:MI:SS\'), \'1970-01-01 00:00:00\') DESC, image.created_at DESC, image.updated_at DESC'
 
 const DEFAULT_SIZE = 24
+
+/**
+ * 图片读取的缓存标签。写图片的地方必须 `revalidateTag(IMAGES_TAG)`，
+ * 否则新增/删除照片后画廊最长 60 秒才更新（见 `hono/images.ts`）。
+ */
+export const IMAGES_TAG = 'images'
 
 /**
  * 根据相册获取图片分页列表（服务端）
@@ -168,7 +174,7 @@ export async function fetchServerImagesPageTotalByAlbum(
  * @param lens 镜头型号（可选）
  * @returns {Promise<ImageType[]>} 图片列表
  */
-export async function fetchClientImagesListByAlbum(
+async function fetchClientImagesListByAlbumImpl(
   pageNum: number,
   album: string,
   camera?: string,
@@ -243,13 +249,27 @@ export async function fetchClientImagesListByAlbum(
 }
 
 /**
+ * 客户端画廊列表（带跨请求缓存）。
+ *
+ * 这是首屏最热的一条查询：首页与每个相册页都要跑，且排序用了
+ * `COALESCE(TO_TIMESTAMP(COALESCE(exif->>'data_time', ...)))` 这种派生表达式、
+ * 无法走索引。60 秒缓存 + 写入时 tag 失效，把绝大多数请求的这趟东京往返消掉。
+ * 调用参数（页码/相册/机型/镜头）会进入缓存键，因此各页各筛选独立缓存。
+ */
+export const fetchClientImagesListByAlbum = unstable_cache(
+  fetchClientImagesListByAlbumImpl,
+  ['client-images-list'],
+  { revalidate: 60, tags: [IMAGES_TAG] },
+)
+
+/**
  * 根据相册获取图片分页总数（客户端）
  * @param album 相册
  * @param camera 相机型号（可选）
  * @param lens 镜头型号（可选）
  * @returns {Promise<number>} 图片总数
  */
-export async function fetchClientImagesPageTotalByAlbum(
+async function fetchClientImagesPageTotalByAlbumImpl(
   album: string,
   camera?: string,
   lens?: string
@@ -303,6 +323,13 @@ export async function fetchClientImagesPageTotalByAlbum(
   // @ts-ignore
   return Number(pageTotal[0].total) > 0 ? Math.ceil(Number(pageTotal[0].total) / DEFAULT_SIZE) : 0
 }
+
+/** 画廊总数（带跨请求缓存）。缓存策略同 `fetchClientImagesListByAlbum`。 */
+export const fetchClientImagesPageTotalByAlbum = unstable_cache(
+  fetchClientImagesPageTotalByAlbumImpl,
+  ['client-images-page-total'],
+  { revalidate: 60, tags: [IMAGES_TAG] },
+)
 
 /**
  * 获取带有经纬度信息的图片列表（用于地图展示）

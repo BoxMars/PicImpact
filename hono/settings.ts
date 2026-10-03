@@ -5,8 +5,22 @@ import type { Config } from '~/types'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { updateOpenListConfig, updateCustomInfo, updateR2Config, updateS3Config } from '~/server/db/operate/configs'
+import { revalidateTag } from 'next/cache'
+import { CONFIGS_TAG } from '~/server/db/query/configs'
 
 const app = new Hono()
+
+/**
+ * 失效配置缓存。包 try/catch：缓存失效失败不应让管理端的保存操作失败
+ * （`revalidateTag` 要求处于 Server Action / Route Handler 的请求上下文中）。
+ */
+function invalidateConfigs() {
+  try {
+    revalidateTag(CONFIGS_TAG)
+  } catch (e) {
+    console.warn('[cache] revalidateTag(configs) 失败：', e)
+  }
+}
 
 app.get('/get-custom-info', async (c) => {
   try {
@@ -82,6 +96,7 @@ app.put('/update-open-list-info', async (c) => {
   const openListToken = query?.find((item: Config) => item.config_key === 'open_list_token').config_value
 
   const data = await updateOpenListConfig({ openListUrl, openListToken })
+  invalidateConfigs()
   return c.json(data)
 })
 
@@ -97,6 +112,7 @@ app.put('/update-r2-info', async (c) => {
   const r2DirectDownload = query?.find((item: Config) => item.config_key === 'r2_direct_download').config_value
 
   const data = await updateR2Config({ r2AccesskeyId, r2AccesskeySecret, r2AccountId, r2Bucket, r2StorageFolder, r2PublicDomain, r2DirectDownload })
+  invalidateConfigs()
   return c.json(data)
 })
 
@@ -115,6 +131,7 @@ app.put('/update-s3-info', async (c) => {
   const s3DirectDownload = query?.find((item: Config) => item.config_key === 's3_direct_download').config_value
 
   const data = await updateS3Config({ accesskeyId, accesskeySecret, region, endpoint, bucket, storageFolder, forcePathStyle, s3Cdn, s3CdnUrl, s3DirectDownload })
+  invalidateConfigs()
   return c.json(data)
 })
 
@@ -138,6 +155,7 @@ app.put('/update-custom-info', async (c) => {
   }
   try {
     await updateCustomInfo(query)
+    invalidateConfigs()
     return c.json({
       code: 200,
       message: 'Success'

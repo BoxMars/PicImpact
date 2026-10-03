@@ -3,6 +3,12 @@ import RSS from 'rss'
 import { fetchConfigsByKeys } from '~/server/db/query/configs'
 import { getRSSImages } from '~/server/db/query/images'
 
+/**
+ * RSS 是纯公开、变动缓慢的资源，但此前没有任何缓存指令，每次抓取都会
+ * 触发 `getRSSImages`（对整张 images 表的窗口函数查询）。交给 Next 的 ISR 缓存。
+ */
+export const revalidate = 600
+
 export async function GET(request: Request) {
   const data = await fetchConfigsByKeys([
     'custom_title',
