@@ -13,7 +13,9 @@ export default function DockMenu(props: Readonly<AlbumDataProps>) {
   const router = useRouter()
   const t = useTranslations()
   const [isOpen, setIsOpen] = useState(false)
-  const { setCommand } = useButtonStore((state) => state)
+  // 只订阅需要的 action（引用稳定），而不是整个 store —— `(state) => state` 会在
+  // store 任意字段变化时都触发重渲染，并连带重渲染子组件 <Command>。
+  const setCommand = useButtonStore((state) => state.setCommand)
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {

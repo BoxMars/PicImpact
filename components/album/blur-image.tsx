@@ -4,12 +4,12 @@ import { useRouter } from 'next-nprogress-bar'
 import { useBlurImageDataUrl, DEFAULT_HASH } from '~/hooks/use-blurhash'
 import { MotionImage } from '~/components/album/motion-image'
 import { Skeleton } from '~/components/ui/skeleton'
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { cn } from '~/lib/utils'
 // hovered state removed — hover handled purely via CSS (.island-blur-image:hover)
 import { isProxyImageUrl, toProxyImageUrl } from '~/lib/utils/image-proxy'
 
-export default function BlurImage({ photo, dataList: _dataList }: { photo: any, dataList: any }) {
+function BlurImage({ photo, dataList: _dataList }: { photo: any, dataList: any }) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const rawSrc = photo?.src || ''
@@ -59,3 +59,7 @@ export default function BlurImage({ photo, dataList: _dataList }: { photo: any, 
     </div>
   )
 }
+
+// memo 生效的前提是 `photo` 引用稳定 —— default-gallery 里已按 dataList 记忆化。
+// `dataList` 只被透传且不使用，比较时忽略。
+export default memo(BlurImage, (prev, next) => prev.photo === next.photo)

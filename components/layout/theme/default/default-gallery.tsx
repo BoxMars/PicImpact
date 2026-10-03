@@ -57,6 +57,23 @@ export default function DefaultGallery(props: Readonly<ImageHandleProps>) {
   )
 
   const dataList = useMemo(() => data ? [].concat(...data) : [], [data])
+  // react-photo-album 用 photos 数组的**引用**作为 useMemo 依赖来计算瀑布流布局
+  // （node_modules/react-photo-album/dist/client/masonry.js 的 [photos, ...]），
+  // 而内联 `.map()` 每次渲染都产生新数组 → 每次父组件渲染都会重算布局并重渲染
+  // 全部已加载方块。`render` 对象同理。两者都按 dataList 记忆化。
+  const photos = useMemo(
+    () => (dataList ?? []).map((item: ImageType) => ({
+      src: item.preview_url || item.url,
+      alt: item.detail,
+      key: item.id,
+      ...item,
+    })),
+    [dataList],
+  )
+  const render = useMemo(
+    () => ({ image: (...args: any[]) => renderNextImage(args[0], args[1], dataList as never[]) }),
+    [dataList],
+  )
   const t = useTranslations()
   const prevFiltersRef = useRef({ camera: '', lens: '' })
 
@@ -136,14 +153,8 @@ export default function DefaultGallery(props: Readonly<ImageHandleProps>) {
                 if (containerWidth < 1024) return 3
                 return 4
               }}
-              photos={
-                dataList?.map((item: ImageType) => ({
-                  src: item.preview_url || item.url,
-                  alt: item.detail,
-                  ...item
-                })) || []
-              }
-              render={{ image: (...args) => renderNextImage(...args, dataList) }}
+              photos={photos}
+              render={render}
             />
           </div>
           <div className="flex flex-wrap space-x-2 sm:space-x-0 sm:flex-col flex-1 px-2 py-1 sm:py-0 space-y-1 sm:sticky top-4 self-start" />

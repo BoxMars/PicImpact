@@ -70,12 +70,24 @@ export function MapView({ images }: MapViewProps) {
       : 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
   }, [resolvedTheme])
 
+  // maplibre 的 `move` 事件每帧都会触发。此前直接 setBounds + setZoom，导致平移/缩放
+  // 期间 React 以 60Hz 重渲染，并在每帧重算 supercluster 聚类。改为节流到约 160ms：
+  // 聚类与标记的位置更新对人眼仍然即时，但每帧的重渲染被消掉。
+  const moveTimer = React.useRef<ReturnType<typeof setTimeout>>()
   const syncMapState = React.useCallback(() => {
-    const map = mapRef.current
-    if (!map) return
-    const b = map.getBounds()
-    setBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()])
-    setZoom(map.getZoom())
+    if (moveTimer.current) return
+    moveTimer.current = setTimeout(() => {
+      moveTimer.current = undefined
+      const map = mapRef.current
+      if (!map) return
+      const b = map.getBounds()
+      setBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()])
+      setZoom(map.getZoom())
+    }, 160)
+  }, [])
+
+  React.useEffect(() => () => {
+    if (moveTimer.current) clearTimeout(moveTimer.current)
   }, [])
 
   const getClusterSize = (count: number): number => {

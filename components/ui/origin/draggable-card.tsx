@@ -65,8 +65,12 @@ export const DraggableCardBody = ({
     springConfig,
   );
 
+  // 缓存卡片中心点：原来每次 mousemove 都调 getBoundingClientRect()，在大网格上
+  // 会与 motion 的 transform 写入交错，每帧强制一次同步布局。
+  const centerRef = useRef({ x: 0, y: 0 });
+
   useEffect(() => {
-    // Update constraints when component mounts or window resizes
+    // Update constraints when component mounts or its container resizes
     const updateConstraints = () => {
       const element = cardRef.current;
       if (typeof window !== "undefined" && element && element.offsetParent) {
@@ -76,6 +80,8 @@ export const DraggableCardBody = ({
         // Calculate the center point relative to the viewport
         const initialCenterX = parentRect.left + offsetLeft + offsetWidth / 2;
         const initialCenterY = parentRect.top + offsetTop + offsetHeight / 2;
+
+        centerRef.current = { x: initialCenterX, y: initialCenterY };
 
         setConstraints({
           top: -initialCenterY,
@@ -88,11 +94,23 @@ export const DraggableCardBody = ({
 
     updateConstraints();
 
-    // Add resize listener
-    window.addEventListener("resize", updateConstraints);
+    // 用 ResizeObserver 观察卡片容器，而不是监听 window resize。
+    // 原实现是**每张卡片**一个 window resize 监听：N 张卡 = 一次 resize 触发 N 次
+    // 布局读取（offsetLeft/offsetTop/... + getBoundingClientRect）与 N 次 setState。
+    // ResizeObserver 只在容器尺寸真的变化时触发，且天然覆盖容器（不只是窗口）变化。
+    const element = cardRef.current;
+    const parent = (element?.offsetParent as HTMLElement | null) ?? null;
+    let observer: ResizeObserver | undefined;
 
-    // Clean up
+    if (typeof ResizeObserver !== "undefined" && parent) {
+      observer = new ResizeObserver(updateConstraints);
+      observer.observe(parent);
+    } else {
+      window.addEventListener("resize", updateConstraints);
+    }
+
     return () => {
+      observer?.disconnect();
       window.removeEventListener("resize", updateConstraints);
     };
   }, []);
@@ -100,19 +118,10 @@ export const DraggableCardBody = ({
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isMobile) return;
     const { clientX, clientY } = e;
-    const { width, height, left, top } =
-      cardRef.current?.getBoundingClientRect() ?? {
-        width: 0,
-        height: 0,
-        left: 0,
-        top: 0,
-      };
-    const centerX = left + width / 2;
-    const centerY = top + height / 2;
-    const deltaX = clientX - centerX;
-    const deltaY = clientY - centerY;
-    mouseX.set(deltaX);
-    mouseY.set(deltaY);
+    // 用缓存中心，不再每次事件都强制布局
+    const { x: centerX, y: centerY } = centerRef.current;
+    mouseX.set(clientX - centerX);
+    mouseY.set(clientY - centerY);
   };
 
   const handleMouseLeave = () => {

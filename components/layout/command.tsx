@@ -22,9 +22,10 @@ import { useEffect, useState } from 'react'
 import { authClient } from '~/server/auth/auth-client.ts'
 
 export default function Command(props: Readonly<AlbumDataProps>) {
-  const { command, setCommand } = useButtonStore(
-    (state) => state,
-  )
+  // 分开订阅原始值与 action，避免 `(state) => state` 这种全量订阅 ——
+  // 它会让 store 里任何字段变化都重渲染本组件（并连带整个 CommandDialog 子树）。
+  const command = useButtonStore((state) => state.command)
+  const setCommand = useButtonStore((state) => state.setCommand)
   const { data: session } = authClient.useSession()
   const router = useRouter()
   const { resolvedTheme, setTheme } = useTheme()

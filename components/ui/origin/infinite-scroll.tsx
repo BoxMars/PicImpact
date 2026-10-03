@@ -19,10 +19,21 @@ export default function InfiniteScroll({
     className,
 }: InfiniteScrollProps) {
     const observerTarget = useRef<HTMLDivElement>(null)
+    // 把最新的 props 放进 ref：调用方传的是内联箭头 `() => setSize(size + 1)`，
+    // 每次渲染都是新引用。此前它出现在 effect 依赖里，导致每次渲染都
+    // disconnect + observe 重建观察器，而 observe() 会立即投递一次 entry ——
+    // 只要哨兵元素在视口内就会多发一次 setSize（多翻一页）。
+    // 现在观察器只挂载一次，回调通过 ref 读最新值。
+    const latest = useRef({ hasMore, isLoading, next })
+    latest.current = { hasMore, isLoading, next }
 
     useEffect(() => {
+        const el = observerTarget.current
+        if (!el) return
+
         const observer = new IntersectionObserver(
             (entries) => {
+                const { hasMore, isLoading, next } = latest.current
                 if (entries[0]?.isIntersecting && hasMore && !isLoading) {
                     next()
                 }
@@ -30,12 +41,9 @@ export default function InfiniteScroll({
             { threshold: 1.0 }
         )
 
-        if (observerTarget.current) {
-            observer.observe(observerTarget.current)
-        }
-
+        observer.observe(el)
         return () => observer.disconnect()
-    }, [hasMore, isLoading, next])
+    }, [])
 
     return (
         <div className={className}>
