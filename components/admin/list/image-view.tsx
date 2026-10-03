@@ -56,7 +56,6 @@ export default function ImageView() {
               transition={{ duration: 1 }}
               className="cursor-pointer"
               src={resolvedMediaUrl}
-              overrideSrc={resolvedMediaUrl}
               alt={imageViewData.detail}
               width={imageViewData.width}
               height={imageViewData.height}

@@ -108,7 +108,6 @@ function GalleryImage({ photo, configData, priority = false }: { photo: ImageTyp
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6 }}
           src={resolvedThumb}
-          overrideSrc={resolvedThumb}
           alt={photo.title}
           width={photo.width}
           height={photo.height}

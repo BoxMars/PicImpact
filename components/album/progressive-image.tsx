@@ -137,7 +137,6 @@ export default function ProgressiveImage(
         transition={{ duration: 0.6 }}
         className="object-contain md:max-h-[90vh]"
         src={resolvedPreviewSrc}
-        overrideSrc={resolvedPreviewSrc}
         placeholder="blur"
         // 同 gallery-image：源站是 Vercel，/_next/image 的结果会被边缘缓存
         sizes="(max-width: 768px) 100vw, 90vw"

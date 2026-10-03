@@ -214,9 +214,19 @@ export default function HistogramChart({ imageUrl, className = '' }: Readonly<Hi
     if (!isSameOrigin) {
       img.crossOrigin = 'anonymous'
     }
-    // 不再用时间戳绕过缓存：资产域实测稳定返回 `access-control-allow-origin: *`
-    // （见 spec §1.1.1），原 `_t=${Date.now()}` 让每次打开预览都必然重新下载同一张图。
-    img.src = imageUrl
+    // 读像素必须走 CORS 请求（crossOrigin='anonymous'），而**同一个 URL 的普通 <img>
+    // 加载会把「不带 ACAO」的响应写进缓存**（实测该响应是 cf-cache-status: HIT 且无
+    // access-control-allow-origin）。若 CORS 请求命中那份缓存，canvas 会被污染，
+    // getImageData 抛 SecurityError，界面就提示「需要在存储服务中配置 CORS」。
+    //
+    // 原实现用 `_t=${Date.now()}` 绕开：每次打开预览都换一个 URL，绝不命中缓存 ——
+    // 代价是每次都要重新下载整张图。
+    //
+    // 这里改用**稳定**的 `__cors=1`：不同 URL 即不同缓存键，因此绝不会与普通 <img>
+    // 的那份缓存相撞；同时它本身仍可被缓存（首次回源会带 ACAO，之后命中），
+    // 于是既正确又不浪费流量。
+    const corsUrl = `${imageUrl}${imageUrl.includes('?') ? '&' : '?'}__cors=1`
+    img.src = corsUrl
 
     img.onload = () => {
       const canvas = document.createElement('canvas')

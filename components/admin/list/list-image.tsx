@@ -11,7 +11,6 @@ export default React.memo(function ListImage({ image }: { image: any }) {
     <Image
       className="group-hover:opacity-75 transition-opacity duration-500 ease-in-out w-full h-full object-contain"
       src={image.preview_url || image.url}
-      overrideSrc={image.preview_url || image.url}
       alt={image.title}
       width={image.width}
       height={image.height}

@@ -34,7 +34,6 @@ function BlurImage({ photo, dataList: _dataList }: { photo: any, dataList: any }
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
         src={resolvedSrc}
-        overrideSrc={resolvedSrc}
         alt={photo.alt}
         width={photo.width}
         height={photo.height}
