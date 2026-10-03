@@ -2,6 +2,17 @@
 @import "tw-animate-css";
 @import "animal-island-ui/style";
 
+/* 字体：animal-island-ui 的 CSS 内联了未分片的 Noto Sans SC / Nunito（中文字重各约 1.1MB，
+   无 unicode-range），已由 postcss.config.mjs 的 strip-bundled-font-faces 剥离。
+   这里改用 @fontsource 的 unicode-range 分片版本：同一字体、同一字重，仅按需加载分片。
+   注意必须放在 animal-island-ui/style 之后。 */
+@import "@fontsource/nunito/500.css";
+@import "@fontsource/nunito/700.css";
+@import "@fontsource/nunito/900.css";
+@import "@fontsource/noto-sans-sc/400.css";
+@import "@fontsource/noto-sans-sc/500.css";
+@import "@fontsource/noto-sans-sc/700.css";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
