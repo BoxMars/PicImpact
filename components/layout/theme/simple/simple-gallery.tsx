@@ -131,7 +131,7 @@ export default function SimpleGallery(props: Readonly<ImageHandleProps>) {
                   contain: 'layout style',
                 }}
               >
-                <GalleryImage photo={item} configData={configData} />
+                <GalleryImage photo={item} configData={configData} priority={idx < 4} />
               </div>
             </div>
           ))}

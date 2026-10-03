@@ -214,9 +214,9 @@ export default function HistogramChart({ imageUrl, className = '' }: Readonly<Hi
     if (!isSameOrigin) {
       img.crossOrigin = 'anonymous'
     }
-    // 添加时间戳绕过缓存，确保获取带 CORS 头的新响应
-    const urlWithCache = isSameOrigin ? imageUrl : `${imageUrl}${imageUrl.includes('?') ? '&' : '?'}_t=${Date.now()}`
-    img.src = urlWithCache
+    // 不再用时间戳绕过缓存：资产域实测稳定返回 `access-control-allow-origin: *`
+    // （见 spec §1.1.1），原 `_t=${Date.now()}` 让每次打开预览都必然重新下载同一张图。
+    img.src = imageUrl
 
     img.onload = () => {
       const canvas = document.createElement('canvas')

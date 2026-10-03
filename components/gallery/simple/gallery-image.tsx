@@ -11,12 +11,29 @@ import { useRouter } from 'next-nprogress-bar'
 import { useBlurImageDataUrl, DEFAULT_HASH } from '~/hooks/use-blurhash.ts'
 import { MotionImage } from '~/components/album/motion-image'
 import { Skeleton } from '~/components/ui/skeleton'
-import { memo, useEffect, useState } from 'react'
+import { memo, useEffect, useState, type CSSProperties } from 'react'
 import { isProxyImageUrl, toProxyImageUrl } from '~/lib/utils/image-proxy'
 import { formatExifDateTimeForDisplay } from '~/lib/utils/exif-time'
-import { Icon, Tooltip } from 'animal-island-ui'
+import { Icon } from 'animal-island-ui'
 
-function GalleryImage({ photo, configData }: { photo: ImageType, configData: any }) {
+// 提到模块级：避免每个方块每次渲染都新建样式对象（也避免 React 反复 diff 同一组字面量）
+const exifChipStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 3,
+  color: '#9f927d',
+  fontSize: 11,
+  fontWeight: 600,
+  cursor: 'default',
+}
+
+const iconActionStyle: CSSProperties = {
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+}
+
+function GalleryImage({ photo, configData, priority = false }: { photo: ImageType, configData: any, priority?: boolean }) {
   const router = useRouter()
 
   const { data: download = false, mutate: setDownload } = useSWR(['masonry/download', photo?.url ?? ''], null)
@@ -95,7 +112,10 @@ function GalleryImage({ photo, configData }: { photo: ImageType, configData: any
           alt={photo.title}
           width={photo.width}
           height={photo.height}
-          loading="lazy"
+          // 首屏前几张标记为高优先级，其余惰性加载。此前全仓库没有任何 priority，
+          // 导致 LCP 图片和视口外图片同一起跑线。
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'auto'}
           unoptimized
           placeholder={(photo.blurhash === DEFAULT_HASH || !photo.blurhash) ? 'empty' : 'blur'}
           blurDataURL={dataURL}
@@ -157,48 +177,41 @@ function GalleryImage({ photo, configData }: { photo: ImageType, configData: any
           </p>
         )}
 
-        {/* EXIF row */}
+        {/* EXIF row —— 用原生 `title` 替代 animal-island-ui Tooltip。
+            库里的 Tooltip 即使隐藏也会渲染约 12 个元素（含 2 个 SVG，path d 长 709 字符），
+            每方块 9 个 = 约 108 个额外节点；240 张时约 2160 个 clipPath 与约 3MB 重复 SVG 文本。
+            换成原生 title 后每方块 DOM 节点从约 130 降到约 20。 */}
         {hasExif && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', marginTop: 2 }}>
             {photo?.exif?.make && photo?.exif?.model && (
-              <Tooltip title="相机" variant="island" placement="top">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#9f927d', fontSize: 11, fontWeight: 600, cursor: 'default' }}>
-                  <Icon name="icon-camera" size={14} style={{ flexShrink: 0 }} />
-                  {photo.exif.make} {photo.exif.model}
-                </span>
-              </Tooltip>
+              <span title="相机" style={exifChipStyle}>
+                <Icon name="icon-camera" size={14} style={{ flexShrink: 0 }} />
+                {photo.exif.make} {photo.exif.model}
+              </span>
             )}
             {photo?.exif?.f_number && (
-              <Tooltip title="光圈" variant="island" placement="top">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#9f927d', fontSize: 11, fontWeight: 600, cursor: 'default' }}>
-                  <Icon name="icon-variant" size={14} style={{ flexShrink: 0 }} />
-                  {photo.exif.f_number}
-                </span>
-              </Tooltip>
+              <span title="光圈" style={exifChipStyle}>
+                <Icon name="icon-variant" size={14} style={{ flexShrink: 0 }} />
+                {photo.exif.f_number}
+              </span>
             )}
             {photo?.exif?.exposure_time && (
-              <Tooltip title="曝光时间" variant="island" placement="top">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#9f927d', fontSize: 11, fontWeight: 600, cursor: 'default' }}>
-                  <Icon name="icon-miles" size={14} style={{ flexShrink: 0 }} />
-                  {photo.exif.exposure_time}
-                </span>
-              </Tooltip>
+              <span title="曝光时间" style={exifChipStyle}>
+                <Icon name="icon-miles" size={14} style={{ flexShrink: 0 }} />
+                {photo.exif.exposure_time}
+              </span>
             )}
             {photo?.exif?.focal_length && (
-              <Tooltip title="焦距" variant="island" placement="top">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#9f927d', fontSize: 11, fontWeight: 600, cursor: 'default' }}>
-                  <Icon name="icon-map" size={14} style={{ flexShrink: 0 }} />
-                  {parseFloat(photo.exif.focal_length).toFixed(0)}mm
-                </span>
-              </Tooltip>
+              <span title="焦距" style={exifChipStyle}>
+                <Icon name="icon-map" size={14} style={{ flexShrink: 0 }} />
+                {parseFloat(photo.exif.focal_length).toFixed(0)}mm
+              </span>
             )}
             {photo?.exif?.iso_speed_rating && (
-              <Tooltip title="感光度 ISO" variant="island" placement="top">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#9f927d', fontSize: 11, fontWeight: 600, cursor: 'default' }}>
-                  <Icon name="icon-critterpedia" size={14} style={{ flexShrink: 0 }} />
-                  ISO {photo.exif.iso_speed_rating}
-                </span>
-              </Tooltip>
+              <span title="感光度 ISO" style={exifChipStyle}>
+                <Icon name="icon-critterpedia" size={14} style={{ flexShrink: 0 }} />
+                ISO {photo.exif.iso_speed_rating}
+              </span>
             )}
           </div>
         )}
@@ -231,45 +244,37 @@ function GalleryImage({ photo, configData }: { photo: ImageType, configData: any
           </div>
         )}
 
-        {/* Separator + actions */}
+        {/* Separator + actions —— 同上，改用原生 title */}
         <div style={{ height: 1, background: '#c4b89e', opacity: 0.35, margin: '2px 0' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, height: 24 }}>
-          <Tooltip title="复制图片链接" variant="island" placement="top">
-            <span style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }} onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(photo?.url ?? '')
-                let msg = '复制图片链接成功！'
-                if (photo?.album_license != null) msg = '图片版权归作者所有, 分享转载需遵循 ' + photo?.album_license + ' 许可协议！'
-                toast.success(msg, { duration: 1500 })
-              } catch { toast.error('复制图片链接失败！', { duration: 500 }) }
-            }}>
-              <Icon name="icon-diy" size={18} />
-            </span>
-          </Tooltip>
-          <Tooltip title="复制分享直链" variant="island" placement="top">
-            <span style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }} onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(window.location.origin + '/preview/' + photo.id)
-                toast.success('复制分享直链成功！', { duration: 500 })
-              } catch { toast.error('复制分享直链失败！', { duration: 500 }) }
-            }}>
-              <Icon name="icon-helicopter" size={18} />
-            </span>
-          </Tooltip>
+          <span title="复制图片链接" style={iconActionStyle} onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(photo?.url ?? '')
+              let msg = '复制图片链接成功！'
+              if (photo?.album_license != null) msg = '图片版权归作者所有, 分享转载需遵循 ' + photo?.album_license + ' 许可协议！'
+              toast.success(msg, { duration: 1500 })
+            } catch { toast.error('复制图片链接失败！', { duration: 500 }) }
+          }}>
+            <Icon name="icon-diy" size={18} />
+          </span>
+          <span title="复制分享直链" style={iconActionStyle} onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(window.location.origin + '/preview/' + photo.id)
+              toast.success('复制分享直链成功！', { duration: 500 })
+            } catch { toast.error('复制分享直链失败！', { duration: 500 }) }
+          }}>
+            <Icon name="icon-helicopter" size={18} />
+          </span>
           {configData?.find((item: any) => item.config_key === 'custom_index_download_enable')?.config_value.toString() === 'true' && (
             download
               ? <RefreshCWIcon style={{ color: '#c4b89e' }} className={cn('animate-spin cursor-not-allowed')} size={18} />
               : (
-                <Tooltip title="下载原图" variant="island" placement="top">
-                  <span style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }} onClick={() => downloadImg()}>
-                    <Icon name="icon-shopping" size={18} />
-                  </span>
-                </Tooltip>
+                <span title="下载原图" style={iconActionStyle} onClick={() => downloadImg()}>
+                  <Icon name="icon-shopping" size={18} />
+                </span>
               )
           )}
-          <Tooltip title="查看 EXIF 信息" variant="island" placement="top">
-            <span style={{ display: 'inline-flex', alignItems: 'center' }}><PreviewImageExif {...exifProps} /></span>
-          </Tooltip>
+          <span title="查看 EXIF 信息" style={iconActionStyle}><PreviewImageExif {...exifProps} /></span>
         </div>
       </div>
     </div>

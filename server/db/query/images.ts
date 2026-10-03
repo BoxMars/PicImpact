@@ -204,6 +204,13 @@ export async function fetchClientImagesListByAlbum(
   if (albumData && albumData.image_sorting && ALBUM_IMAGE_SORTING_ORDER[albumData.image_sorting]) {
     orderBy = Prisma.sql([`image.sort DESC, ${ALBUM_IMAGE_SORTING_ORDER[albumData.image_sorting]}`])
   }
+  // 随机展示：随机性必须落在 SQL 侧、且对同一相册**稳定**，否则分页会重复/漏图。
+  // 原实现在 LIMIT 之后用 JS 洗牌（`[...dataList].sort(() => Math.random() - 0.5)`），
+  // 只打乱了已经取到的那 24 行 —— 无限滚动翻页时同一张图可能出现两次、另一张永远看不到。
+  // 用 `md5(id || album)` 作为稳定的伪随机排序键：看起来仍然随机，但每次翻页顺序一致。
+  if (albumData && albumData.random_show === 0) {
+    orderBy = Prisma.sql`md5(image.id || ${album})`
+  }
   const dataList: any[] = await db.$queryRaw`
     SELECT 
         image.*,
@@ -232,9 +239,6 @@ export async function fetchClientImagesListByAlbum(
     ORDER BY ${orderBy}
     LIMIT ${DEFAULT_SIZE} OFFSET ${(pageNum - 1) * DEFAULT_SIZE}
   `
-  if (dataList && albumData && albumData.random_show === 0) {
-    return [...dataList].sort(() => Math.random() - 0.5)
-  }
   return dataList
 }
 
