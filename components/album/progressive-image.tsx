@@ -4,9 +4,17 @@ import type { ProgressiveImageProps } from '~/types/props.ts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { MotionImage } from '~/components/album/motion-image'
+import dynamic from 'next/dynamic'
 import { useBlurImageDataUrl } from '~/hooks/use-blurhash'
-import { WebGLImageViewer } from '~/components/album/webgl-viewer'
 import type { WebGLImageViewerRef } from '~/components/album/webgl-viewer'
+
+// WebGL 查看器有 2,140 行 + 一个 worker，但在正常预览流程里**永远不会挂载**
+// （`showLightbox` 从未被 preview-image.tsx 传入）。此前是静态 import，让这些都进了
+// 预览页首屏包。改成懒加载后只有真正进入全屏查看器时才会请求。
+const WebGLImageViewer = dynamic(
+  () => import('~/components/album/webgl-viewer').then((m) => m.WebGLImageViewer),
+  { ssr: false },
+)
 import { isWebGLSupported } from '~/lib/utils/webgl'
 import { isProxyImageUrl, toProxyImageUrl } from '~/lib/utils/image-proxy'
 

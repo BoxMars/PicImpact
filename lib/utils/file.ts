@@ -1,7 +1,35 @@
-import ExifReader from 'exifreader'
 import type { ExifType } from '~/types'
 import { createId } from '@paralleldrive/cuid2'
 import { extractCaptureTimeFromExifTags } from '~/lib/utils/exif-time'
+
+/**
+ * 廉价预判文件是否为 HEIC/HEIF，**不加载 heic-to**。
+ *
+ * 背景：`heic-to`（含 libheif wasm）与 `exifreader` 被打进同一个 2,828.9 KB 的 chunk，
+ * 让 `/admin/upload` 首屏 JS 达到 4,040 KB（实测）。上传组件此前无条件 `await isHeic(file)`，
+ * 而那会立刻把整个 heic-to 拉下来。绝大多数上传是 JPEG/PNG，用扩展名与 MIME 就能排除，
+ * 于是把这个大 chunk 推迟到**真的**遇到 HEIC 时才加载。
+ *
+ * 预判为真时仍会用 heic-to 的 `isHeic` 复核，所以这里宁可宽进（假阳性只是多加载一次，
+ * 假阴性才会漏掉转换），因此不放过任何 heic/heif 线索。
+ */
+export function looksLikeHeic(file: File): boolean {
+  const name = file.name?.toLowerCase() ?? ''
+  if (name.endsWith('.heic') || name.endsWith('.heif')) return true
+  return /image\/hei[cf]/i.test(file.type ?? '')
+}
+
+/**
+ * 权威判断是否为 HEIC —— 但**先过一遍廉价预判**，只有可能是 HEIC 时才加载 heic-to。
+ *
+ * 上传组件用这个替代直接 `await isHeic(file)`：后者会把 2.8MB 的 heic-to chunk
+ * 在每次选择文件时都拉下来，哪怕选的是 JPEG。
+ */
+export async function isHeicFile(file: File): Promise<boolean> {
+  if (!looksLikeHeic(file)) return false
+  const { isHeic } = await import('heic-to')
+  return await isHeic(file)
+}
 
 /**
  * 解析图片中的 exif 信息
@@ -10,6 +38,8 @@ import { extractCaptureTimeFromExifTags } from '~/lib/utils/exif-time'
  * 注：用什么库解析无所谓，但为了向后兼容，exif 参数名字还是根据 ExifType 进行匹配即可。
  */
 export async function exifReader(file: ArrayBuffer | SharedArrayBuffer | Buffer) {
+  // exifreader 约 1.1MB，只在真正解析 EXIF 时才加载
+  const ExifReader = (await import('exifreader')).default
   const tags = await ExifReader.load(file)
   const exifObj = {
     make: '',

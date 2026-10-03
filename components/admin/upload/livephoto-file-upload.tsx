@@ -16,7 +16,7 @@ import {
 } from '~/components/ui/select'
 import { Tag, TagInput } from 'emblor'
 import { useTranslations } from 'next-intl'
-import { exifReader, uploadFile } from '~/lib/utils/file'
+import { exifReader, isHeicFile, uploadFile } from '~/lib/utils/file'
 import { RocketIcon } from '~/components/icons/rocket'
 import { RefreshCWIcon } from '~/components/icons/refresh-cw'
 import {
@@ -29,7 +29,6 @@ import {
 import { Button } from '~/components/ui/button'
 import { X } from 'lucide-react'
 import { UploadIcon } from '~/components/icons/upload'
-import { heicTo, isHeic } from 'heic-to'
 import { encodeBrowserThumbHash } from '~/lib/utils/blurhash-client'
 import { persistDefaultAlbum, resolveDefaultAlbum } from '~/components/admin/upload/default-album'
 
@@ -214,8 +213,9 @@ export default function LivephotoFileUpload() {
   async function onRequestUpload(file: File, type: number) {
     // 获取文件名但是去掉扩展名部分
     const fileName = file.name.split('.').slice(0, -1).join('.')
-    if (await isHeic(file) && type === 1) {
+    if (await isHeicFile(file) && type === 1) {
       // 把 HEIC 转成 JPEG
+      const { heicTo } = await import('heic-to')
       const outputBuffer: Blob | Blob[] = await heicTo({
         blob: file,
         type: 'image/jpeg',

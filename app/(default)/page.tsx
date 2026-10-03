@@ -1,11 +1,17 @@
 import type { ImageHandleProps } from '~/types/props'
 import { fetchClientImagesListByAlbum, fetchClientImagesPageTotalByAlbum } from '~/server/db/query/images'
-import SimpleGallery from '~/components/layout/theme/simple/simple-gallery.tsx'
 import { fetchConfigsByKeys } from '~/server/db/query/configs'
-import DefaultGallery from '~/components/layout/theme/default/default-gallery.tsx'
+import dynamic from 'next/dynamic'
 import 'react-photo-album/masonry.css'
 import type { Config } from '~/types'
-import PolaroidGallery from '~/components/layout/theme/polaroid/polaroid-gallery.tsx'
+
+// 三种画廊按 `custom_index_style` 运行时选一种，但此前是**静态** import —— 三种的
+// 客户端代码都会进首屏包（连带 react-photo-album / motion）。改成 dynamic：
+// 服务端仍会渲染命中的那一种（next/dynamic 默认 ssr 保持开启，首屏 HTML 不缺内容），
+// 但客户端只会请求真正用到的那一份 chunk。
+const SimpleGallery = dynamic(() => import('~/components/layout/theme/simple/simple-gallery'))
+const DefaultGallery = dynamic(() => import('~/components/layout/theme/default/default-gallery'))
+const PolaroidGallery = dynamic(() => import('~/components/layout/theme/polaroid/polaroid-gallery'))
 
 export default async function Home() {
   const getData = async (pageNum: number, album: string, camera?: string, lens?: string) => {
