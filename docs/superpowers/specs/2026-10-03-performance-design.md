@@ -84,12 +84,12 @@ Cloudflare Containers 明确要求 Workers 付费计划（API 返回 401 `Deploy
 | 单张网格图解码像素 | 12.2 MP（×2 层） | **< 0.2 MP**（约 400×300） |
 | TTFB | 2.4 s | **< 0.5 s** |
 | 首屏 JS | 357.4 KB gzip | **< 200 KB gzip** |
-| 每页 CSS | 483 KB 原始 | **< 80 KB 原始** |
-| 字体 | 3,391 KB | **< 150 KB**（按需分片） |
+| 每页 CSS | 483.6 KB 原始 | **< 80 KB 原始**（实测已达 180.0 KB；字体分片后又升至 477 KB 原始 / 129.5 KB gzip，见 R8） |
+| 字体 | 3,391 KB | ~~< 150 KB~~ **实测 1,666 KB**（原目标基于被证伪的频率聚类假设，见 R8） |
 | 首次导航人为阻塞 | 1000 ms | **0 ms** |
 | 每次客户端跳转人为阻塞 | 700 ms | **0 ms** |
 | 网格每方块 DOM 节点 | ~130 | **< 20** |
-| `cf-cache-status`（静态与图片） | DYNAMIC | **HIT** |
+| 图片边缘缓存 | 代理路径 DYNAMIC | 直连资产域 **HIT**（已达成） |
 
 ### 2.2 非目标（明确排除）
 
@@ -179,11 +179,25 @@ Cloudflare Containers 明确要求 Workers 付费计划（API 返回 401 `Deploy
 
 **证据**：`app/providers/progress-bar-providers.tsx:7` `MIN_DISPLAY_MS = 700`；`:40-44` 首屏 `setTimeout(…, 1000)`；`:60-68` 猴补丁 `window.history.pushState`；`:86-103` 渲染 `100vw×100vh`、`z-index: 9999` 的 `animal-island-ui` `Loading`。该组件的 gsap 依赖：`Loading/island/gsap.min.js`(80,279 B) + `MotionPathPlugin.min.js`(27,060 B)，构建后 chunk `da2f3b2cd20b5ae1.js` = 88.8 KB 原始 / 36.0 KB gzip，**实测在首页 chunk 列表内**。
 
-### R8（高）3.39 MB 中文字体，零 unicode-range 门控
+### R8（中，**已按实测下调**）3.39 MB 中文字体，零 unicode-range 门控
 
 **证据**：`style/globals.css:4` `@import "animal-island-ui/style"` → `dist/index.css` 内联 9 条 `@font-face`，其中 `noto-sans-sc-chinese-simplified` 400/500/700 分别为 1115.8 / 1132.0 / 1144.8 KB，`unicode-range` 数量 = **0**。`style/globals.css:160-161` body 字体栈含 `'Noto Sans SC'` 且 `font-weight: 500`。
 
-**对照**：`@fontsource/noto-sans-sc@5.2.9` **已安装**（animal-island-ui 的传递依赖），每个字重自带 **101 个 unicode-range 分片**。
+**对照**：`@fontsource/noto-sans-sc@5.2.9` 每个字重自带 **101 个 unicode-range 分片**。
+
+**⚠️ 实测修正（2026-10-03，实施后）**：原设计假设"分片 = 按需加载几十 KB"，该假设**被实测证伪**。Noto Sans SC 的 101 个分片是按**码点区间**切分的，不是按使用频率聚类。实测线上首页（509 个唯一中文字符）命中 **18/101** 个分片，每字重约 **550 KB**：
+
+| 字重 | 命中分片 | 下载量 |
+|---|---|---|
+| 400 | 18 / 101 | 549.5 KB |
+| 500 | 18 / 101 | 555.8 KB |
+| 700 | 18 / 101 | 560.3 KB |
+| **合计** | | **1,665.6 KB** |
+
+- **字体净收益**：3,391.6 KB → 1,665.6 KB，**省 1,726 KB**（不是原估的 3.2 MB）。
+- **CSS 代价**：318 条 `unicode-range` 声明使全局 CSS 的 gzip 从约 30 KB 升到 **129.5 KB**（原始 63.2 KB），且这部分在**渲染阻塞**路径上。
+- 字重集合与原状**完全一致**（Noto Sans SC 仅 400/500/700，Nunito 仅 500/700/900），故"零视觉变化"成立；400 确实在用（7 处 `font-normal`），不可删。
+- **未采取的更优方案（后续可选）**：用 `fonttools` 按使用频率做自定义子集（如 GB2312 一级字库 3,500 字），可得每字重约 250–350 KB、仅 3 条 `@font-face`（CSS 回到约 30 KB），总量约 1 MB —— 优于当前的 1.67 MB + 129.5 KB。代价是子集外生僻字回退系统字体，且需引入 Python 子集化步骤。
 
 ### R9（中高）代码分割缺失
 
