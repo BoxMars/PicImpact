@@ -54,13 +54,32 @@ const calculateHistogram = (imageData: ImageData): CompressedHistogramData => {
   }
 }
 
-const drawHistogram = (canvas: HTMLCanvasElement, histogram: CompressedHistogramData) => {
+/** Canvas 显示尺寸缓存（见 drawHistogram 内的说明）。组件在 resize 时清理。 */
+const canvasSizeCache = new WeakMap<HTMLCanvasElement, { width: number; height: number }>()
+
+/** 直方图数据里四个通道合并后的最大值，用于归一化。抽出来避免动画每帧都算一遍。 */
+const maxOfHistogram = (h: CompressedHistogramData): number =>
+  Math.max(...h.luminance, ...h.red, ...h.green, ...h.blue)
+
+const drawHistogram = (
+  canvas: HTMLCanvasElement,
+  histogram: CompressedHistogramData,
+  /** 由调用方复用、避免每帧重复计算 */
+  precomputedMax?: number,
+) => {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
-  // 获取 Canvas 的实际显示尺寸
-  const rect = canvas.getBoundingClientRect()
-  const { width, height } = rect
+  // 获取 Canvas 的实际显示尺寸。**缓存**起来：动画期间每帧都调一次
+  // getBoundingClientRect() 会强制同步布局（而且这里恰好是先读后写，属典型 layout thrash）。
+  // 尺寸只在容器变化时变，组件在 window resize 时会清掉缓存。
+  let size = canvasSizeCache.get(canvas)
+  if (!size) {
+    const rect = canvas.getBoundingClientRect()
+    size = { width: rect.width, height: rect.height }
+    canvasSizeCache.set(canvas, size)
+  }
+  const { width, height } = size
   const dpr = window.devicePixelRatio || 1
 
   // 设置高分辨率
@@ -74,7 +93,7 @@ const drawHistogram = (canvas: HTMLCanvasElement, histogram: CompressedHistogram
   ctx.clearRect(0, 0, width, height)
 
   // 找到最大值用于归一化
-  const maxVal = Math.max(...histogram.luminance, ...histogram.red, ...histogram.green, ...histogram.blue)
+  const maxVal = precomputedMax ?? maxOfHistogram(histogram)
 
   if (maxVal === 0) return
 
@@ -284,6 +303,15 @@ export default function HistogramChart({ imageUrl, className = '' }: Readonly<Hi
     }
   }, [imageUrl])
 
+  // 容器尺寸变化后画布显示尺寸会变，清掉缓存让下次绘制重新量一次
+  useEffect(() => {
+    const onResize = () => {
+      if (canvasRef.current) canvasSizeCache.delete(canvasRef.current)
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
   useEffect(() => {
     if (!histogram || !canvasRef.current) return
 
@@ -296,8 +324,10 @@ export default function HistogramChart({ imageUrl, className = '' }: Readonly<Hi
     }
 
     // If we don't have a previous histogram, draw immediately and set baseline
+    const maxVal = maxOfHistogram(histogram)
+
     if (!previousHistogramRef.current) {
-      drawHistogram(canvas, histogram)
+      drawHistogram(canvas, histogram, maxVal)
       previousHistogramRef.current = histogram
       return
     }
@@ -309,7 +339,12 @@ export default function HistogramChart({ imageUrl, className = '' }: Readonly<Hi
     const frequency = 8
     const damping = 7
     const restDelta = 0.001
-    const maxMs = 1200
+    // 弹簧约 0.5s 内基本收敛，而每帧要重画 4×256 根柱、**每根柱各建一个渐变对象**
+    // （1024 个/帧）。原先 1200ms 意味着约 72 帧、约 7 万个渐变对象，是这里主要的
+    // 主线程卡顿来源。收紧到 250ms 并把帧数封顶 —— 视觉上没有可感差别。
+    const maxMs = 250
+    const maxFrames = 16
+    let frameCount = 0
 
     const springProgress = (tSec: number) => {
       const w = frequency
@@ -333,9 +368,10 @@ export default function HistogramChart({ imageUrl, className = '' }: Readonly<Hi
         luminance: lerpArray(prev.luminance, histogram.luminance, eased),
       }
 
-      drawHistogram(canvas, interpolated)
+      drawHistogram(canvas, interpolated, maxVal)
 
-      const done = Math.abs(1 - eased) < restDelta || elapsedMs >= maxMs
+      frameCount += 1
+      const done = Math.abs(1 - eased) < restDelta || elapsedMs >= maxMs || frameCount >= maxFrames
       if (!done) {
         animationRef.current = requestAnimationFrame(frame)
       } else {
