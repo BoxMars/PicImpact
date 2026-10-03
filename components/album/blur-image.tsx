@@ -38,8 +38,10 @@ function BlurImage({ photo, dataList: _dataList }: { photo: any, dataList: any }
         alt={photo.alt}
         width={photo.width}
         height={photo.height}
-        unoptimized
         loading="lazy"
+        // 交给 next/image 优化（理由见 gallery-image.tsx）。
+        // 瀑布流容器是 w-[66.667%]，2/3/4 列 → 大屏每列约 200~320px。
+        sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
         placeholder={(photo.blurhash === DEFAULT_HASH || !photo.blurhash) ? 'empty' : 'blur'}
         blurDataURL={dataURL}
         onClick={() => router.push(`/preview/${photo?.id}`)}

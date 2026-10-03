@@ -127,7 +127,9 @@ const PolaroidCard = memo(function PolaroidCard({
               setImgSrc(item.url)
             }
           }}
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          // 卡片宽度是固定的 px（175~376px），原来的 `33vw`（在 2560 宽屏上 = 845px）
+          // 与实际显示尺寸严重不符，会拉到过大的候选图。
+          sizes="(max-width: 768px) 90vw, 380px"
           priority={false}
         />
       </div>

@@ -116,7 +116,14 @@ function GalleryImage({ photo, configData, priority = false }: { photo: ImageTyp
           // 导致 LCP 图片和视口外图片同一起跑线。
           loading={priority ? 'eager' : 'lazy'}
           fetchPriority={priority ? 'high' : 'auto'}
-          unoptimized
+          // 交给 next/image 优化。生产实测（Vercel）：同一张 800px 缩略图直连 75,012B，
+          // 经 /_next/image?w=384 只有 18,999B，且 Cloudflare 命中该优化结果
+          // （cf-cache-status: HIT）。此前带 unoptimized 的理由是「/_next/image 无扩展名、
+          // Cloudflare 不缓存、每张图都要打源站跑 sharp」—— 那套推理只对 CF 源站成立，
+          // 本站源站是 Vercel，优化结果由边缘缓存。
+          // sizes 按 simple 主题实际布局：容器 max-width 1280、padding 12/24/40、
+          // 1/2/3 列、列间距 16 → 大屏每列约 389~420px。
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 420px"
           placeholder={(photo.blurhash === DEFAULT_HASH || !photo.blurhash) ? 'empty' : 'blur'}
           blurDataURL={dataURL}
           onLoad={() => setThumbLoading(false)}

@@ -139,7 +139,8 @@ export default function ProgressiveImage(
         src={resolvedPreviewSrc}
         overrideSrc={resolvedPreviewSrc}
         placeholder="blur"
-        unoptimized
+        // 同 gallery-image：源站是 Vercel，/_next/image 的结果会被边缘缓存
+        sizes="(max-width: 768px) 100vw, 90vw"
         blurDataURL={dataURL}
         width={props.width}
         height={props.height}
