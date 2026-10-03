@@ -34,8 +34,22 @@
 | CSS | 516.5 KB 原始 / 63.2 KB gzip |
 | 中文字体 | **3,391.6 KB**（3 个 CJK woff2，`unicode-range` 数量 = 0） |
 | 首屏图片 | **≈ 118.5 MB** |
-| `cf-cache-status` | **DYNAMIC**（首页 / 图片代理 / R2 资产域，第一次和第二次请求全部未缓存） |
 | 路由渲染模式 | **26 / 26 全部 `ƒ Dynamic`** |
+
+### 1.1.1 Cloudflare 缓存实测（**已修正**）
+
+早期测量用 `HEAD`（`curl -I`）得出"资产域未缓存"的结论，**该结论是错的**：Cloudflare 不缓存 HEAD 请求。用真实 `GET` 重测后：
+
+| 资源 | `cf-cache-status` | 说明 |
+|---|---|---|
+| `/_next/static/chunks/*.js` | **HIT** | `age: 180634`，`max-age=31536000, immutable` |
+| `felina-asset.boxz.dev/images/**`（直连） | **HIT** | `age: 1358`，`cache-control: max-age=14400` |
+| `/api/public/url-proxy?url=…` | **DYNAMIC** | 无文件扩展名 → Standard 缓存级别不存储该路径 |
+| 首页 HTML | **DYNAMIC** | 动态渲染（见 R4），符合预期 |
+
+**修正后的结论**：资产域自身的边缘缓存是**正常工作的**。真正的损失是**所有图片都被强制绕经 `/api/public/url-proxy`** —— 这个路径不可缓存，于是每次图片请求都要多一次源站往返，边缘缓存带来的收益被完全抵消。因此图片链路的首要修复是**把代理从图片路径上摘掉**（纯代码改动），而不是新增边缘缓存规则。
+
+Cloudflare Containers 明确要求 Workers 付费计划（API 返回 401 `Deploying containers requires the Workers Paid plan`），账号下的 4 个 Worker 脚本均与本项目无关 → **本项目的 Next.js 源站跑在 Cloudflare 之外的服务器上**，这解释了 2.4s 的 TTFB（源站 + 东京数据库往返）。
 
 ### 1.2 首屏图片字节明细（24 张卡片）
 
@@ -316,18 +330,30 @@
 - 无论选哪种，都要**限制保留分片数上限**（例如最多保留最近 5 页 / 120 张），超出则回收。
 - 修复 `server/db/query/images.ts:235-237` 的 `LIMIT` 后随机排序：改为 SQL 侧带 seed 的稳定随机，或在分页模式下禁用随机。
 
-#### P0.7 Cloudflare 边缘缓存
+#### P0.7 图片路径摘除代理（P0 的关键修复，纯代码）
 
-在用户完成 `wrangler login` 后：
+**依据修正后的实测**（见 1.1.1）：资产域边缘缓存本来就是 HIT，罪魁是 `/api/public/url-proxy` 不可缓存。
 
-- 为资产域 `felina-asset.boxz.dev` 与 `/_next/image*` 加 **Cache Rule（Cache Everything）**，长 TTL（`max-age=31536000, immutable`）+ `stale-while-revalidate`。
-- 为 `/api/public/url-proxy*` 加 Cache Rule（或按 P0.4 直接绕开代理、让 `<img>` 指向资产域）；代理路径无文件扩展名，默认 Standard 缓存级别不会存储，这是 `cf-cache-status: DYNAMIC` 的直接原因。
-- 中间件 `proxy.ts:26-31` 的 matcher 排除 `/api/public/*` 与常见静态资源后缀，避免每次图片请求都过一次中间件。
-- 验证：对同一图片 URL 连续两次请求，第二次必须是 `cf-cache-status: HIT`。
+- 把 `lib/utils/image-proxy.ts` 的 `toProxyImageUrl` 改为**默认恒等**（直接返回原始资产 URL），仅在明确需要跨域/防盗链的场景保留代理。
+- 前提校验（必须先做）：资产域是否允许跨域直连 —— 检查 `felina-asset.boxz.dev` 是否带 `Access-Control-Allow-Origin`、是否依赖 `Referer` 防盗链。若不满足，则改为在 CF 层给代理路径加 Cache Rule（见下）作为替代而非直连。
+- `<img>` / `next/image` 直接指向 `felina-asset.boxz.dev`，浏览器与 CF 边缘都按 `max-age=14400` 命中。
+- 代理路由**保留**作为兜底能力，但不再位于默认关键路径上。
 
-#### P0.8 服务端图片路径保持一致
+#### P0.7b Cloudflare 侧（可选增强，需要 zone 级权限）
 
-`app/api/public/url-proxy/route.ts` 当前是必需的（因为 `preview_url` 与站不同源、且要绕过 CORS/防盗链）。P0 之后若可以直接同源/直连资产域，则把 `lib/utils/image-proxy.ts` 的 `toProxyImageUrl` 改为恒等函数或仅对需要 CORS 的场景启用，保留代理作为兜底。
+当前 OAuth token 只有 account 级 Workers/Pages 权限，`/zones/{id}/settings`、`/zones/{id}/rulesets`、`/zones/{id}/pagerules` 全部 403。若要进一步压榨边缘收益，需要用户提供带 **Zone → Cache Rules → Edit** 与 **Zone → Cache Rules/Zone Settings → Read** 的 API Token（或在面板操作）：
+
+- 为资产域加 Cache Rule：`Browser TTL` 覆盖为 1 年（文件名是内容哈希，内容不可变）→ 回访完全不走网络。
+- 为 `/api/public/url-proxy*` 加 Cache Rule（Cache Everything）—— 仅在 P0.7 无法直连时才需要。
+- 中间件 `proxy.ts:26-31` 的 matcher 排除 `/api/public/*` 与常见静态资源后缀（此项是纯代码，无需 CF 权限）。
+
+**验证**：同一图片 URL 连续两次 `GET`，第二次必须 `cf-cache-status: HIT` 且不再产生源站请求；`/_next/static` 保持 HIT。
+
+#### P0.8 中间件放行静态与图片路径
+
+`proxy.ts:26-31` 的 matcher 目前只排除 `_next/static`、`_next/image`、`favicon.ico`，因此每个图片请求（含代理路径）与 `public/` 资源都会经过中间件。扩宽负向断言，排除 `/api/public/*`、`/icons/*`、`/fonts/*` 及常见静态后缀；`/admin` 与 `/api/v1` 的鉴权保持不变。
+
+（原"服务端图片路径保持一致"一节已并入 P0.7。）
 
 ---
 
