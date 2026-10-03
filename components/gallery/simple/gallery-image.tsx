@@ -21,44 +21,22 @@ function GalleryImage({ photo, configData }: { photo: ImageType, configData: any
 
   const { data: download = false, mutate: setDownload } = useSWR(['masonry/download', photo?.url ?? ''], null)
   const [thumbLoading, setThumbLoading] = useState(true)
-  const [hdLoaded, setHdLoaded] = useState(false)
 
   const dataURL = useBlurImageDataUrl(photo.blurhash)
   const exifProps: ImageDataProps = { data: photo }
 
+  // 网格只消费 preview_url（缩略图）。原图仅在预览页按需加载。
+  // 曾经这里会在挂载时预取 photo.url（全分辨率原图）并叠成一层图层：实测首屏 24 张
+  // 卡片因此多下载 82.73MB 原图，并对每张做两次全分辨率解码 —— 这是滚动掉帧的主因。
   const thumbUrl = photo.preview_url || photo.url || ''
-  const hdUrl = photo.url || photo.preview_url || ''
   const proxyThumb = toProxyImageUrl(thumbUrl)
-  const proxyHd = toProxyImageUrl(hdUrl)
 
   const [resolvedThumb, setResolvedThumb] = useState(proxyThumb || thumbUrl)
-  const [resolvedHd, setResolvedHd] = useState(proxyHd || hdUrl)
 
   useEffect(() => {
     setResolvedThumb(proxyThumb || thumbUrl)
-    setResolvedHd(proxyHd || hdUrl)
     setThumbLoading(true)
-    setHdLoaded(false)
-  }, [thumbUrl, hdUrl])
-
-  // Preload HD with decode() so the browser has the full image ready before crossfade.
-  // Avoids progressive-JPEG stripe rendering that appears when setting src directly on <img>.
-  useEffect(() => {
-    if (!resolvedHd || resolvedHd === resolvedThumb) return
-    let cancelled = false
-    const img = new window.Image()
-    img.src = resolvedHd
-    img.onload = async () => {
-      try { await img.decode() } catch { /* ignore */ }
-      if (!cancelled) setHdLoaded(true)
-    }
-    img.onerror = () => {
-      if (!cancelled && isProxyImageUrl(resolvedHd) && hdUrl) {
-        setResolvedHd(hdUrl)
-      }
-    }
-    return () => { cancelled = true }
-  }, [resolvedHd, resolvedThumb, hdUrl])
+  }, [thumbUrl, proxyThumb])
 
   async function downloadImg() {
     setDownload(true)
@@ -131,26 +109,6 @@ function GalleryImage({ photo, configData }: { photo: ImageType, configData: any
           }}
         />
 
-        {/* HD original (top layer, fades in after full decode via preloader effect) */}
-        {resolvedHd && resolvedHd !== resolvedThumb && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={resolvedHd}
-            alt={photo.title}
-            width={photo.width}
-            height={photo.height}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              opacity: hdLoaded ? 1 : 0,
-              transition: hdLoaded ? 'opacity 0.8s ease' : 'none',
-            }}
-          />
-        )}
-
         {photo.type === 2 && (
           <div
             style={{
@@ -169,26 +127,6 @@ function GalleryImage({ photo, configData }: { photo: ImageType, configData: any
             }}
           >
             LIVE
-          </div>
-        )}
-
-        {/* HD badge — shows when HD is loaded */}
-        {hdLoaded && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              background: 'rgba(25,200,185,0.85)',
-              borderRadius: 20,
-              padding: '2px 7px',
-              fontSize: 9,
-              fontWeight: 800,
-              color: '#fff',
-              letterSpacing: '0.06em',
-            }}
-          >
-            HD
           </div>
         )}
       </div>
