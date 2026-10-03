@@ -282,10 +282,12 @@
   animation: star-sparkle 2.2s ease-in-out infinite;
 }
 
-/* Masonry waterfall grid */
+/* Masonry waterfall grid
+   行优先网格由 components/ui/origin/masonry-grid.tsx 用 grid-row span 实现。
+   `break-inside: avoid` 只对 CSS 多列有意义（已不再使用）；项间距由跨行数里的
+   额外行提供，因此也不再需要 margin-bottom。这里保留类名作为稳定钩子。 */
 .masonry-item {
-  break-inside: avoid;
-  margin-bottom: 14px;
+  min-width: 0;
 }
 
 @layer utilities {

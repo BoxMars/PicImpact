@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import type { ImageType } from '~/types'
 import GalleryImage from '~/components/gallery/simple/gallery-image.tsx'
 import InfiniteScroll from '~/components/ui/origin/infinite-scroll.tsx'
+import { MasonryGrid } from '~/components/ui/origin/masonry-grid'
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import useSWR from 'swr'
 import { Title, Divider, Footer, Time, Icon, Typewriter } from 'animal-island-ui'
@@ -115,7 +116,10 @@ export default function SimpleGallery(props: Readonly<ImageHandleProps>) {
         <div className="px-3 sm:px-6 md:px-10"
           style={{ maxWidth: 1280, margin: '0 auto', paddingTop: 16, paddingBottom: 16 }}
         >
-        <div className="columns-1 sm:columns-2 lg:columns-3" style={{ columnGap: 16 }}>
+        {/* 行优先瀑布流：CSS 多列是列优先的（先填满第 1 列再填第 2 列），
+            会让按时间排序的照片变成「一列读到底」。改用 Grid（默认行优先）
+            + 逐项按实测高度跨行，既保参差高度又让相邻照片并排。 */}
+        <MasonryGrid className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4">
           {dataList?.map((item: ImageType, idx: number) => (
             <div key={item.id} className="masonry-item">
               {/* Island card */}
@@ -134,7 +138,7 @@ export default function SimpleGallery(props: Readonly<ImageHandleProps>) {
               </div>
             </div>
           ))}
-        </div>
+        </MasonryGrid>
         </div>
 
         {dataList.length === 0 && !isValidating && (
