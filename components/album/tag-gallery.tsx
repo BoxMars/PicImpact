@@ -78,7 +78,12 @@ export default function TagGallery(props: Readonly<ImageHandleProps>) {
       <div className="flex flex-col sm:flex-row w-full p-2 items-start justify-between sm:relative overflow-x-clip">
         <div className="order-3 sm:order-1 flex flex-1 flex-col px-2 sm:sticky top-4 self-start" />
         <div className="order-2 w-full sm:w-[66.667%] mx-auto">
-          <MasonryPhotoAlbum
+          {/* defaultContainerWidth 让 react-photo-album 在服务端就能算出布局：
+            该库默认要等客户端测量容器宽度，于是首屏 HTML 里一个瓦片都没有
+            （实测相册页 SSR 出来的 <img> 数为 0）。给了默认宽度后首屏即可渲染瓦片，
+            客户端测量完成后会再校正一次。900px 对应桌面端 66.667% 容器下的 3 列。 */}
+            <MasonryPhotoAlbum
+              defaultContainerWidth={900}
             columns={(containerWidth) => {
               if (containerWidth < 768) return 2
               if (containerWidth < 1024) return 3
