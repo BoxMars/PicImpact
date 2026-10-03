@@ -89,7 +89,15 @@ export function MasonryGrid({
     <div
       ref={ref}
       className={className}
-      style={measured ? { gridAutoRows: `${ROW}px`, rowGap: 0 } : { rowGap: GAP }}
+      style={{
+        // `alignItems: 'start'` 不是样式偏好，而是**正确性前提**：网格项默认
+        // `align-items: stretch`，会被拉伸填满自己的网格区域；那样测到的高度就把
+        // 「为间距多留的行」也算进去，下一轮 span 再变大 → ResizeObserver 正反馈，
+        // 每轮长 GAP 像素直至失控（实测曾把 180px 的块撑到 3448px）。
+        // 改成 start 后项高 = 内容高，span 只在其下方留出间距，测量收敛。
+        alignItems: 'start',
+        ...(measured ? { gridAutoRows: `${ROW}px`, rowGap: 0 } : { rowGap: GAP }),
+      }}
     >
       {children}
     </div>
