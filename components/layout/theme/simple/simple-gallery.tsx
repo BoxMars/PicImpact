@@ -11,7 +11,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import useSWR from 'swr'
 import { Title, Divider, Footer, Time, Icon, Typewriter } from 'animal-island-ui'
 
-
 export default function SimpleGallery(props: Readonly<ImageHandleProps>) {
   const [selectedCamera, setSelectedCamera] = useState('')
   const [selectedLens, setSelectedLens] = useState('')

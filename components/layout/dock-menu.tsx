@@ -64,7 +64,6 @@ export default function DockMenu(props: Readonly<AlbumDataProps>) {
           <Icon name="icon-critterpedia" size={22} />
         </DockButton>
 
-
         <DockButton
           label={t('Link.settings')}
           onClick={() => setCommand(true)}

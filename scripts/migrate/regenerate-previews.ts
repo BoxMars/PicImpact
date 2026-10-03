@@ -178,7 +178,7 @@ async function run() {
 
     await Promise.all(Array.from({ length: options.concurrency }, (_, i) => worker(i + 1)))
 
-    console.log(`\n=== 汇总 ===`)
+    console.log('\n=== 汇总 ===')
     console.log(`  处理成功: ${totals.updated}`)
     console.log(`  其中宽高被修正: ${totals.dimsFixed}`)
     console.log(`  跳过:     ${totals.skipped}`)
@@ -188,7 +188,7 @@ async function run() {
       console.log(`  缩略图总字节: ${fmtBytes(totals.previewBytes)}`)
       console.log(`  压缩比:       ${pct(totals.previewBytes, totals.originalBytes)}%`)
     }
-    console.log(options.apply ? `\n回滚快照：${backupPath}` : `\n这是 dry-run，未写入任何内容。加 --apply 执行。`)
+    console.log(options.apply ? `\n回滚快照：${backupPath}` : '\n这是 dry-run，未写入任何内容。加 --apply 执行。')
   } finally {
     await prisma.$disconnect()
   }

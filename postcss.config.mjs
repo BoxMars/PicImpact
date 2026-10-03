@@ -49,14 +49,14 @@ const stripBundledFontFaces = () => ({
       throw root.error(
         `strip-bundled-font-faces: 剥离了 ${removed} 条未分片 @font-face，但产出中只剩 ` +
           `${slicedRules} 条 unicode-range（期望 >= ${MIN_SLICED_RULES}）。` +
-          `分片字体疑似被误删，中文将回退到系统字体。请检查 UNSLICED_FONT_SRC 是否过宽。`,
+          '分片字体疑似被误删，中文将回退到系统字体。请检查 UNSLICED_FONT_SRC 是否过宽。',
       )
     }
 
     if (removed !== EXPECTED_REMOVALS) {
       console.warn(
         `[strip-bundled-font-faces] 剥离了 ${removed} 条未分片 @font-face，期望 ${EXPECTED_REMOVALS} 条。` +
-          `animal-island-ui 可能已升级并改了字体文件名，请复核正则。`,
+          'animal-island-ui 可能已升级并改了字体文件名，请复核正则。',
       )
     }
   },

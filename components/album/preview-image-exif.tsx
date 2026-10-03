@@ -222,15 +222,10 @@ export default function PreviewImageExif(props: Readonly<ImageDataProps>) {
                   )}
                   <Row label={t('Exif.exposureMode')} value={props.data?.exif?.exposure_mode} />
                   <Row label={t('Exif.whiteBalance')} value={props.data?.exif?.white_balance} />
-                  {/* Temporarily hide color space details */}
-                  {false && props.data?.exif?.color_space && (
-                    <div className="flex items-center gap-2">
-                      <FlaskIcon className={badgeIconClass} size={14} />
-                      <span className="text-sm text-gray-700 dark:text-gray-200">
-                        {props.data.exif.color_space}
-                      </span>
-                    </div>
-                  )}
+                  {/* 原此处有一段被 `false &&` 关闭的「色彩空间」展示，引用了未导入的
+                      FlaskIcon —— 永远不会渲染，但会让 lint 报 jsx-no-undef，
+                      且一旦有人把它打开就会直接崩。已删除。 */}
+
                 </div>
               </div>
             )}

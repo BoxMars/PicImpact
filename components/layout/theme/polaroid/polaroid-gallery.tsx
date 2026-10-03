@@ -15,6 +15,29 @@ import { cn } from '~/lib/utils'
  * 拍立得照片卡片组件
  * @param props - 包含图片数据、位置样式和点击处理函数
  */
+/**
+ * 把任意字符串映射到 [0, 1) 的确定性数值（FNV-1a + salt）。
+ * 用于给宝丽来卡片生成"看起来随机、但每次渲染都一致"的散落位置。
+ */
+function hashToUnit(id: string, salt: number): number {
+  let h = (2166136261 ^ salt) >>> 0
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i)
+    h = Math.imul(h, 16777619) >>> 0
+  }
+  return (h % 100000) / 100000
+}
+
+// 6 种相纸规格（单位: mm）。提到模块级 —— 原先定义在组件体内，每次渲染都重建这个数组。
+const POLAROID_STYLES = [
+  { name: '富士MINI', cardW: 54, cardH: 86, imgW: 46, imgH: 62 },
+  { name: '富士WIDE', cardW: 108, cardH: 86, imgW: 99, imgH: 62 },
+  { name: '富士SQ', cardW: 72, cardH: 86, imgW: 62, imgH: 62 },
+  { name: '宝丽来GO', cardW: 53.9, cardH: 66.6, imgW: 47, imgH: 46 },
+  { name: '宝丽来宽幅', cardW: 103, cardH: 102, imgW: 92, imgH: 73 },
+  { name: '宝丽来标准', cardW: 88.5, cardH: 107.5, imgW: 78.9, imgH: 76.8 },
+]
+
 const PolaroidCard = memo(function PolaroidCard({
   item,
   style,
@@ -30,23 +53,16 @@ const PolaroidCard = memo(function PolaroidCard({
   const [imgSrc, setImgSrc] = useState(item.preview_url)
   const blurDataUrl = useBlurImageDataUrl(item.blurhash)
 
-  // 如果缺少宽高数据，则跳过渲染以规避报错
-  if (!item.width || !item.height || item.width <= 0 || item.height <= 0) {
-    return null
-  }
-
-  // 定义 6 种相纸规格 (单位: mm)
-  const POLAROID_STYLES = [
-    { name: '富士MINI', cardW: 54, cardH: 86, imgW: 46, imgH: 62 },
-    { name: '富士WIDE', cardW: 108, cardH: 86, imgW: 99, imgH: 62 },
-    { name: '富士SQ', cardW: 72, cardH: 86, imgW: 62, imgH: 62 },
-    { name: '宝丽来GO', cardW: 53.9, cardH: 66.6, imgW: 47, imgH: 46 },
-    { name: '宝丽来宽幅', cardW: 103, cardH: 102, imgW: 92, imgH: 73 },
-    { name: '宝丽来标准', cardW: 88.5, cardH: 107.5, imgW: 78.9, imgH: 76.8 },
-  ]
-
-  // 根据图片比例自动选择最合适的相纸
+  // 根据图片比例自动选择最合适的相纸。
+  //
+  // ⚠️ 这个 useMemo 必须位于下面那个 early return **之前**：原先它写在
+  // `if (!item.width ...) return null` 之后，属于条件调用 Hook —— 一旦某张卡片的
+  // 宽高从中途从 0 变为有效（或反之），React 会抛
+  // "Rendered fewer hooks than expected"，整页崩溃。
   const selectedStyle = useMemo(() => {
+    if (!item.width || !item.height || item.width <= 0 || item.height <= 0) {
+      return POLAROID_STYLES[POLAROID_STYLES.length - 1]
+    }
     const imgRatio = item.width / item.height
     return POLAROID_STYLES.reduce((prev, curr) => {
       const currRatio = curr.imgW / curr.imgH
@@ -54,6 +70,11 @@ const PolaroidCard = memo(function PolaroidCard({
       return Math.abs(imgRatio - currRatio) < Math.abs(imgRatio - prevRatio) ? curr : prev
     })
   }, [item.width, item.height])
+
+  // 如果缺少宽高数据，则跳过渲染以规避报错（此时上面的 Hook 已经无条件执行过）
+  if (!item.width || !item.height || item.width <= 0 || item.height <= 0) {
+    return null
+  }
 
   // 物理尺寸转像素比例 (1mm = 3.8px)
   const scale = 3.8
@@ -95,8 +116,8 @@ const PolaroidCard = memo(function PolaroidCard({
           width={Math.round(imgWidth)}
           height={Math.round(imgHeight)}
           className={cn(
-            "pointer-events-none relative z-10 h-full w-full object-cover transition-opacity duration-500",
-            isLoading ? "opacity-0" : "opacity-100"
+            'pointer-events-none relative z-10 h-full w-full object-cover transition-opacity duration-500',
+            isLoading ? 'opacity-0' : 'opacity-100'
           )}
           placeholder="blur"
           blurDataURL={blurDataUrl}
@@ -162,20 +183,23 @@ export default function PolaroidGallery(props: Readonly<ImageHandleProps>) {
 
   const dataList = useMemo(() => data ? [].concat(...data) : [], [data])
 
-  // 使用 ref 存储位置，确保数据追加时旧图片位置不变
-  const positionsRef = useRef<Record<string, { top: string, left: string, rotate: string }>>({})
-
+  // 由图片 id 派生的**稳定**伪随机位置。
+  //
+  // 原先的位置用 `Math.random()` 在 render 期间求值并写进一个 ref：
+  //   - 违反 React 的 purity 约定（渲染期间产生副作用 + 非确定性）；
+  //   - 服务端渲染与水合会算出不同的位置，导致水合不一致与视觉跳动。
+  // 改成 id 的哈希：同一张图永远得到同一个位置，追加数据时旧图位置也不变
+  // （原先正是靠 ref 来保证这一点），于是那个 ref 不再需要。
   const currentPositions = useMemo(() => {
-    dataList.forEach((item: ImageType) => {
-      if (!positionsRef.current[item.id]) {
-        positionsRef.current[item.id] = {
-          top: `${Math.floor(Math.random() * 40) + 10}%`, // 10% - 50%
-          left: `${Math.floor(Math.random() * 50) + 10}%`, // 10% - 60%
-          rotate: `${Math.floor(Math.random() * 20) - 10}deg`, // -10deg - 10deg
-        }
+    const positions: Record<string, { top: string, left: string, rotate: string }> = {}
+    for (const item of dataList as ImageType[]) {
+      positions[item.id] = {
+        top: `${Math.floor(hashToUnit(item.id, 1) * 40) + 10}%`, // 10% - 50%
+        left: `${Math.floor(hashToUnit(item.id, 2) * 50) + 10}%`, // 10% - 60%
+        rotate: `${Math.floor(hashToUnit(item.id, 3) * 20) - 10}deg`, // -10deg - 10deg
       }
-    })
-    return positionsRef.current
+    }
+    return positions
   }, [dataList])
 
   const maxZIndexRef = useRef(10)

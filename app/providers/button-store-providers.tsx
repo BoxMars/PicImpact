@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, createContext, useRef, useContext } from 'react'
+import { type ReactNode, createContext, useContext, useState } from 'react'
 import { type StoreApi, useStore } from 'zustand'
 
 import { type ButtonStore, createButtonStore, initButtonStore } from '~/stores/button-stores'
@@ -16,13 +16,14 @@ export interface ButtonStoreProviderProps {
 export const ButtonStoreProvider = ({
   children,
 }: ButtonStoreProviderProps) => {
-  const storeRef = useRef<StoreApi<ButtonStore>>()
-  if (!storeRef.current) {
-    storeRef.current = createButtonStore(initButtonStore())
-  }
+  // 用 useState 的惰性初始化代替 `useRef` + 渲染期赋值。
+  // 后者会在渲染期间读写 ref，React Compiler 的 react-hooks/refs 规则会直接报错
+  // （渲染必须保持纯粹，且并发渲染下渲染期写 ref 是不安全的）。
+  // 这也正是 zustand 官方推荐的按请求创建 store 的写法。
+  const [store] = useState(() => createButtonStore(initButtonStore()))
 
   return (
-    <ButtonStoreContext.Provider value={storeRef.current}>
+    <ButtonStoreContext.Provider value={store}>
       {children}
     </ButtonStoreContext.Provider>
   )

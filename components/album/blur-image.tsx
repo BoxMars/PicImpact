@@ -29,7 +29,7 @@ function BlurImage({ photo, dataList: _dataList }: { photo: any, dataList: any }
         <Skeleton className="absolute inset-0 z-10 rounded-none" />
       )}
       <MotionImage
-        className={cn(isLoading && "animate-pulse")}
+        className={cn(isLoading && 'animate-pulse')}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
