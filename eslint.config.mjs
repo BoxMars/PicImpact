@@ -20,12 +20,25 @@ import prettier from 'eslint-config-prettier/flat'
  * 本文件后面的自定义 rules 仍在它之后，所以 `semi` / `quotes` 这类与格式化重叠的
  * 规则是**有意**保留的（项目约定：单引号、无分号）。
  */
+const nextConfigs = [...next, ...coreWebVitals, ...typescript]
+
+/**
+ * 复用 eslint-config-next 内部已经加载的 react-hooks 插件实例。
+ *
+ * 不要自己 `import 'eslint-plugin-react-hooks'`：v7 会**再加载一份** React Compiler
+ * 工具链，实测让 ESLint 堆内存涨到 4GB 后 OOM 崩溃（exit 134）。
+ * flat config 又要求「在某对象里引用插件规则时该插件必须在同一对象中注册」，
+ * 所以这里取出同一个实例注册到我们的覆盖对象上。
+ */
+const reactHooksPlugin = nextConfigs.find((c) => c?.name === 'next')?.plugins?.['react-hooks']
+
 export default [
-  ...next,
-  ...coreWebVitals,
-  ...typescript,
+  ...nextConfigs,
   prettier,
   {
+    // 仅在成功取得插件实例时才注册（取不到时下面的规则覆盖也就无从生效，
+    // 宁可报错也不要静默失效）
+    ...(reactHooksPlugin ? { plugins: { 'react-hooks': reactHooksPlugin } } : {}),
     rules: {
       'react/no-unescaped-entities': 'off',
       '@next/next/no-page-custom-font': 'off',
@@ -58,6 +71,10 @@ export default [
       'out/**',
       'build/**',
       'next-env.d.ts',
+      // 本地依赖 store / corepack 缓存。它们位于项目目录内（沙箱限制下只能装到这里），
+      // 里面是上千个包文件；不排除的话 ESLint 会去扫描它们，实测直接 4GB 堆 OOM。
+      '.pnpm-store/**',
+      '.corepack/**',
       // shadcn/ui 样板：原 `lint:fix` 脚本就用 --ignore-pattern 排除它
       'components/ui/**',
     ],

@@ -22,3 +22,7 @@ tsconfig.tsbuildinfo
 certificates
 .vscode/
 .cursor/
+
+# 本地依赖 store / corepack 缓存（沙箱内安装时使用，不应入库）
+.pnpm-store/
+.corepack/
