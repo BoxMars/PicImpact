@@ -1,107 +1,36 @@
 'use client'
 
-import { Loading } from 'animal-island-ui'
-import { useEffect, useRef, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { Suspense } from 'react'
+import { AppProgressBar } from 'next-nprogress-bar'
 
-const MIN_DISPLAY_MS = 700
-// Duration of the iris-close animation (matches animal-island-ui internals: d/1500 s)
-const getIrisDuration = () => {
-  if (typeof window === 'undefined') return 1000
-  const d = Math.ceil(Math.hypot(window.innerWidth, window.innerHeight) / 2) + 50
-  return Math.max(100, (d / 1500) * 1000) + 150
-}
-
+/**
+ * 导航进度反馈。
+ *
+ * 原实现用 animal-island-ui 的 Loading（GSAP + MotionPathPlugin，构建后 88.8KB 原始 /
+ * 36.0KB gzip）做一个 100vw×100vh、z-index 9999 的全屏虹膜遮罩，并强制最小显示时长：
+ * 首屏 1000ms、每次客户端跳转 700ms（MIN_DISPLAY_MS）。它还在全局猴补丁了
+ * window.history.pushState。实测这是"点哪都慢"的主要来源之一 —— 即使服务端瞬间返回，
+ * 用户也要先看 0.7~1s 的过场动画。
+ *
+ * 现在换成 next-nprogress-bar 的 AppProgressBar：它是本站**已有**的依赖（此前只用了它的
+ * useRouter，13 处），只有约 2KB，做一条顶部细进度条，**反映真实导航状态、没有任何
+ * 人为最小显示时长**，也不再碰 history API。
+ *
+ * 注意：AppProgressBar 内部使用 useSearchParams，必须包 Suspense 边界。
+ * startOnLoad 保持默认 false —— 首屏不应再有任何遮罩。
+ */
 export function ProgressBarProviders({ children }: { children: React.ReactNode }) {
-  const [active, setActive] = useState(true)
-  // mounted controls whether GSAP animation is in DOM at all; unmount after iris closes
-  const [mounted, setMounted] = useState(true)
-  const pathname = usePathname()
-  const initialized = useRef(false)
-  const showAt = useRef<number>(Date.now())
-  const hideTimer = useRef<ReturnType<typeof setTimeout>>()
-  const unmountTimer = useRef<ReturnType<typeof setTimeout>>()
-
-  const scheduleHide = () => {
-    clearTimeout(hideTimer.current)
-    clearTimeout(unmountTimer.current)
-    const elapsed = Date.now() - showAt.current
-    const delay = Math.max(0, MIN_DISPLAY_MS - elapsed)
-    hideTimer.current = setTimeout(() => {
-      setActive(false)
-      // Unmount after iris-close animation finishes → stops GSAP from running at 60fps
-      unmountTimer.current = setTimeout(() => setMounted(false), getIrisDuration())
-    }, delay)
-  }
-
-  // Initial page load
-  useEffect(() => {
-    showAt.current = Date.now()
-    hideTimer.current = setTimeout(() => {
-      setActive(false)
-      initialized.current = true
-      unmountTimer.current = setTimeout(() => setMounted(false), getIrisDuration())
-    }, 1000)
-    return () => {
-      clearTimeout(hideTimer.current)
-      clearTimeout(unmountTimer.current)
-    }
-  }, [])
-
-  // Navigation complete → hide after min display time
-  useEffect(() => {
-    if (!initialized.current) return
-    scheduleHide()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname])
-
-  // Intercept navigation start → mount + show immediately
-  useEffect(() => {
-    const origPush = window.history.pushState.bind(window.history)
-
-    window.history.pushState = (...args: Parameters<typeof window.history.pushState>) => {
-      clearTimeout(unmountTimer.current)
-      showAt.current = Date.now()
-      setMounted(true)
-      queueMicrotask(() => setActive(true))
-      return origPush(...args)
-    }
-
-    const onPop = () => {
-      clearTimeout(unmountTimer.current)
-      showAt.current = Date.now()
-      setMounted(true)
-      setActive(true)
-    }
-    window.addEventListener('popstate', onPop)
-
-    return () => {
-      window.history.pushState = origPush
-      window.removeEventListener('popstate', onPop)
-    }
-  }, [])
-
   return (
     <>
-      {mounted && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            zIndex: 9999,
-            pointerEvents: active ? 'auto' : 'none',
-            willChange: 'transform',
-            transform: 'translateZ(0)',
-            isolation: 'isolate',
-          }}
-        >
-          <Loading active={active} />
-        </div>
-      )}
       {children}
+      <Suspense fallback={null}>
+        <AppProgressBar
+          height="3px"
+          color="#19c8b9"
+          options={{ showSpinner: false }}
+          shallowRouting
+        />
+      </Suspense>
     </>
   )
 }
