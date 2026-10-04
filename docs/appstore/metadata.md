@@ -94,16 +94,34 @@
 
 **追踪（Tracking）**：不涉及 —— 不需要 ATT 弹窗
 
-## 8. App 审核备注（建议填，能加快审核）
+## 8. App 审核备注（中英文各一份，直接都粘进去）
+
+> App Store Connect 的 Notes 字段上限 4000 字符；两份合起来约 700，够用。
+> 中英文都放，审核员（可能不是中文母语）能直接读英文那份。
+
+### 中文
 
 ```
 本 App 是一个家庭相册客户端，内容来自开发者自建站点 felina.boxz.dev 的公开相册
 （照片是一只名叫「大福」的猫与家人的日常）。
 
 ・无需登录，也没有账号体系，打开即可看到全部内容
-・底部/详情页的「保存」按钮会请求「添加到相册」权限
+・底部/详情页的「保存」按钮会请求「添加到相册」权限（该权限只写不读，App 无法查看用户相册）
 ・内容全部由开发者本人上传，不含任何用户投稿或第三方内容
 ・如需查看内容来源，可直接访问 https://felina.boxz.dev
+```
+
+### English
+
+```
+This app is a family photo gallery client. All content comes from the developer's own public
+album at felina.boxz.dev (photos of a cat named "Daifuku" and his family).
+
+- No login and no account system: everything is visible as soon as the app opens.
+- The "Save" button on the detail page requests the "Add to Photo Library" permission. This
+  permission is write-only: the app cannot read or view anything in your photo library.
+- All content is uploaded by the developer. There is no user-generated or third-party content.
+- To see where the content comes from, visit https://felina.boxz.dev
 ```
 
 ## 9. 上传用的截图
