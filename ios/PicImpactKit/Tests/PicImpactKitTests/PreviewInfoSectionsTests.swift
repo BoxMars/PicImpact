@@ -299,4 +299,46 @@ struct PreviewInfoSectionsTests {
             "详情页的直方图不该有边框，实测在 y=\(y0)...\(y1) 命中 \(border) px 的 #c4b89e"
         )
     }
+
+    @Test("详情页顶栏有 ACNH 的返回与分享（且在最上方）")
+    func topBarHasBackAndShare() throws {
+        let json = """
+        {"id":"p1","imageName":"IMG_1.jpeg","url":"https://x/o.jpg","previewUrl":"https://x/p.webp",
+         "videoUrl":"","blurhash":"","width":4032,"height":3024,"title":"标题","detail":"",
+         "type":1,"labels":[],"lon":"","lat":"",
+         "exif":{"make":"Apple","model":"iPhone 17","lens_model":"back camera","focal_length":"5.96 mm",
+                 "f_number":"f/1.6","exposure_time":"1/13","exposure_program":"Normal program",
+                 "iso_speed_rating":640,"data_time":"2026:10:02 20:15:12","bits":"8"},
+         "albumLicense":null,"createdAt":null}
+        """
+        let image = try APIDecoding.makeDecoder().decode(ImageDTO.self, from: Data(json.utf8))
+        let model = PreviewModel(image: image, loader: ImageLoader())
+        let pixels = try #require(IslandCardTests.rasterize(
+            PreviewContentView(model: model, features: .none, onSelectTag: { _ in })
+                .frame(width: 393, height: 1400),
+            scale: 2
+        ))
+
+        // 分享按钮用 icon-helicopter（#FFAD00）—— 全页只有它在用这个颜色
+        var helicopterRows: [Int] = []
+        for y in 0..<pixels.height {
+            for x in 0..<pixels.width where pixels.matches(x, y, 0xFFAD00, tolerance: 8) {
+                helicopterRows.append(y); break
+            }
+        }
+        let first = try #require(helicopterRows.first, "顶栏没找到分享按钮（icon-helicopter）")
+        #expect(
+            first < pixels.height / 5,
+            "分享按钮应在画面上部（顶栏），实际首次出现在 y=\(first) / \(pixels.height)"
+        )
+
+        // 返回按钮是自绘箭头 + 描边胶囊：顶栏区域应出现描边色
+        var borderInTopBar = 0
+        for y in 0..<min(pixels.height, first + 80) {
+            for x in 0..<pixels.width where pixels.matches(x, y, 0xC4B89E, tolerance: 4) {
+                borderInTopBar += 1
+            }
+        }
+        #expect(borderInTopBar > 0, "顶栏的返回按钮应有描边胶囊")
+    }
 }

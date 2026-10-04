@@ -92,7 +92,25 @@ public struct GalleryCell: View {
     private var imageArea: some View {
         CachedAsyncImage(url: image.displayURL, loader: loader, contentMode: .fill)
             .frame(width: columnWidth, height: imageHeight)
-            .clipped()
+            // 图片四角都圆：上方两角由 IslandCard 的裁剪给出，下方两角在这里给。
+            // 半径 16 取自 Web 的 `border-radius: 16px 16px 0 0`（卡片本身是 18，
+            // 差的那 2pt 正好被卡片的 2pt 描边盖住）。
+            // 下方圆角会让纸色在图片下缘两角露出一点，形成"照片贴在纸上"的观感。
+            .clipShape(UnevenRoundedRectangle(
+                topLeadingRadius: 0,
+                bottomLeadingRadius: 16,
+                bottomTrailingRadius: 16,
+                topTrailingRadius: 0,
+                style: .circular
+            ))
+            // ⚠️ 纸色底必须垫在 **clipShape 之后**。
+            // 放前面会被同一个 clipShape 一起裁掉，等于没加。
+            // 为什么需要它：实测内容里只要出现 `.clipShape` 的子视图，
+            // IslandCard 那层 fill 就露不出来，圆角处透出的是卡片自己的**硬阴影色**
+            // （最小复现：IslandCard { Color.clear } → 纸色；
+            //   IslandCard { VStack { 带裁剪的色块; Color.clear } } → 阴影色）。
+            // 垫上这层之后，裁掉的圆角露出纸色，"照片贴在纸上"才成立。
+            .background(AnimalSignatures.cardPaper)
             .overlay(alignment: .topLeading) {
                 if image.isLivePhoto {
                     // 对应 Web 的 LIVE 角标
@@ -261,7 +279,14 @@ public struct GalleryCell: View {
         // 按用户要求：卡片下方只保留**两个**按钮（分享 / 下载），并且**带文字**，
         // 且**不要边框**。不再提供"复制图片链接"（原来是 icon-diy 那个）。
         HStack(spacing: 8) {
-            actionButton(icon: .helicopter, label: "分享", action: onShareLink)
+            // 分享改为调**系统分享面板**（分享站点上该图的链接），不再是复制到剪贴板。
+            // onShareLink 保留为回调，供宿主在需要时覆盖（例如未来要统计分享次数）。
+            IslandShareButton(
+                url: LinkActions.shareURL(for: image),
+                iconSize: 16,
+                fontSize: 11,
+                style: .plain
+            )
 
             if showDownload {
                 if isDownloading {

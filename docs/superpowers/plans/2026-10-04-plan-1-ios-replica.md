@@ -448,3 +448,47 @@ Web 的 `formatExifDateTimeForDisplay` 注释与实现都写明输出 `"YYYY-MM-
 「实测在 y=2111...2366 命中 100 px」。
 
 117 测试 / 14 套件通过。
+
+
+### 分享改走系统面板；详情页 ACNH 顶栏；图片下方圆角
+
+**一、分享调系统分享面板**
+卡片的「分享」从"复制到剪贴板"改为 `ShareLink`（系统分享面板），分享站点链接
+`https://felina.boxz.dev/preview/<id>`。用 `ShareLink` 而不是自己包
+`UIActivityViewController`：iPad 上 popover 的锚点、取消回调都由系统处理，
+自己包容易在 iPad 上崩（popover 必须有 sourceView）。
+`LinkActions.copyShareLink` 保留作为降级路径。
+
+**二、详情页 ACNH 顶栏（返回 / 分享）**
+左上「返回」、右上「分享」，都是纸色胶囊 + 图标 + 文字，并隐藏系统导航栏。
+- 返回用 `@Environment(\.dismiss)`：从任意入口（卡片、标签、深链接）进来都能正确返回
+- 返回箭头是**自绘**的：这套 ACNH 图标里没有方向箭头，
+  而 SF Symbol 的 `chevron.left` 是细线风格，与旁边的 ACNH 图标不是一套
+- `.toolbar(.hidden, for: .navigationBar)` 需要 `#if os(iOS)` 守卫 ——
+  这个 placement 在 macOS 上不存在，而本包要同时给 macOS 测试编译
+
+**三、图片下方圆角**
+`.clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 16, bottomTrailingRadius: 16))`，
+半径 16 取自 Web 的 `border-radius: 16px 16px 0 0`。
+
+**过程中查出一个更底层的渲染问题（值得记下）**：
+加上圆角后发现"裁掉的圆角处透出的不是纸色，而是卡片自己的硬阴影色"。
+最小复现确认：
+
+| 卡片内容 | 圆角/透明处透出 |
+|---|---|
+| `IslandCard { Color.clear }` | 纸色 ✓ |
+| `IslandCard { VStack { 带 clipShape 的色块; Color.clear } }` | **硬阴影色** ✗ |
+
+也就是说：**内容里一旦出现 `.clipShape` 的子视图，`IslandCard` 那层 `fill` 就不露出来了**。
+（同一现象也解释了图片与信息块交界处那条一直存在的 20px 暗带 —— 它之前一直被图片盖住。）
+修法：给图片区显式垫一层 `.background(cardPaper)`，且必须放在 **clipShape 之后**
+（放前面会被同一个 clipShape 一起裁掉，等于没加）。
+
+**这条像素测试返工了四次**，每次都因为断言不够稳健：
+1. 采样点选在圆弧**内部** → 测不到
+2. 断言"必须露出精确纸色 #F7F3DF" → 实际裁边有抗锯齿、颜色是纸色系但非精确值 → 假失败
+3. 改成"不是图片色"但容差 5 → 圆角外的 #F0EAD4 与图片色 #F0E8D8 只差 (0,2,-4) → 假失败
+4. 容差收到 2 才稳（占位色是纯平色，2 足够）
+
+120 测试 / 14 套件通过。

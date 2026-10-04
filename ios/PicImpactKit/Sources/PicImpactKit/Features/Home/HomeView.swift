@@ -176,10 +176,18 @@ public enum LinkActions {
         copy(image.url)
     }
 
-    /// 分享直链：指向预览页。与 Web 的 `${origin}/preview/${id}` 语义一致
-    public static func copyShareLink(_ image: ImageDTO, baseURL: URL = URL(string: "https://felina.boxz.dev")!) {
-        let shareURL = baseURL.appendingPathComponent("preview").appendingPathComponent(image.id)
-        copy(shareURL.absoluteString)
+    /// 站点地址。分享链接形如 `https://felina.boxz.dev/preview/<id>`
+    /// （与 Web 的 `${origin}/preview/${id}` 语义一致）。
+    public static let siteURL = URL(string: "https://felina.boxz.dev")!
+
+    /// 分享链接本身。调系统分享面板时用它，复制到剪贴板时也用它 —— 只算一次。
+    public static func shareURL(for image: ImageDTO, baseURL: URL = siteURL) -> URL {
+        baseURL.appendingPathComponent("preview").appendingPathComponent(image.id)
+    }
+
+    /// 复制分享直链到剪贴板（保留：系统分享面板不可用时的降级路径）
+    public static func copyShareLink(_ image: ImageDTO, baseURL: URL = siteURL) {
+        copy(shareURL(for: image, baseURL: baseURL).absoluteString)
     }
 
     private static func copy(_ value: String) {

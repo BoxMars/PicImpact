@@ -33,6 +33,12 @@ public struct PreviewView: View {
             PreviewContentView(model: model, features: features, onSelectTag: onSelectTag)
         }
         .background(AnimalTokens.bg)
+        // 顶部用自绘的 ACNH 控件（返回 / 分享），不再用系统导航栏。
+        // 加平台判断是因为 `.navigationBar` 这个 placement 在 macOS 上不存在，
+        // 而本包同时要给 macOS 的单元测试编译。
+        #if os(iOS)
+        .toolbar(.hidden, for: .navigationBar)
+        #endif
         .task { await model.load() }
     }
 }
@@ -46,6 +52,10 @@ struct PreviewContentView: View {
     let features: SiteConfigDTO.Features
     let onSelectTag: (String) -> Void
 
+    /// 返回：弹出当前页。用 `dismiss` 而不是自己管导航栈，
+    /// 这样从任意入口（卡片、标签、深链接）进来都能正确返回。
+    @Environment(\.dismiss) private var dismiss
+
     /// 岛屿卡片的内边距。
     ///
     /// 卡片**外**的内容（标题、描述、标签）要额外缩进这么多，
@@ -55,6 +65,8 @@ struct PreviewContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
+            topBar
+
             // 主图也装进岛屿卡片：与画廊卡片同一套圆角/描边/硬阴影
             IslandCard {
                 imageSection
@@ -84,6 +96,26 @@ struct PreviewContentView: View {
         .padding(.vertical, 16)
         .frame(maxWidth: 900, alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    // MARK: - 顶栏
+
+    /// 左上角「返回」、右上角「分享」，都用 ACNH 的胶囊样式（图标 + 文字）。
+    ///
+    /// 为什么自绘而不是用系统导航栏：整套界面是 ACNH 风格，
+    /// 系统导航栏的细线返回箭头与 ACNH 图标不是一套语言；
+    /// 而且导航栏只能放图标按钮，放不下"返回 / 分享"这样的文字。
+    private var topBar: some View {
+        HStack(spacing: 8) {
+            IslandBackButton { dismiss() }
+            Spacer(minLength: 0)
+            IslandShareButton(
+                url: LinkActions.shareURL(for: model.image),
+                iconSize: 16,
+                fontSize: 12,
+                style: .pill
+            )
+        }
     }
 
     // MARK: - 图片
