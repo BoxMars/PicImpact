@@ -39,6 +39,15 @@ public final class GalleryStore {
     private var currentPage = 0
     /// 防止同一时刻发起多次加载（滚动时最容易触发）
     private var isLoading = false
+    /// 有加载在飞时被拒绝的"下一页"请求。
+    ///
+    /// 为什么需要：触发分页的 `onAppear` **只发生一次**（滑到底那一下）。
+    /// 第二次启动时缓存会立刻铺上内容，用户往往在**后台校验还没回来**时就滑到底了，
+    /// 那次 `loadNextPage()` 会被 `!isLoading` 挡掉 —— 如果没有这个补偿标记，
+    /// 下一页就再也不会被请求（用户反馈："第二次启动就看不到第二页了"）。
+    private var pendingNextPage = false
+    /// 当前正在请求哪一页（nil = 没有在飞）。用来区分"在飞的是首屏校验还是下一页"。
+    private var loadingPage: Int?
 
     public init(
         dataSource: GalleryDataSource,
@@ -91,7 +100,14 @@ public final class GalleryStore {
 
     /// 触底加载下一页
     public func loadNextPage() async {
-        guard hasMore, !isLoading, currentPage > 0 else { return }
+        guard hasMore, currentPage > 0 else { return }
+        guard !isLoading else {
+            // 有加载在飞。**只有**在飞的是第一页（缓存后的后台校验）时才需要补偿：
+            // 那时内容是缓存铺的、用户已经能滑到底，这次触发不该被丢掉。
+            // 若在飞的本来就是下一页，再排一次会导致重复加载 —— 行为与以前一致（丢弃）。
+            if loadingPage == 1 { pendingNextPage = true }
+            return
+        }
         await load(page: currentPage + 1, replacing: false)
     }
 
@@ -117,6 +133,7 @@ public final class GalleryStore {
 
     private func load(page: Int, replacing: Bool, isRefresh: Bool = false) async {
         isLoading = true
+        loadingPage = page
         // 调用前是否已经有内容（缓存铺上的、或之前加载的）
         let hadContent = !images.isEmpty
         // 有内容时的"第一页校验"是**静默**的：不切回加载态，用户看到的仍是现有内容
@@ -160,6 +177,13 @@ public final class GalleryStore {
         }
 
         isLoading = false
+        loadingPage = nil
+
+        // 补偿：加载期间被挡掉的「下一页」请求，现在补做
+        if pendingNextPage {
+            pendingNextPage = false
+            await loadNextPage()
+        }
     }
 
     private static func describe(_ error: Error) -> String {

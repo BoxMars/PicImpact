@@ -320,3 +320,26 @@ struct GalleryCacheTests {
     }
 }
 
+extension GalleryCacheTests {
+    @Test("第二次启动场景：后台校验还在飞时滑到底，第 2 页不能被丢掉（回归）")
+    func nextPageSurvivesInFlightRevalidation() async throws {
+        let cache = makeCache()
+        await cache.save(page(["cached-1", "cached-2"], hasMore: true))
+
+        // 后台校验慢（模拟真实网络 1.5–3.4s 量级），用户在此之前就滑到底了
+        let source = StubGalleryDataSource(totalPages: 3, itemsPerPage: 3)
+        await source.setDelay(300_000_000)
+        let store = GalleryStore(dataSource: source, cache: cache)
+
+        let firstLoad = Task { await store.loadFirstPageIfNeeded() }
+        try await Task.sleep(nanoseconds: 80_000_000)   // 校验仍在飞
+        await store.loadNextPage()                       // 会被 !isLoading 挡住 → 必须记下来
+        await firstLoad.value
+
+        let requested = await source.requested()
+        #expect(
+            requested.contains(2),
+            "滑到底那一次不能在「加载中」时被丢掉，实际请求了 \(requested)"
+        )
+    }
+}
