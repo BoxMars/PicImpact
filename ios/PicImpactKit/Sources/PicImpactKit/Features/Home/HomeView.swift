@@ -55,6 +55,12 @@ public struct HomeView: View {
     /// 实测值到达后会立刻替换 —— 兜底只影响首帧，不会长期偏离。
     private static let estimatedInfoHeight: CGFloat = 150
 
+    /// 主动查询间隔。
+    ///
+    /// ⚠️ 服务端 `/images` 实测要 1.5–3.4s，所以 5 秒轮询在慢网下几乎等于持续请求。
+    /// 用户明确要求 5 秒；若要放宽，只改这一个常量即可。
+    static let updatePollInterval: Duration = .seconds(5)
+
     /// "回到顶部"滚动锚点的 id
     private static let topAnchorID = "home-top"
 
@@ -133,6 +139,15 @@ public struct HomeView: View {
             })
             .refreshable { await store.refresh() }
             .task { await store.loadFirstPageIfNeeded() }
+            // 每 5 秒主动查询网站是否有更新（用户要求）。
+            // 只在页面存在期间运行；App 切到后台时 iOS 会挂起进程，轮询自然暂停。
+            .task {
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: Self.updatePollInterval)
+                    if Task.isCancelled { break }
+                    await store.pollForUpdates()
+                }
+            }
             .overlay(alignment: .bottomTrailing) {
                 if !isHeaderVisible {
                     IslandChevronButton(direction: .up, label: "顶部") {

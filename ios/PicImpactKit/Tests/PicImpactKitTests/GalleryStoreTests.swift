@@ -32,6 +32,10 @@ actor StubGalleryDataSource: GalleryDataSource {
     }
 
     func setFailOnPage(_ page: Int?) { failOnPage = page }
+    /// 替换某一页的内容（模拟"网站更新了"）。
+    func replacePage(_ page: Int, with ids: [String]) {
+        pages[page] = ids.map { Self.makeImage(id: $0) }
+    }
     func setDelay(_ nanoseconds: UInt64) { delayNanoseconds = nanoseconds }
     func requested() -> [Int] { requestedPages }
     func requestCount() -> Int { requestedPages.count }
@@ -341,5 +345,57 @@ extension GalleryCacheTests {
             requested.contains(2),
             "滑到底那一次不能在「加载中」时被丢掉，实际请求了 \(requested)"
         )
+    }
+}
+
+@Suite("T9 · 主动查询网站更新")
+@MainActor
+struct GalleryPollingTests {
+    @Test("第一张没变时不刷新 —— 不打扰已翻页/滚动的位置")
+    func keepsStateWhenUnchanged() async {
+        let source = StubGalleryDataSource(totalPages: 2, itemsPerPage: 3)
+        let store = GalleryStore(dataSource: source)
+        await store.loadFirstPageIfNeeded()
+        let before = store.images.map(\.id)
+        let countBefore = await source.requestCount()
+
+        await store.pollForUpdates()
+
+        #expect(store.images.map(\.id) == before, "内容没变就不该改动列表")
+        let requested = await source.requested()
+        #expect(requested.last == 1, "只该请求第一页做比较，实际 \(requested)")
+        let countAfter = await source.requestCount()
+        #expect(countAfter == countBefore + 1, "查询应恰好发一次请求")
+    }
+
+    @Test("发现第一张变化时刷新列表")
+    func refreshesWhenFirstChanges() async {
+        let source = StubGalleryDataSource(totalPages: 2, itemsPerPage: 3)
+        let store = GalleryStore(dataSource: source)
+        await store.loadFirstPageIfNeeded()
+        #expect(store.images.first?.id == "p1-i0")
+
+        // 模拟网站更新：第一页内容变了
+        await source.replacePage(1, with: ["new-0", "p1-i1", "p1-i2"])
+        await store.pollForUpdates()
+
+        #expect(
+            store.images.first?.id == "new-0",
+            "应刷新成新内容，实际 \(store.images.first?.id ?? "nil")"
+        )
+    }
+
+    @Test("查询失败时静默，不影响已有内容")
+    func silentOnFailure() async {
+        let source = StubGalleryDataSource(totalPages: 1, itemsPerPage: 3)
+        let store = GalleryStore(dataSource: source)
+        await store.loadFirstPageIfNeeded()
+        let before = store.images.map(\.id)
+
+        await source.setFailOnPage(1)
+        await store.pollForUpdates()
+
+        #expect(store.images.map(\.id) == before, "查询失败不该清空或改动内容")
+        #expect(store.phase == .loaded, "查询失败不该切成错误页，实际 \(store.phase)")
     }
 }

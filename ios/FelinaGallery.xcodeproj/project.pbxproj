@@ -7,19 +7,19 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0B41E8445712D1BAB920ACE7 /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */; };
+		80E258D80648DD2F5BC60B41 /* PicImpactKit in Frameworks */ = {isa = PBXBuildFile; productRef = 20E0B2E074C6CDBFC1E20429 /* PicImpactKit */; };
 		8459C49DD0190DDA25B88360 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1850B4A18E13A8A2C9E9140 /* AppEnvironment.swift */; };
 		B559DA1591FD181A13506091 /* PicImpactApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD627A9AAD76FB3A8A6D7DDB /* PicImpactApp.swift */; };
-		0B41E8445712D1BAB920ACE7 /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */; };
 		BA8E772C6ADFB26A720EA0B8 /* Resources/Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FE719673B9C90C989A3C89E0 /* Resources/Localizable.xcstrings */; };
-		80E258D80648DD2F5BC60B41 /* PicImpactKit in Frameworks */ = {isa = PBXBuildFile; productRef = 20E0B2E074C6CDBFC1E20429 /* PicImpactKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		D1850B4A18E13A8A2C9E9140 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
-		FD627A9AAD76FB3A8A6D7DDB /* PicImpactApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PicImpactApp.swift; sourceTree = "<group>"; };
 		D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
+		F5F19BC1874D3D5D6F6DCC09 /* 大福映画.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "大福映画.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FD627A9AAD76FB3A8A6D7DDB /* PicImpactApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PicImpactApp.swift; sourceTree = "<group>"; };
 		FE719673B9C90C989A3C89E0 /* Resources/Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Resources/Localizable.xcstrings; sourceTree = "<group>"; };
-		F5F19BC1874D3D5D6F6DCC09 /* FelinaGallery.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "大福映画.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -34,6 +34,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		31793280A19CDC7880B10A8E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F5F19BC1874D3D5D6F6DCC09 /* 大福映画.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		361FF3508AF23F4E0CB329EA = {
 			isa = PBXGroup;
 			children = (
@@ -50,15 +58,7 @@
 				D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */,
 				FE719673B9C90C989A3C89E0 /* Resources/Localizable.xcstrings */,
 			);
-			path = "FelinaGallery";
-			sourceTree = "<group>";
-		};
-		31793280A19CDC7880B10A8E /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				F5F19BC1874D3D5D6F6DCC09 /* FelinaGallery.app */,
-			);
-			name = Products;
+			path = FelinaGallery;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -76,12 +76,12 @@
 			);
 			dependencies = (
 			);
-			name = "FelinaGallery";
+			name = FelinaGallery;
 			packageProductDependencies = (
 				20E0B2E074C6CDBFC1E20429 /* PicImpactKit */,
 			);
-			productName = "FelinaGallery";
-			productReference = F5F19BC1874D3D5D6F6DCC09 /* FelinaGallery.app */;
+			productName = FelinaGallery;
+			productReference = F5F19BC1874D3D5D6F6DCC09 /* 大福映画.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -148,6 +148,36 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		07ADDFD2B07302882ABEF067 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = VX3SCAKB5K;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "大福映画";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.magazines-and-newspapers";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存照片到你的相册";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.boxz.felina;
+				PRODUCT_NAME = "大福映画";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		5D9646B92BECD8E12745F5D8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -192,62 +222,22 @@
 			};
 			name = Release;
 		};
-		07ADDFD2B07302882ABEF067 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "大福映画";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.magazines-and-newspapers";
-				// 只用标准 HTTPS，属出口合规豁免 —— 声明后上传时不再被问
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存照片到你的相册";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				// iPad 必须支持全部四个方向，否则 App Store 校验报
-				// "Invalid bundle ... to support iPad multitasking"。
-				// 用 _iPad 变体单独设置（生成 Info.plist 里的 UISupportedInterfaceOrientations~ipad），
-				// 这样 iPhone 仍然保持三方向、不额外允许倒置。
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.boxz.felina;
-				PRODUCT_NAME = "大福映画";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
 		ED3C3ED09445EDB2BB2772BD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = VX3SCAKB5K;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "大福映画";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.magazines-and-newspapers";
-				// 只用标准 HTTPS，属出口合规豁免 —— 声明后上传时不再被问
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.magazines-and-newspapers";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存照片到你的相册";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				// iPad 必须支持全部四个方向，否则 App Store 校验报
-				// "Invalid bundle ... to support iPad multitasking"。
-				// 用 _iPad 变体单独设置（生成 Info.plist 里的 UISupportedInterfaceOrientations~ipad），
-				// 这样 iPhone 仍然保持三方向、不额外允许倒置。
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

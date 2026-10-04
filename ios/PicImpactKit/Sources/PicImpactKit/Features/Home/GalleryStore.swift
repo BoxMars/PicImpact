@@ -111,6 +111,27 @@ public final class GalleryStore {
         await load(page: currentPage + 1, replacing: false)
     }
 
+    /// 主动查询网站是否有更新（用户要求"网站更新时主动查询"）。
+    ///
+    /// 只比较**第一页的第一张**：id 变了说明相册有新增/删除，此时做一次完整刷新；
+    /// 没变就什么都不做 —— 这样不会打扰用户已经翻到的页码和滚动位置。
+    ///
+    /// 失败一律静默：这是后台轮询，不该因为一次网络抖动给用户弹错误。
+    public func pollForUpdates() async {
+        guard !isLoading else { return }        // 有请求在飞就不叠加
+        do {
+            let latest = try await dataSource.images(
+                album: album, tag: tag, camera: nil, lens: nil, page: 1
+            )
+            guard let newest = latest.list.first?.id, let current = images.first?.id else { return }
+            if newest != current {
+                await refresh()
+            }
+        } catch {
+            // 静默
+        }
+    }
+
     /// 下拉刷新：重新拉第一页。
     ///
     /// **不清空现有列表**：清空会让整屏内容先消失再出现（跳变），
