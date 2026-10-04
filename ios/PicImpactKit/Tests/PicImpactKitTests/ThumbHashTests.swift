@@ -183,3 +183,42 @@ struct ThumbHashTests {
         #expect(ThumbHash.decode([]) == nil)
     }
 }
+
+/// 占位图的接线：有 ThumbHash 时显示模糊轮廓，没有/解不开时退回平色。
+@Suite("ThumbHash 占位接线")
+@MainActor
+struct ThumbHashPlaceholderTests {
+    private static let hash = "reoFBYKXepeQhXmHZXl3eVBqeQqI"
+
+    private func count(_ pixels: IslandCardTests.Pixels, _ hex: UInt32, _ tol: Int) -> Int {
+        var n = 0
+        for y in 0..<pixels.height {
+            for x in 0..<pixels.width where pixels.matches(x, y, hex, tolerance: tol) { n += 1 }
+        }
+        return n
+    }
+
+    @Test("url 为空（走占位）时：有 thumbHash 显示模糊图，没有则平色")
+    func placeholderUsesThumbHash() throws {
+        // url 为 nil → .task 直接 return → 永远停在占位分支
+        let withHash = try #require(IslandCardTests.rasterize(
+            CachedAsyncImage(url: nil, loader: ImageLoader(), contentMode: .fill, thumbHash: Self.hash)
+                .frame(width: 120, height: 90),
+            scale: 2
+        ))
+        let withoutHash = try #require(IslandCardTests.rasterize(
+            CachedAsyncImage(url: nil, loader: ImageLoader(), contentMode: .fill, thumbHash: nil)
+                .frame(width: 120, height: 90),
+            scale: 2
+        ))
+
+        // 没有 thumbHash：整块都是平色 #f0e8d8
+        let flat = count(withoutHash, 0xF0E8D8, 3)
+        #expect(flat > 120 * 90 * 4 * 9 / 10, "无 thumbHash 时应是平色占位，实际 \(flat)")
+
+        // 有 thumbHash：平色基本消失（被模糊图覆盖），且出现照片本身的颜色
+        let flatWithHash = count(withHash, 0xF0E8D8, 3)
+        #expect(flatWithHash < flat / 10, "有 thumbHash 时不该还是平色，实际 \(flatWithHash)")
+        #expect(withHash.width > 0)
+    }
+}

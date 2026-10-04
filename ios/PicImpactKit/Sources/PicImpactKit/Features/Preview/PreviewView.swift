@@ -249,7 +249,8 @@ struct PreviewImageView: View {
             ProgressiveImageView(
                 preview: model.previewImage,
                 original: model.originalImage,
-                aspectRatio: model.image.aspectRatio
+                aspectRatio: model.image.aspectRatio,
+                thumbHash: model.image.blurhash
             )
         }
     }

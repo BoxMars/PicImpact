@@ -1,4 +1,10 @@
+import CoreGraphics
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 /// ThumbHash 解码器（移植自仓库前端所用的 `thumbhash@0.1.1`）。
 ///
@@ -132,5 +138,46 @@ public extension ThumbHash {
     static func decode(base64 hash: String) -> Image? {
         guard let data = Data(base64Encoded: hash, options: [.ignoreUnknownCharacters]) else { return nil }
         return decode([UInt8](data))
+    }
+}
+
+/// ThumbHash 解码结果的进程内缓存，并转成可显示的图片。
+///
+/// 解码本身很便宜（典型 32×23），但 `CachedAsyncImage` 会随滚动反复重建，
+/// 每次都重新构造 CGImage 是浪费；按 hash 字符串缓存即可（一张约 3KB）。
+@MainActor
+public enum ThumbHashImageCache {
+    private static var storage: [String: PlatformImage] = [:]
+
+    public static func image(for hash: String) -> PlatformImage? {
+        if let cached = storage[hash] { return cached }
+        guard let decoded = ThumbHash.decode(base64: hash),
+              let image = makeImage(decoded) else { return nil }
+        storage[hash] = image
+        return image
+    }
+
+    private static func makeImage(_ decoded: ThumbHash.Image) -> PlatformImage? {
+        let data = Data(decoded.rgba)
+        guard let provider = CGDataProvider(data: data as CFData),
+              let cgImage = CGImage(
+                  width: decoded.width,
+                  height: decoded.height,
+                  bitsPerComponent: 8,
+                  bitsPerPixel: 32,
+                  bytesPerRow: decoded.width * 4,
+                  space: CGColorSpaceCreateDeviceRGB(),
+                  // ThumbHash 的 RGB **不**与 A 预乘，所以用 .last 而不是 .premultipliedLast
+                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
+                  provider: provider,
+                  decode: nil,
+                  shouldInterpolate: true,
+                  intent: .defaultIntent
+              ) else { return nil }
+        #if canImport(UIKit)
+        return UIImage(cgImage: cgImage)
+        #elseif canImport(AppKit)
+        return NSImage(cgImage: cgImage, size: NSSize(width: decoded.width, height: decoded.height))
+        #endif
     }
 }

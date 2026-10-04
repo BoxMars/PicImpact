@@ -1165,3 +1165,21 @@ head 提前关闭管道会让脚本以 SIGPIPE(141) 退出、掩盖本意的退�
 
 **尚未接 UI**：解码器 + 验证有了，但"卡片/详情页在图片到位前显示 ThumbHash 模糊图"
 还没做 —— UI 效果我判断不了，下一步接上后需要你确认观感。
+
+
+### ThumbHash 接入 UI（占位图）
+
+- `CachedAsyncImage` 新增 `thumbHash: String?` 参数：图片到位前显示 ThumbHash 的
+  32px 模糊轮廓；**没有该参数或解码失败时退回原来的平色** —— 所以"关掉它就是原样"，
+  这条回退路径本身就是开关。
+- `ThumbHashImageCache`（@MainActor，按 hash 字符串缓存，一张约 3KB）：
+  解码本身便宜，但视图会随滚动反复重建，缓存避免重复构造 CGImage。
+- 两个调用点传入：卡片（`GalleryCell`）与详情页（`ProgressiveImageView` 加参数，默认 nil）。
+
+**注意一个易错点**：ThumbHash 的 RGB **不**与 A 预乘，构造 CGImage 时必须用
+`CGImageAlphaInfo.last` 而不是 `.premultipliedLast`，否则半透明区域颜色会偏。
+
+**测试**：新增"有 thumbHash 显示模糊图 / 没有则平色"的接线测试（渲染 url 为 nil
+的 `CachedAsyncImage`，比较两种情况下的平色像素数）。
+
+**仍需人工确认**：模糊占位的观感（放大幅度、是否太糊/太亮）我判断不了。

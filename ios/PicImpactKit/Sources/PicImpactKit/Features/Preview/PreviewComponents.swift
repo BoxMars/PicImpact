@@ -10,11 +10,18 @@ public struct ProgressiveImageView: View {
     private let preview: PlatformImage?
     private let original: PlatformImage?
     private let aspectRatio: CGFloat
+    private let thumbHash: String?
 
-    public init(preview: PlatformImage?, original: PlatformImage?, aspectRatio: CGFloat) {
+    public init(
+        preview: PlatformImage?,
+        original: PlatformImage?,
+        aspectRatio: CGFloat,
+        thumbHash: String? = nil
+    ) {
         self.preview = preview
         self.original = original
         self.aspectRatio = aspectRatio > 0 ? aspectRatio : 1
+        self.thumbHash = thumbHash
     }
 
     public var body: some View {
