@@ -33,7 +33,7 @@ final class AppEnvironment {
     }
 
     var siteTitle: String {
-        config?.site.title ?? "Felina Gallery"
+        config?.site.title ?? GalleryHeader.defaultTitle
     }
 
     func bootstrap() async {

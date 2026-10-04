@@ -87,15 +87,14 @@ public struct PreviewView: View {
                 .padding(.vertical, 8)
 
             HStack(alignment: .top, spacing: gap) {
-                // 左：图片（2/3）+ **标题在图片下方**（用户要求标题跟图片一栏，
-                // 上/下均可；选下方是为了与 iPhone 上的排法一致）。
+                // 左：**标题在图片上方**（用户明确要求放上面）+ 图片（2/3）。
                 // 图片用 maxHeight: .infinity 吃掉标题之外的剩余高度，
                 // 自身 aspectRatio(.fit) 保证不被拉伸。
                 VStack(alignment: .leading, spacing: 12) {
+                    PreviewTitleBlock(model: model, inset: 32)
+
                     PreviewImageView(model: model)
                         .frame(maxWidth: imageWidth, maxHeight: .infinity, alignment: .center)
-
-                    PreviewTitleBlock(model: model, inset: 32)
                 }
                 .frame(width: imageWidth, height: maxHeight, alignment: .top)
 

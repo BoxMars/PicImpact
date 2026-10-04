@@ -38,7 +38,7 @@ public struct HomeView: View {
         loader: ImageLoader,
         showDownload: Bool = false,
         downloader: DownloadService? = nil,
-        headerTitle: String = "大福映画 Felina Gallery",
+        headerTitle: String = GalleryHeader.defaultTitle,
         headerSubtitle: String = GalleryHeader.defaultSubtitle,
         onSelect: @escaping (ImageDTO) -> Void = { _ in }
     ) {

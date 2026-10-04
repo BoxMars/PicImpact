@@ -22,6 +22,15 @@ public struct GalleryHeader: View {
         self.photoCount = photoCount
     }
 
+    /// 标题兜底值。
+    ///
+    /// ⚠️ 它必须与站点配置里的标题**一致**：首页标题来自配置（`AppEnvironment.siteTitle`），
+    /// 配置到达前用兜底值。一旦两者长度不同，`ViewThatFits` 就会在配置到达前后
+    /// 选到不同字号 —— 用户看到的"主页标题会变化"就是这么来的
+    /// （原来兜底写的是短名 "Felina Gallery"，而配置里是完整标题）。
+    /// Web 的兜底同样是完整标题（`app/layout.tsx` 里的 `|| '大福映画 Felina Gallery'`）。
+    public static let defaultTitle = "大福映画 Felina Gallery"
+
     /// Web 里的两段文案。标题实际取自站点配置（生产值与这里一致）。
     public static let defaultSubtitle = "光と影で綴る、パパとママと私の物語。"
 
