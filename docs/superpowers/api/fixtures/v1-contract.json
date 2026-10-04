@@ -1,0 +1,87 @@
+{
+  "_comment": "公开 API v1 的冻结契约。由 scripts/api/verify-contract.ts 校验。只能在 required 数组里【追加】字段；删除、改名或改类型都会让校验失败——因为那会打断已发布的 App（旧版 App 无法被强制升级）。",
+  "v1": {
+    "image": {
+      "required": [
+        "id",
+        "imageName",
+        "url",
+        "previewUrl",
+        "videoUrl",
+        "blurhash",
+        "width",
+        "height",
+        "title",
+        "detail",
+        "type",
+        "labels",
+        "lon",
+        "lat",
+        "exif",
+        "albumLicense",
+        "createdAt"
+      ],
+      "types": {
+        "id": "string",
+        "imageName": "string",
+        "url": "string",
+        "previewUrl": "string",
+        "videoUrl": "string",
+        "blurhash": "string",
+        "width": "number",
+        "height": "number",
+        "title": "string",
+        "detail": "string",
+        "type": "number",
+        "labels": "array",
+        "lon": "string",
+        "lat": "string",
+        "exif": "object|null",
+        "albumLicense": "string|null",
+        "createdAt": "string|null"
+      }
+    },
+    "album": {
+      "required": ["id", "name", "value", "detail", "theme", "license"],
+      "types": {
+        "id": "string",
+        "name": "string",
+        "value": "string",
+        "detail": "string|null",
+        "theme": "string",
+        "license": "string|null"
+      }
+    },
+    "config": {
+      "required": ["apiVersion", "pageSize", "site", "features"],
+      "types": {
+        "apiVersion": "string",
+        "pageSize": "number",
+        "site": "object",
+        "features": "object"
+      },
+      "nested": {
+        "site": {
+          "required": ["title", "author", "logoUrl", "faviconUrl", "indexStyle"],
+          "types": {
+            "title": "string",
+            "author": "string",
+            "logoUrl": "string",
+            "faviconUrl": "string",
+            "indexStyle": "string"
+          }
+        },
+        "features": {
+          "required": ["download", "origin", "toneAnalysis", "livePhoto", "map"],
+          "types": {
+            "download": "boolean",
+            "origin": "boolean",
+            "toneAnalysis": "boolean",
+            "livePhoto": "boolean",
+            "map": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

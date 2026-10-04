@@ -23,7 +23,8 @@
     "prisma:seed": "npx prisma db seed",
     "migrate:backfill-exif-capture-time": "tsx scripts/migrate/backfill-exif-capture-time.ts",
     "migrate:regenerate-previews": "tsx scripts/migrate/regenerate-previews.ts",
-    "prebuild": "npx prisma generate"
+    "prebuild": "npx prisma generate",
+    "api:verify-contract": "tsx scripts/api/verify-contract.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

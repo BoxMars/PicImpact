@@ -25,3 +25,8 @@ jobs:
 
       - name: Run ESLint
         run: pnpm run lint
+
+      # 公开 API 契约校验：防止后续改动悄悄打断已发布的 iOS App
+      # （删字段 / 改名 / 改类型都会被拦下；详见 docs/superpowers/api/public-api-v1.md）
+      - name: Verify public API contract
+        run: pnpm run api:verify-contract
