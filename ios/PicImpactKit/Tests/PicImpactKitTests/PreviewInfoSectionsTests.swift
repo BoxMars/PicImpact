@@ -153,8 +153,8 @@ struct PreviewInfoSectionsTests {
         #expect(Self.count(pixels, 0xC4B89E) == 0, "空数据不该有胶囊描边")
     }
 
-    @Test("PreviewView 真的把分区接上了（渲染冒烟）")
-    func previewViewWiresSections() throws {
+    @Test("详情页滚动区真的把分区接上了（渲染冒烟）")
+    func previewInfoPanelWiresSections() throws {
         let json = """
         {"id":"p1","imageName":"IMG_1.jpeg","url":"https://x/o.jpg","previewUrl":"https://x/p.webp",
          "videoUrl":"","blurhash":"","width":4032,"height":3024,"title":"标题","detail":"描述",
@@ -168,10 +168,10 @@ struct PreviewInfoSectionsTests {
         let image = try APIDecoding.makeDecoder().decode(ImageDTO.self, from: Data(json.utf8))
         let model = PreviewModel(image: image, loader: ImageLoader())
 
-        // 渲染内容块而不是 PreviewView：ImageRenderer 不渲染 ScrollView 的内容。
+        // 渲染滚动区内容而不是 PreviewView：ImageRenderer 不渲染 ScrollView 的内容。
         // 2x 是因为整块在 3x 下会超过栅格化尺寸守卫。
         let pixels = try #require(IslandCardTests.rasterize(
-            PreviewContentView(model: model, features: .none, onSelectTag: { _ in })
+            PreviewInfoPanel(model: model, features: .none, onSelectTag: { _ in })
                 .frame(width: 393, height: 1200),
             scale: 2
         ))
@@ -195,7 +195,10 @@ struct PreviewInfoSectionsTests {
         let image = try APIDecoding.makeDecoder().decode(ImageDTO.self, from: Data(json.utf8))
         let model = PreviewModel(image: image, loader: ImageLoader())
         let pixels = try #require(IslandCardTests.rasterize(
-            PreviewContentView(model: model, features: .none, onSelectTag: { _ in })
+            VStack(spacing: 0) {
+                PreviewPinnedHeader(model: model, onBack: {})
+                PreviewInfoPanel(model: model, features: .none, onSelectTag: { _ in })
+            }
                 .frame(width: 393, height: 1200),
             scale: 2
         ))
@@ -231,7 +234,7 @@ struct PreviewInfoSectionsTests {
 
     @Test("详情页里的直方图没有边框（在真实组合上检查，回归）")
     func histogramHasNoBorderInDetailPage() throws {
-        // 为什么在 PreviewContentView 上测而不是只测 HistogramPanel：
+        // 为什么在 PreviewInfoPanel（详情页滚动区的真实组合）上测，而不是只测 HistogramPanel：
         // 边框可以在**调用点**加（我第一版就是这么加的），只测组件会漏掉。
         // 这段测的是真实组合。
         let json = """
@@ -252,7 +255,7 @@ struct PreviewInfoSectionsTests {
         model.histogram = histogram
 
         let pixels = try #require(IslandCardTests.rasterize(
-            PreviewContentView(model: model, features: .none, onSelectTag: { _ in })
+            PreviewInfoPanel(model: model, features: .none, onSelectTag: { _ in })
                 .frame(width: 393, height: 1400),
             scale: 2
         ))
@@ -313,9 +316,13 @@ struct PreviewInfoSectionsTests {
         """
         let image = try APIDecoding.makeDecoder().decode(ImageDTO.self, from: Data(json.utf8))
         let model = PreviewModel(image: image, loader: ImageLoader())
+        // 只约束宽度：`PreviewPinnedHeader` 里有 maxWidth: .infinity + 居中对齐，
+        // 若再给一个固定高度，内容会被**垂直居中**，顶栏就跑到画面中间去了
+        // （第一版正是这样，导致"分享按钮不在上部"的假失败）。
+        // 高度交给内容本身即可 —— 它没有 maxHeight 约束。
         let pixels = try #require(IslandCardTests.rasterize(
-            PreviewContentView(model: model, features: .none, onSelectTag: { _ in })
-                .frame(width: 393, height: 1400),
+            PreviewPinnedHeader(model: model, onBack: {})
+                .frame(width: 393),
             scale: 2
         ))
 
@@ -340,5 +347,51 @@ struct PreviewInfoSectionsTests {
             }
         }
         #expect(borderInTopBar > 0, "顶栏的返回按钮应有描边胶囊")
+    }
+
+    @Test("图片与标题属于固定区，不在滚动区里（回归）")
+    func imageAndTitleLiveInPinnedHeader() throws {
+        // 布局要求：顶栏/主图/标题固定不动，只有信息区滚动。
+        // 可机检的部分是"这两块内容归属哪个视图"：
+        // 固定区渲染出分享图标与图片占位；滚动区两者都不该有。
+        let json = """
+        {"id":"p1","imageName":"IMG_1.jpeg","url":"https://x/o.jpg","previewUrl":"https://x/p.webp",
+         "videoUrl":"","blurhash":"","width":4032,"height":3024,"title":"标题","detail":"描述",
+         "type":1,"labels":[],"lon":"","lat":"",
+         "exif":{"make":"Apple","model":"iPhone 17","lens_model":"back camera","focal_length":"5.96 mm",
+                 "f_number":"f/1.6","exposure_time":"1/13","exposure_program":"Normal program",
+                 "iso_speed_rating":640,"data_time":"2026:10:02 20:15:12","bits":"8"},
+         "albumLicense":null,"createdAt":null}
+        """
+        let image = try APIDecoding.makeDecoder().decode(ImageDTO.self, from: Data(json.utf8))
+        let model = PreviewModel(image: image, loader: ImageLoader())
+
+        let header = try #require(IslandCardTests.rasterize(
+            PreviewPinnedHeader(model: model, onBack: {}).frame(width: 393),
+            scale: 2
+        ))
+        let panel = try #require(IslandCardTests.rasterize(
+            PreviewInfoPanel(model: model, features: .none, onSelectTag: { _ in })
+                .frame(width: 393, height: 1200),
+            scale: 2
+        ))
+
+        // 固定区：分享图标在，且**高度足够容纳主图**。
+        //
+        // 为什么用高度而不是颜色判断"主图在不在固定区"：
+        // 直方图面板的底用的也是 bgSecondary(#f0e8d8)，与图片占位**同色**，
+        // 按颜色判断会把滚动区里的直方图误认成主图（第一版就是这么假失败的）。
+        // 主图高约 271pt，加上顶栏与标题，固定区至少 350pt；
+        // 若主图不在固定区，它就只剩顶栏 + 标题，约 110pt。
+        #expect(Self.count(header, 0xFFAD00, tolerance: 8) > 0, "固定区应有分享按钮")
+        let headerHeightPT = CGFloat(header.height) / 2
+        #expect(
+            headerHeightPT > 300,
+            "固定区高 \(headerHeightPT)pt，过矮 —— 主图疑似不在固定区"
+        )
+
+        // 滚动区：不该有顶栏的分享按钮；但必须有信息分区
+        #expect(Self.count(panel, 0xFFAD00, tolerance: 8) == 0, "滚动区不该有分享按钮")
+        #expect(Self.count(panel, 0x19C8B9, tolerance: 6) > 0, "滚动区应有青色分区标题")
     }
 }
