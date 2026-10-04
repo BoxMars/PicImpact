@@ -236,8 +236,10 @@ extension View {
         self
             // 先把溢出到安全区的滚动内容裁掉
             .clipped()
-            // 底色铺满整屏，含状态栏那一条
-            .background((color ?? AnimalTokens.bg).ignoresSafeArea(edges: .top))
+            // 底色铺满整屏：上下两条安全区都覆盖。
+            // 只忽略顶部会漏出**窗口白底**（实测详情页底部 30pt 变成 #FFFFFF）——
+            // 因为内容被允许延伸到底边，而底色没跟过去。
+            .background((color ?? AnimalTokens.bg).ignoresSafeArea())
     }
 }
 

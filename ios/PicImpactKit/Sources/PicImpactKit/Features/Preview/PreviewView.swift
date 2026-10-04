@@ -72,6 +72,10 @@ public struct PreviewView: View {
         .modifier(ScrollOffsetReporter { offset in
             scrollOffset = offset
         })
+        // 底部延伸到屏幕下缘：内容要能一直显示到最底下（用户要求"下方也不用遮挡"）。
+        // 必须写在 islandPageBackground 之前 —— 那里的 .clipped() 是裁到当前框架的，
+        // 先把框架扩到底边，裁剪才只在**上方**起作用。
+        .ignoresSafeArea(edges: .bottom)
         // 图片滚到最上面钉住时不要从状态栏里透出来
         .islandPageBackground()
         // 顶部用自绘的 ACNH 控件（返回 / 分享），不再用系统导航栏。
