@@ -113,16 +113,46 @@ struct PreviewInfoSectionsTests {
         #expect(Self.count(pixels, 0x59C9C0, tolerance: 4) > 0, "拍摄参数的 icon-map 仍应存在")
     }
 
-    @Test("参数胶囊是纸色底 + 描边 + 硬阴影")
-    func paramBadgeLooksLikeIslandCard() throws {
-        let pixels = try #require(Self.rasterize(
-            IslandParamBadge(icon: .map, value: "5.96 mm", label: "焦距")
-                .padding(12)
-                .background(Color.white)
+    @Test("拍摄参数项没有边框/底色/硬阴影（按用户要求，回归）")
+    func paramBadgeHasNoBorder() throws {
+        // 这里曾经是"胶囊"：纸色底 + 1.5pt 描边 + 2pt 硬阴影。
+        // 按用户要求去掉边框；由于底色与卡片同为纸色（本来就看不出），
+        // 只去描边会剩一道悬空硬阴影，所以三者一并去掉，现在是纯粹的图标 + 文字。
+        let pixels = try #require(IslandCardTests.rasterize(
+            VStack(spacing: 8) {
+                IslandParamBadge(icon: .map, value: "5.96 mm", label: "焦距")
+                IslandParamBadge(icon: .variant, value: "f/1.6", label: "光圈")
+            }
+            .padding(12)
+            .background(AnimalSignatures.cardPaper)
+            .frame(width: 320)
         ))
-        #expect(Self.count(pixels, 0xF7F3DF) > 200, "胶囊底色应为纸色")
-        #expect(Self.count(pixels, 0xC4B89E) > 20, "胶囊应有描边")
-        #expect(Self.count(pixels, 0xBDAEA0) > 20, "胶囊应有硬阴影（0 2px 0 0）")
+        // 判据用"同一行内连续同色像素的最长长度"，而不是"是否存在该颜色"：
+        // 图标的深色描边抗锯齿到纸色上会混出接近 #c4b89e 的零星像素，
+        // 按"存在"判断必然假失败（这是这条测试返工的第二个原因）。
+        // 实测：无边框时最长连续 3px；有边框时 550px（硬阴影 556px）。
+        // 两者差两个数量级，阈值取 50 很安全。
+        func longestRun(_ hex: UInt32, tolerance: Int) -> Int {
+            var best = 0
+            for y in 0..<pixels.height {
+                var run = 0
+                for x in 0..<pixels.width {
+                    if pixels.matches(x, y, hex, tolerance: tolerance) {
+                        run += 1
+                        best = max(best, run)
+                    } else {
+                        run = 0
+                    }
+                }
+            }
+            return best
+        }
+
+        #expect(longestRun(0xC4B89E, tolerance: 4) < 50, "参数项仍有描边（出现了横向长条）")
+        #expect(longestRun(0xBDAEA0, tolerance: 4) < 50, "参数项仍有硬阴影（出现了横向长条）")
+        // 但图标必须还在（去掉的是框，不是内容）
+        #expect(Self.count(pixels, 0x59C9C0, tolerance: 4) > 0, "焦距的 icon-map 仍应在")
+        #expect(Self.count(pixels, 0x5AA15B, tolerance: 4) > 0, "光圈的 icon-variant 仍应在")
     }
 
     @Test("分区之间是青色虚线（有实有虚，不是实线）")

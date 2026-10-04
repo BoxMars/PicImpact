@@ -45,10 +45,14 @@ public struct IslandRow: View {
     }
 }
 
-/// 参数胶囊。对应 Web 的 `ParamBadge`：
-/// 高 32 / 圆角 16 / 描边 1.5 `#c4b89e` / 底 `rgb(247,243,223)` /
-/// 内边距 `0 12` / 间距 6 / 阴影 `0 2px 0 0 #bdaea0`；
-/// 图标 14，值 11pt / 700 / `#725d42`。
+/// 拍摄参数项（图标 + 值）。
+///
+/// Web 里这里是 `ParamBadge`：高 32、圆角 16、描边 1.5 `#c4b89e`、底 `rgb(247,243,223)`、
+/// 阴影 `0 2px 0 0 #bdaea0`。**按用户要求去掉了边框**，并且顺带去掉同色底与硬阴影：
+/// 底色与卡片同为纸色（本来就看不出），只去描边会剩一道悬空的硬阴影，比保留边框更怪。
+/// 现在是纯粹的"图标 + 文字"，与前文卡片操作行的处理一致。
+///
+/// 图标 14、值 11pt/700/`#725d42` 仍与 Web 一致。
 public struct IslandParamBadge: View {
     private let icon: AnimalIconName
     private let value: String
@@ -70,15 +74,7 @@ public struct IslandParamBadge: View {
                 .minimumScaleFactor(0.8)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 12)
         .frame(height: 32)
-        .background(AnimalSignatures.cardPaper)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .circular))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .circular)
-                .strokeBorder(AnimalSignatures.cardBorder, lineWidth: 1.5)
-        }
-        .shadow(color: AnimalSignatures.cardShadowHard, radius: 0, x: 0, y: 2)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(accessibilityLabel) \(value)")
     }
