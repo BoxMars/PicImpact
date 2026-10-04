@@ -276,18 +276,11 @@ public struct GalleryCell: View {
 
     /// ⑥ 操作行（Web: gap 14, height 24）
     private var actionRow: some View {
-        // 按用户要求：卡片下方只保留**两个**按钮（分享 / 下载），并且**带文字**，
-        // 且**不要边框**。不再提供"复制图片链接"（原来是 icon-diy 那个）。
+        // 按用户要求：**下载在左、分享在右**，两者分居两侧。
+        // 卡片下方只保留这两个按钮，且带文字、不带边框。
+        // 分享走系统分享面板（分享站点上该图的链接）；
+        // 未开启下载能力时，分享仍靠右，保持位置一致。
         HStack(spacing: 8) {
-            // 分享改为调**系统分享面板**（分享站点上该图的链接），不再是复制到剪贴板。
-            // onShareLink 保留为回调，供宿主在需要时覆盖（例如未来要统计分享次数）。
-            IslandShareButton(
-                url: LinkActions.shareURL(for: image),
-                iconSize: 16,
-                fontSize: 11,
-                style: .plain
-            )
-
             if showDownload {
                 if isDownloading {
                     HStack(spacing: 5) {
@@ -295,6 +288,7 @@ public struct GalleryCell: View {
                         Text("下载中…")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(AnimalTokens.textSecondary)
+                            .fixedSize()
                     }
                     .frame(height: 26)
                 } else {
@@ -303,6 +297,13 @@ public struct GalleryCell: View {
             }
 
             Spacer(minLength: 0)
+
+            IslandShareButton(
+                url: LinkActions.shareURL(for: image),
+                iconSize: 16,
+                fontSize: 11,
+                style: .plain
+            )
         }
         .frame(height: 26)
     }
@@ -318,8 +319,6 @@ public struct GalleryCell: View {
                     .fixedSize()
             }
             .frame(height: 26)
-            // 按用户要求：不加边框。
-            // 底色也一并去掉 —— 信息块本身就贴在纸色上，同色底纯属多余。
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

@@ -142,4 +142,43 @@ struct GalleryCellTests {
             "圆角外的采样点仍是图片本身（\(stillImage)/\(probePoints.count) 个）—— 下方疑似仍是直角"
         )
     }
+
+    @Test("下载在左、分享在右，分居两侧")
+    func downloadLeftShareRight() throws {
+        // 用户明确要求的位置：下载在左、分享在右，各占一侧。
+        // 用两个图标的包围盒判断（#409B5E 只有购物袋有，#FFAD00 只有直升机有，
+        // 与该卡片其余 EXIF 芯片图标的配色都不撞）。
+        let pixels = try #require(IslandCardTests.rasterize(Self.makeCell(), scale: 2))
+
+        func boundingBox(_ hex: UInt32, tolerance: Int = 6) -> (minX: Int, maxX: Int)? {
+            var minX = Int.max
+            var maxX = -1
+            for y in 0..<pixels.height {
+                for x in 0..<pixels.width where pixels.matches(x, y, hex, tolerance: tolerance) {
+                    minX = min(minX, x)
+                    maxX = max(maxX, x)
+                }
+            }
+            return maxX < 0 ? nil : (minX, maxX)
+        }
+
+        let download = try #require(boundingBox(0x409B5E), "没找到下载图标（icon-shopping）")
+        let share = try #require(boundingBox(0xFFAD00), "没找到分享图标（icon-helicopter）")
+
+        #expect(download.minX < share.minX, "下载应在分享左侧")
+        #expect(download.minX < pixels.width / 2, "下载应贴着左侧")
+        #expect(share.maxX > pixels.width / 2, "分享应贴着右侧")
+    }
+
+    @Test("未开启下载能力时，分享仍靠右")
+    func shareStaysRightWithoutDownload() throws {
+        let pixels = try #require(IslandCardTests.rasterize(Self.makeCell(showDownload: false), scale: 2))
+        var maxX = -1
+        for y in 0..<pixels.height {
+            for x in 0..<pixels.width where pixels.matches(x, y, 0xFFAD00, tolerance: 6) {
+                maxX = max(maxX, x)
+            }
+        }
+        #expect(maxX > pixels.width / 2, "没有下载按钮时分享仍应在右半边")
+    }
 }
