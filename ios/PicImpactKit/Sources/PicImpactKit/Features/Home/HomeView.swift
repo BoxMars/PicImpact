@@ -92,11 +92,15 @@ public struct HomeView: View {
                             .padding(.top, 80)
                     }
 
-                    // 只在**首次加载**时给内联指示器。
-                    // 下拉刷新有自己的 .refreshing 状态，系统已经显示了指示器，
-                    // 这里再画一个就会出现两个刷新图标。
+                    // 首次加载时放**骨架块**，不放 spinner。
+                    //
+                    // 为什么彻底不用 spinner：下拉刷新由系统给出刷新指示器，
+                    // 只要我自己也画一个 spinner，两者就可能同屏（首次加载在途时下拉刷新
+                    // 就是这种情况：refresh() 因 guard 立刻返回，系统指示器亮了、
+                    // 而 phase 仍是 .loadingFirstPage，内联那个也还亮着 —— 实测两个刷新）。
+                    // 现在把"我自己画 spinner"这个可能性直接去掉，同屏最多只有一个。
                     if store.phase == .loadingFirstPage {
-                        ProgressView().frame(width: contentWidth, height: 160)
+                        skeletonPlaceholder(width: contentWidth)
                     }
                 }
                 .frame(width: contentWidth, alignment: .topLeading)
@@ -131,6 +135,10 @@ public struct HomeView: View {
                 infoHeights[image.id] = height
             }
         )
+    }
+
+    private func skeletonPlaceholder(width: CGFloat) -> some View {
+        GallerySkeleton(width: width)
     }
 
     /// 用同一份 `MasonryLayout` 计算放置位置。
@@ -195,5 +203,43 @@ public enum LinkActions {
         #if canImport(UIKit)
         UIPasteboard.general.string = value
         #endif
+    }
+}
+
+/// 画廊首次加载的骨架占位：两张与卡片同款式的空卡。
+///
+/// ## 为什么用骨架而不是 spinner
+/// 下拉刷新由**系统**给出刷新指示器（`.refreshable`）。只要 App 自己也画 spinner，
+/// 两者就可能同屏 —— 首次加载在途时下拉刷新就是这种情况：`refresh()` 因 `isLoading`
+/// 守卫立刻返回，系统指示器亮了，而 `phase` 仍是 `.loadingFirstPage`，
+/// 内联那个 spinner 也还亮着，用户看到的就是"两个刷新"。
+///
+/// 所以这里把"App 自己画 spinner"这个可能性直接去掉：同屏最多只剩系统那一个。
+/// 图片占位同理（见 `CachedAsyncImage`）。
+///
+/// 抽成独立视图是为了能在测试里直接栅格化断言 —— 骨架与 spinner 的像素特征差别很大
+/// （骨架有纸色/描边/硬阴影三种颜色；spinner 只有一圈弧线），可以据此守住回归。
+struct GallerySkeleton: View {
+    let width: CGFloat
+
+    var body: some View {
+        VStack(spacing: AnimalTokens.spacingLG) {
+            ForEach(0..<2, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: AnimalSignatures.cardCornerRadius, style: .circular)
+                    .fill(AnimalSignatures.cardPaper)
+                    .frame(width: width, height: 200)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: AnimalSignatures.cardCornerRadius, style: .circular)
+                            .strokeBorder(AnimalSignatures.cardBorder, lineWidth: AnimalSignatures.cardBorderWidth)
+                    }
+                    .shadow(
+                        color: AnimalSignatures.cardShadowHard,
+                        radius: 0,
+                        x: 0,
+                        y: AnimalSignatures.cardShadowOffsetY
+                    )
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }

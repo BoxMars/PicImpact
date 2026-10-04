@@ -37,8 +37,12 @@ public struct CachedAsyncImage: View {
                 // 失败时不显示错误文案（画廊里会很吵），只留占位
                 AnimalTokens.bgSecondary
             } else {
+                // 加载中**不画 spinner**，只用平色占位。
+                //
+                // 原因：下拉刷新时系统已经显示了刷新指示器（`.refreshable`），
+                // 如果每张图再各画一个 spinner，同屏就会看到多个"刷新"在转 ——
+                // 用户已经反馈过两次"两个刷新"。Web 端这里也是纯色/脉冲占位，没有 spinner。
                 AnimalTokens.bgSecondary
-                    .overlay(ProgressView().controlSize(.small))
             }
         }
         .task(id: url) {
