@@ -285,19 +285,18 @@ struct PreviewInfoPanel: View {
     }
 }
 
-/// 直方图面板：浅色底 + 圆角，**不加边框**（按用户要求）。
+/// 直方图。
 ///
-/// 单独抽成视图是为了能在测试里直接栅格化 —— 否则"没有边框"这件事只能靠肉眼，
-/// 而这次改动的全部内容恰恰就是去掉一层边框。
+/// 演变过程：最早是"浅色底 + 1px 描边 + 圆角"的面板；用户先要求去边框，
+/// 之后又要求去掉外面那层浅色圆角容器（看起来像个胶囊）。
+/// 现在直方图**直接贴在纸色上**，不再有任何包裹层 —— 深色矩形本身就是图表。
+///
+/// 单独抽成视图是为了能在测试里直接栅格化断言"没有包裹层"。
 struct HistogramPanel: View {
     let histogram: Histogram
 
     var body: some View {
         HistogramView(histogram: histogram)
             .frame(height: 120)
-            .padding(8)
-            // 保留浅色底（它是让直方图从纸色上"浮"出来的依据），只去掉描边
-            .background(AnimalTokens.bgSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .circular))
     }
 }

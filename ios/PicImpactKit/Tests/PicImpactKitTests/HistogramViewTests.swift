@@ -130,7 +130,7 @@ struct HistogramViewTests {
         #expect(histogram.maxValue == 1000, "应取四通道全局最大值，实际 \(histogram.maxValue)")
     }
 
-    @Test("直方图面板没有边框（按用户要求，回归）")
+    @Test("直方图没有任何包裹层（无描边、无浅色底，按用户要求，回归）")
     func panelHasNoBorder() throws {
         // 面板曾经带一层 1px 的 #c4b89e 描边。
         // HistogramView 自身只画白色半透明网格与彩色柱，调色板里没有任何接近 #c4b89e 的颜色
@@ -148,5 +148,14 @@ struct HistogramViewTests {
             }
         }
         #expect(border == 0, "直方图面板不该有描边，实测 \(border) px 命中 #c4b89e")
+
+        // 也不能再有外面那层浅色圆角容器（用户要求去掉的"胶囊"）
+        var panel = 0
+        for y in 0..<pixels.height {
+            for x in 0..<pixels.width where pixels.matches(x, y, 0xF0E8D8, tolerance: 4) {
+                panel += 1
+            }
+        }
+        #expect(panel == 0, "直方图外面不该再有浅色包裹层，实测 \(panel) px 命中 #f0e8d8")
     }
 }
