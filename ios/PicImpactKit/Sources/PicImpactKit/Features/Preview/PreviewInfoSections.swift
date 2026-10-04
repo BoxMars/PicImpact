@@ -65,14 +65,15 @@ public struct PreviewInfoSections: View {
                 divider
                 section("Exif.deviceInfo") {
                     VStack(alignment: .leading, spacing: 6) {
+                        // 按用户要求：设备信息**不显示图标**，只留文字。
+                        // `DeviceItem.icon` 仍然保留 —— 它记录了 Web 端该行用哪个图标
+                        // （camera / design），是数据结构的一部分，只是不渲染。
                         ForEach(data.deviceItems) { item in
-                            HStack(spacing: 6) {
-                                AnimalIcon(item.icon, size: 14)
-                                Text(item.text)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(AnimalSignatures.cardText)
-                                Spacer(minLength: 0)
-                            }
+                            Text(item.text)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(AnimalSignatures.cardText)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         if let row = data.deviceFocalRow {
                             IslandRow(label: row.label, value: row.value)

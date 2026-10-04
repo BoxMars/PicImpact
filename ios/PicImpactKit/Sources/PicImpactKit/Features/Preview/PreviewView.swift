@@ -46,6 +46,13 @@ struct PreviewContentView: View {
     let features: SiteConfigDTO.Features
     let onSelectTag: (String) -> Void
 
+    /// 岛屿卡片的内边距。
+    ///
+    /// 卡片**外**的内容（标题、描述、标签）要额外缩进这么多，
+    /// 才能与卡片**内**的文字左对齐 —— 否则卡片内的文字比标题多缩进一层
+    /// （页面 16 + 卡片 16 = 32pt vs 标题 16pt），看起来是错位的。
+    private let cardInnerPadding: CGFloat = 16
+
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             // 主图也装进岛屿卡片：与画廊卡片同一套圆角/描边/硬阴影
@@ -57,9 +64,12 @@ struct PreviewContentView: View {
                 Text(message)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(AnimalTokens.error)
+                    .padding(.leading, cardInnerPadding)
             }
 
+            // 以下三块在卡片之外，统一缩进到与卡片内文字同一条竖线
             titleSection
+                .padding(.leading, cardInnerPadding)
 
             if !model.infoData.isEmpty || model.tone != nil || model.histogram != nil {
                 infoPanel
@@ -67,6 +77,7 @@ struct PreviewContentView: View {
 
             if !model.image.labels.isEmpty {
                 tagSection
+                    .padding(.leading, cardInnerPadding)
             }
         }
         .padding(.horizontal, 16)

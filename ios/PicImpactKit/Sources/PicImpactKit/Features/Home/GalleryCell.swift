@@ -258,9 +258,8 @@ public struct GalleryCell: View {
 
     /// ⑥ 操作行（Web: gap 14, height 24）
     private var actionRow: some View {
-        // 按用户要求：卡片下方只保留**两个**按钮（分享 / 下载），并且**带文字**。
-        // 不再提供"复制图片链接"（原来是 icon-diy 那个）。
-        // 用 ACNH 的胶囊样式，让文字按钮看起来像可点的控件而不是一行注释。
+        // 按用户要求：卡片下方只保留**两个**按钮（分享 / 下载），并且**带文字**，
+        // 且**不要边框**。不再提供"复制图片链接"（原来是 icon-diy 那个）。
         HStack(spacing: 8) {
             actionButton(icon: .helicopter, label: "分享", action: onShareLink)
 
@@ -272,11 +271,7 @@ public struct GalleryCell: View {
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(AnimalTokens.textSecondary)
                     }
-                    .padding(.horizontal, 10)
                     .frame(height: 26)
-                    .background(AnimalSignatures.cardPaper)
-                    .clipShape(Capsule())
-                    .overlay { Capsule().strokeBorder(AnimalSignatures.cardBorder, lineWidth: 1.5) }
                 } else {
                     actionButton(icon: .shopping, label: "下载", action: onDownload)
                 }
@@ -287,7 +282,7 @@ public struct GalleryCell: View {
         .frame(height: 26)
     }
 
-    /// 卡片操作按钮：图标 + 文字的小胶囊
+    /// 卡片操作按钮：图标 + 文字（无边框、无底色）
     private func actionButton(icon: AnimalIconName, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 5) {
@@ -297,11 +292,9 @@ public struct GalleryCell: View {
                     .foregroundStyle(AnimalSignatures.cardText) // #725d42
                     .fixedSize()
             }
-            .padding(.horizontal, 10)
             .frame(height: 26)
-            .background(AnimalSignatures.cardPaper)
-            .clipShape(Capsule())
-            .overlay { Capsule().strokeBorder(AnimalSignatures.cardBorder, lineWidth: 1.5) }
+            // 按用户要求：不加边框。
+            // 底色也一并去掉 —— 信息块本身就贴在纸色上，同色底纯属多余。
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

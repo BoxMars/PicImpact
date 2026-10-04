@@ -98,16 +98,19 @@ struct PreviewInfoSectionsTests {
         }
     }
 
-    @Test("设备信息的图标画出来了（icon-camera 与 icon-design）")
-    func deviceIconsRender() throws {
+    @Test("设备信息不显示图标（按用户要求，回归）")
+    func deviceIconsAreAbsent() throws {
+        // 曾经在设备信息行前面放 icon-camera / icon-design。
+        // 按用户要求改为只显示文字，这里守住"图标不再出现"。
         let pixels = try #require(Self.rasterizeAtDeviceScale(
             PreviewInfoSections(data: Self.makeData())
                 .background(AnimalSignatures.cardPaper)
                 .frame(width: 340, height: 520)
         ))
-        // icon-camera 的粉色，icon-design 的黄色
-        #expect(Self.count(pixels, 0xFF66AD, tolerance: 4) > 0, "icon-camera 没画出来")
-        #expect(Self.count(pixels, 0xFFCF4F, tolerance: 4) > 0, "icon-design 没画出来")
+        #expect(Self.count(pixels, 0xFF66AD, tolerance: 4) == 0, "设备信息不该再出现 icon-camera")
+        #expect(Self.count(pixels, 0xFFCF4F, tolerance: 4) == 0, "设备信息不该再出现 icon-design")
+        // 但拍摄参数那四个胶囊的图标仍在（那是另一处，不受影响）
+        #expect(Self.count(pixels, 0x59C9C0, tolerance: 4) > 0, "拍摄参数的 icon-map 仍应存在")
     }
 
     @Test("参数胶囊是纸色底 + 描边 + 硬阴影")
@@ -176,6 +179,53 @@ struct PreviewInfoSectionsTests {
         #expect(Self.count(pixels, 0x19C8B9) > 0, "详情页应出现青色分区标题（说明分区接上了）")
         #expect(Self.count(pixels, 0xF7F3DF) > 1000, "详情页应出现纸色信息面板")
         #expect(Self.count(pixels, 0x59C9C0, tolerance: 6) > 0, "详情页应出现参数图标（icon-map）")
-        #expect(Self.count(pixels, 0xFFCF4F, tolerance: 6) > 0, "详情页应出现镜头图标（icon-design）")
+    }
+
+    @Test("详情页标题与卡片内文字左对齐")
+    func titleAlignsWithCardContent() throws {
+        let json = """
+        {"id":"p1","imageName":"IMG_1.jpeg","url":"https://x/o.jpg","previewUrl":"https://x/p.webp",
+         "videoUrl":"","blurhash":"","width":4032,"height":3024,"title":"标题","detail":"",
+         "type":1,"labels":[],"lon":"","lat":"",
+         "exif":{"make":"Apple","model":"iPhone 17","lens_model":"back camera","focal_length":"5.96 mm",
+                 "f_number":"f/1.6","exposure_time":"1/13","exposure_program":"Normal program",
+                 "iso_speed_rating":640,"data_time":"2026:10:02 20:15:12","bits":"8"},
+         "albumLicense":null,"createdAt":null}
+        """
+        let image = try APIDecoding.makeDecoder().decode(ImageDTO.self, from: Data(json.utf8))
+        let model = PreviewModel(image: image, loader: ImageLoader())
+        let pixels = try #require(IslandCardTests.rasterize(
+            PreviewContentView(model: model, features: .none, onSelectTag: { _ in })
+                .frame(width: 393, height: 1200),
+            scale: 2
+        ))
+
+        // 标题下方那条青色短横与卡片内的分区标题（同为 #19c8b9）应在同一条竖线上。
+        // 短横在卡片之前出现，取它作为"卡片外内容的起始 x"。
+        func tealMinX(from y0: Int, to y1: Int) -> Int? {
+            for x in 0..<pixels.width {
+                for y in y0..<min(y1, pixels.height) where pixels.matches(x, y, 0x19C8B9, tolerance: 10) {
+                    return x
+                }
+            }
+            return nil
+        }
+
+        // 找到第一处青色（标题短横）
+        var accentMinX: Int?
+        var accentY = 0
+        outer: for y in 0..<pixels.height {
+            for x in 0..<pixels.width where pixels.matches(x, y, 0x19C8B9, tolerance: 10) {
+                accentMinX = x; accentY = y; break outer
+            }
+        }
+        let accent = try #require(accentMinX, "没找到标题的青色短横")
+        // 卡片内的第一个青色标题（短横之后）
+        let section = try #require(tealMinX(from: accentY + 6, to: pixels.height), "没找到卡片内的青色分区标题")
+
+        #expect(
+            abs(accent - section) <= 4,
+            "标题(短横 x=\(accent))与卡片内文字(x=\(section))没有左对齐 —— 相差 \(abs(accent - section))px"
+        )
     }
 }
