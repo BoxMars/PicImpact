@@ -100,7 +100,18 @@ public struct HomeView: View {
                     // 而 phase 仍是 .loadingFirstPage，内联那个也还亮着 —— 实测两个刷新）。
                     // 现在把"我自己画 spinner"这个可能性直接去掉，同屏最多只有一个。
                     if store.phase == .loadingFirstPage {
-                        skeletonPlaceholder(width: contentWidth)
+                        // ⚠️ 骨架**不能参与布局**：实测把它直接放进布局后，
+                        // 真实卡片到达时页面会自己向下滚约 470pt —— 缎带标题从 102pt
+                        // 被滚出画面，用户看到的就是"一打开在最底部、标题往下跑了"。
+                        // 去掉骨架则完全正常（缎带在 1s/3s/6s 都稳定在 102pt）。
+                        //
+                        // 这里用"零高度 + 溢出的 overlay"：不改变滚动内容的高度，
+                        // 但骨架仍然显示在头部下方。
+                        Color.clear
+                            .frame(height: 0)
+                            .overlay(alignment: .top) {
+                                skeletonPlaceholder(width: contentWidth)
+                            }
                     }
                 }
                 .frame(width: contentWidth, alignment: .topLeading)
