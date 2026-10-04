@@ -79,6 +79,8 @@ public struct PreviewView: View {
         // 而本包同时要给 macOS 的单元测试编译。
         #if os(iOS)
         .toolbar(.hidden, for: .navigationBar)
+        // 隐藏导航栏会让系统的手势返回失效，这里把它接回来
+        .background(InteractivePopGestureEnabler().frame(width: 0, height: 0))
         #endif
         .task { await model.load() }
     }

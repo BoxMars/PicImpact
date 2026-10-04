@@ -204,3 +204,47 @@ extension View {
             .background((color ?? AnimalTokens.bg).ignoresSafeArea(edges: .top))
     }
 }
+
+#if canImport(UIKit)
+import UIKit
+
+/// 重新启用系统的「边缘右滑返回」手势。
+///
+/// ## 为什么需要
+/// 详情页用 `.toolbar(.hidden, for: .navigationBar)` 隐藏了系统导航栏
+/// （为了用自绘的 ACNH 顶栏）。而**隐藏导航栏会让
+/// `UINavigationController.interactivePopGestureRecognizer` 失效** ——
+/// 于是右滑退出的手势用不了。这是 UIKit 的既有行为，不是 SwiftUI 的 bug。
+///
+/// 修法是把这个手势重新接上：把它的 delegate 换成我们自己，
+/// 在「栈里还有上一页」时允许手势开始。
+///
+/// ## 为什么 delegate 要判断层数
+/// 如果无条件返回 true，在根页面上也会开始手势，
+/// 结果导航栈会卡住（页面滑到一半回不来）—— 这是这个 hack 常见的坑。
+struct InteractivePopGestureEnabler: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> UIViewController {
+        let controller = UIViewController()
+        controller.view.backgroundColor = .clear
+        // 必须等视图进入层级后再取 navigationController，否则拿到的是 nil
+        DispatchQueue.main.async {
+            guard let navigation = controller.navigationController else { return }
+            navigation.interactivePopGestureRecognizer?.isEnabled = true
+            navigation.interactivePopGestureRecognizer?.delegate = context.coordinator
+        }
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard let navigation = gestureRecognizer.view as? UINavigationController else { return false }
+            // 根页面上不开始手势，避免导航栈被卡住
+            return navigation.viewControllers.count > 1
+        }
+    }
+}
+#endif

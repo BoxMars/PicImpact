@@ -727,3 +727,35 @@ self
 而我没有加断言。没有断言的替换等于没改，实验结论自然全错，
 我在错误的方向上多花了好几轮。后来是靠 `grep` 核对源码才发现文件根本没变。
 **改代码必须带断言、改完必须核对** —— 这条比"多测几次"重要得多。
+
+
+### 详情页不能右滑退出：隐藏导航栏会让系统手势失效
+
+用户提问"详情页目前没有向右滑动退出？"—— 确认属实。
+
+**根因**：详情页用 `.toolbar(.hidden, for: .navigationBar)` 隐藏了系统导航栏
+（为了用自绘的 ACNH 顶栏），而**隐藏导航栏会让
+`UINavigationController.interactivePopGestureRecognizer` 失效**。
+这是 UIKit 的既有行为：隐藏导航栏后，系统内部的 delegate 会拒绝开始该手势。
+
+**修法**：用 `UIViewControllerRepresentable` 拿到所在导航控制器，
+把这个手势的 **delegate 接管过来**，在"栈里还有上一页"时允许手势开始。
+
+**运行时日志实测**（`xcrun simctl launch --console-pty` 读 App 的 stdout）：
+```
+[probe] nav=OK gesture=true 启用前=true 栈深=1
+[probe] 已接管 delegate，启用后=true
+```
+关键发现：手势**本来就是 enabled 的**（`启用前=true`）——
+失效的是 **delegate** 不是 `isEnabled`。所以"把手势 enable 打开"这种改法是无效的，
+必须接管 delegate。
+
+**一个坑**：delegate 若无条件允许，在根页面（栈深 1）也会开始手势，
+导航栈会卡住（页面滑到一半回不来）。所以 `gestureRecognizerShouldBegin`
+里判断 `viewControllers.count > 1`。
+
+**这条没有自动化测试**：手势是行为性的，需要 UI 测试才能覆盖，
+而本包的单测跑在 macOS 上（没有 UIKit）。因此用运行时日志验证了桥接确实接上，
+但"滑动手感是否正常"需要人工确认。
+
+127 测试 / 17 套件通过。
