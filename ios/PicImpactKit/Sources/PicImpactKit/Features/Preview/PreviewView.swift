@@ -87,19 +87,23 @@ public struct PreviewView: View {
                 .padding(.vertical, 8)
 
             HStack(alignment: .top, spacing: gap) {
-                // 左：图片（2/3）。用固定框架 + ProgressiveImageView 自身的
-                // aspectRatio(.fit)，图片会按比例居中，不会被拉伸。
-                PreviewImageView(model: model)
-                    .frame(width: imageWidth, height: maxHeight, alignment: .center)
+                // 左：图片（2/3）+ **标题在图片下方**（用户要求标题跟图片一栏，
+                // 上/下均可；选下方是为了与 iPhone 上的排法一致）。
+                // 图片用 maxHeight: .infinity 吃掉标题之外的剩余高度，
+                // 自身 aspectRatio(.fit) 保证不被拉伸。
+                VStack(alignment: .leading, spacing: 12) {
+                    PreviewImageView(model: model)
+                        .frame(maxWidth: imageWidth, maxHeight: .infinity, alignment: .center)
 
-                // 右：标题 + 信息（1/3），独立滚动
+                    PreviewTitleBlock(model: model, inset: 32)
+                }
+                .frame(width: imageWidth, height: maxHeight, alignment: .top)
+
+                // 右：只有信息（1/3），独立滚动
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        PreviewTitleBlock(model: model, inset: 32)
-                        PreviewInfoPanel(model: model, features: features, onSelectTag: onSelectTag)
-                    }
-                    .frame(width: infoWidth, alignment: .leading)
-                    .padding(.vertical, 4)
+                    PreviewInfoPanel(model: model, features: features, onSelectTag: onSelectTag)
+                        .frame(width: infoWidth, alignment: .leading)
+                        .padding(.vertical, 4)
                 }
                 .frame(width: infoWidth, height: maxHeight)
             }
