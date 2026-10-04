@@ -1,6 +1,8 @@
 # iOS 展示效果 1:1 复刻设计文档（PicImpact / 大福映画 Felina Gallery）
 
-- **日期**：2026-10-04（第 2 版，按"只要求展示效果 1:1、样式以 ACNH 为准"重写）
+- **日期**：2026-10-04（第 3 版）
+- **版本沿革**：v1 全量功能复刻 → v2 按"只要求展示效果 1:1、样式以 ACNH 为准"重写 →
+  **v3 收敛范围为「只做 ACNH 岛屿卡一种呈现」，`default` 纯图瀑布流与 `polaroid` 均不做**（见 §2.2）
 - **目标**：iOS 原生（SwiftUI）复刻 Web 站点，**展示效果 1:1**
 - **视觉权威**：`animal-island-ui` v1.0.16（动物森友会 ACNH 风格组件库）
 - **被复刻对象**：`https://felina.boxz.dev`（Next.js 16 + Hono + Prisma + R2）
@@ -32,7 +34,7 @@
 | 事项 | 决定 | 理由 |
 |---|---|---|
 | 列表数据接口 | **在 Web 端新增 4 个公开只读接口**（§3.3），我先实现并冻结 DTO | 否则 iOS 拿不到"相册里有哪些图"，是硬前提 |
-| 范围 | **先做纯浏览**（首页三风格 + 相册 + 标签 + 预览 + 地图）；上传/后台放最后且可选 | 浏览已覆盖用户看到的一切；"展示效果"要求也只覆盖这些 |
+| 范围 | **只做 ACNH 岛屿卡这一种呈现**（首页 + 相册 + 标签 + 预览 + 地图）；`default` 纯图瀑布流不做；上传/后台放最后且可选 | 见 §2.2 —— `default` 与 ACNH 是两套完全不同的视觉语言，混做会让"展示效果 1:1"失去基准 |
 | 字体 | **打包子集化的 Nunito + Noto Sans SC** | 既然样式要 1:1，字形就不能用苹方替代 |
 | 地图底图 | **MapKit** | 地图不是"展示效果"的核心；MapKit 零成本且体验更好 |
 | ⌘K 命令菜单 | **不做** | 键盘交互，不属于展示效果 |
@@ -240,28 +242,37 @@ enum Animal {
 | URL | 说明 |
 |---|---|
 | `/` | 首页画廊（风格由全局配置决定） |
-| `/[...album]` | 相册页（`album_value` 形如 `/daily`，风格由相册 `theme` 决定） |
-| `/tag/[...tag]` | 按标签浏览（default 风格） |
+| `/[...album]` | 相册页（`album_value` 形如 `/daily`）——iOS 统一 ACNH 风格，忽略其 `theme` 字段 |
+| `/tag/[...tag]` | 按标签浏览 —— iOS 统一 ACNH 风格 |
 | `/preview/[...id]` | 图片预览详情 |
 | `/map` | 地图页 |
 | `/login`、`/sign-up` | 鉴权（iOS 首期可不做） |
 | `/admin/*` | 后台（iOS 首期不做） |
 
-### 2.2 两套正交的"主题"（最易复刻错）
+### 2.2 iOS 只做 ACNH 一种呈现（决定）
 
-**A. 首页风格**：全局配置 `custom_index_style`
-**B. 相册风格**：`Albums.theme` 字段（逐相册）
+Web 端其实有**两套正交的主题开关**，取值映射一致
+（`app/(default)/page.tsx:65-69`、`app/(theme)/[...album]/page.tsx:90`）：
 
-取值映射一致（`app/(default)/page.tsx:65-69`、`app/(theme)/[...album]/page.tsx:90`）：
-
-| 取值 | 主题 | 视觉 |
+| 取值 | Web 主题组件 | 视觉语言 |
 |---|---|---|
-| `'1'` | `simple-gallery` | 岛屿纸卡 + 行优先瀑布流 + 卡片下方信息块 |
-| `'2'` | `polaroid-gallery` | 拍立得相纸撒桌面（§4.7） |
-| 其他/`'0'` | `default-gallery` | `MasonryPhotoAlbum` 纯图瀑布流，**无信息块** |
+| `'1'` | `simple-gallery` | **ACNH 岛屿纸卡** + 行优先瀑布流 + 卡片下方信息块 |
+| `'2'` | `polaroid-gallery` | 同属 ACNH 视觉语言的拍立得变体（相纸撒桌面） |
+| 其他/`'0'` | `default-gallery` | `MasonryPhotoAlbum` **纯图瀑布流，无信息块 —— 不是 ACNH 语言** |
 
-> **生产实测：首页 `custom_index_style = 1`（simple），相册 `/daily` 的 `theme = 0`（default）。**
-> 也就是**同一站点两种风格并存**，iOS 端两套都要做 —— 别只按首页那套做完就以为齐了。
+**决定：iOS 端只实现 `'1'` 这套 ACNH 岛屿卡。**
+
+由此推出三条必须落实的规则：
+
+1. **`default` 不做。** 它是纯图瀑布流（无纸卡、无描边、无立体阴影），与 ACNH 是两套视觉语言。既已确定样式以 ACNH 为准，它就没有复刻基准。
+2. **忽略 `Albums.theme` 字段。** 生产实测：首页 `custom_index_style = 1`（ACNH），而相册 `/daily` 的 `theme = 0`（default）。
+   若 iOS 遵循该字段，打开 `/daily` 就会渲染我们不打算实现的风格。**因此 iOS 端所有列表（首页 / 相册 / 标签）统一使用 ACNH 岛屿卡呈现**，
+   `theme` 字段在客户端一律忽略（仅作为服务端数据存在，见 §3.1）。
+3. **`polaroid` 首期不做。** 它同属 ACNH 视觉语言、共用 §1 的全部令牌，属于"另一种呈现"而非另一种风格；
+   按"只做 ACNH 一种"收敛范围，首期排除。因其算法已完整记录在 §4.6，日后要加成本很低（只需多一个布局器，令牌与卡片复用）。
+
+> 这条决定的实际影响：**iOS 端只有一套画廊视图 + 一个布局算法**，不需要按相册切换渲染分支。
+> 它同时消掉了原文档里"同一站点两种风格并存，两套都得做"的复杂度。
 
 ### 2.3 simple 风格的岛屿卡（像素级）
 
@@ -334,7 +345,7 @@ Images    id, image_name, url(原图), preview_url(800px), video_url, blurhash,
           exif(Json), labels(Json), width, height, lon, lat, title, detail,
           type(1=图片, 非1=LivePhoto), show(0=公开), show_on_mainpage(0=上首页),
           sort, createdAt, updatedAt, del(0=未删)
-Albums    id, name, album_value(@unique), detail, theme('0'|'1'|'2'),
+Albums    id, name, album_value(@unique), detail, theme('0'|'1'|'2' ← iOS 忽略，见 §2.2),
           show, sort, random_show, image_sorting, license
 ImagesAlbumsRelation   (imageId, album_value) 复合主键，多对多
 Configs   config_key(@unique), config_value, detail
@@ -449,7 +460,10 @@ iOS 建议先用固定高度 + 标题最多两行截断，把不可控因素收�
 
 > 相关坑（Web 端实测踩过）：网格项若允许拉伸（`align-items: stretch`），测量到的高度会把"为间距多留的行"算进去，下一轮 span 再变大 → **正反馈，每轮长 16px 直至失控**（实测把 180px 的块撑到 3448px）。iOS 计算时必须**以内容高度为准，不允许被容器拉伸**。
 
-### 4.6 拍立得主题的算法（不逐位复刻就会完全不同）
+### 4.6 拍立得主题的算法（**首期不做，仅存档**）
+
+> 按 §2.2 的决定，`polaroid` 不在首期范围。本节保留完整算法记录，原因是：它的排布完全由
+> 哈希决定，**不逐位复刻就会与 Web 完全不同**；日后若要做，照此实现即可，令牌与卡片可直接复用。
 
 **① 6 种相纸规格**（`POLAROID_STYLES`，单位 mm，抄自代码）：
 
@@ -518,7 +532,7 @@ left = Math.floor(hashToUnit(id, 2) * 50) + 10   // 10%–60%
 - [ ] 瀑布流列数断点 640 / 1024，列间距与行间距 16
 - [ ] **瀑布流的视觉阅读顺序与 Web 完全一致**（连续编号逐项核对）
 - [ ] 图片宽高比**永不被裁切**
-- [ ] 拍立得的**排布位置**与 Web 逐张一致（验证 §4.6 的哈希移植正确）
+- [ ] ~~拍立得排布位置~~（首期不做，见 §2.2；若日后加入则需逐张核对 §4.6 的哈希移植）
 - [ ] 各页面文案与 Web 一致（365 个 key，四种语言）
 - [ ] 动效时长符合令牌（.15 / .25 / .35s）
 
@@ -536,7 +550,7 @@ left = Math.floor(hashToUnit(id, 2) * 50) + 10   // 10%–60%
 | **P1** | iOS 骨架：Package 分层、APIClient、Models、`AnimalTokens`、`IslandCard` | 能拉到 config/gallery 并渲染出**一张正确的岛屿卡** |
 | **P2** | 首页 simple 风格：岛屿卡 + **行优先瀑布流** + 无限滚动 | §5.2 相关项全过（这屏最难，先做） |
 | **P3** | 预览页：交叉淡入、EXIF、影调、直方图、下载、Live Photo | 预览页视觉 1:1 |
-| **P4** | default 与 polaroid 两风格 + 相册页 + 标签页 | 三种风格齐 |
+| **P4** | 相册页 + 标签页（**统一 ACNH 风格**，忽略 `Albums.theme`，见 §2.2） | `/daily` 等相册页与首页视觉一致 |
 | **P5** | 地图页（MapKit） | |
 | **P6** | 截图对比流水线（§5.1）接入 CI | 每次提交自动出差异报告 |
 | **P7（可选）** | 登录 / 上传（PHPicker → 预签名直传 R2） | |
@@ -550,6 +564,8 @@ left = Math.floor(hashToUnit(id, 2) * 50) + 10   // 10%–60%
 
 | 项 | 原因 | 处理 |
 |---|---|---|
+| **`default` 纯图瀑布流** | 不是 ACNH 视觉语言（无纸卡/描边/立体阴影），无复刻基准 | **不做**，见 §2.2 |
+| **`polaroid` 拍立得** | 同属 ACNH 语言但属"另一种呈现"，按"只做 ACNH 一种"收敛 | 首期不做；算法存于 §4.6，日后成本很低 |
 | 自定义光标 `island-cursor` | 触屏无 hover 概念 | 不做 |
 | hover 态 | 同上 | 改 `pressed` / 长按反馈 |
 | ⌘K 命令菜单 | 键盘交互 | 不做 |
@@ -577,7 +593,7 @@ left = Math.floor(hashToUnit(id, 2) * 50) + 10   // 10%–60%
 | 鉴权边界 | `proxy.ts:8`、`proxy.ts:29-35` |
 | 公开接口 | `hono/open/images.ts`、`hono/open/download.ts` |
 | EXIF 字段 | `components/album/preview-image.tsx` 中实际读取的 `exif.*` |
-| 拍立得规格与哈希 | `components/layout/theme/polaroid/polaroid-gallery.tsx`（`POLAROID_STYLES`、`hashToUnit`） |
+| 拍立得规格与哈希（首期不做，存档） | `components/layout/theme/polaroid/polaroid-gallery.tsx`（`POLAROID_STYLES`、`hashToUnit`） |
 | 瀑布流规则与正反馈坑 | `components/ui/origin/masonry-grid.tsx` 及其修复记录 |
 | 缩略图规格 | `server/lib/thumbnail.ts`（最长边 800、webp q76） |
 | 字体分片处理 | `style/globals.css:5-14,170` |
