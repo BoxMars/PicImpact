@@ -8,7 +8,7 @@ import Foundation
 ///   - **其余一律忽略**（Decodable 默认行为，不需要额外配置）
 ///   - 所有字段都用 `LenientString`，因为服务端类型不统一（生产实测
 ///     `iso_speed_rating` 是数字而 `bits` 是字符串）
-public struct EXIF: Decodable, Sendable, Equatable, Hashable {
+public struct EXIF: Codable, Sendable, Equatable, Hashable {
     public let make: String?
     public let model: String?
     public let lensModel: String?

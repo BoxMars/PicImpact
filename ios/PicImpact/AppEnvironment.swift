@@ -24,7 +24,12 @@ final class AppEnvironment {
         self.client = client
         self.loader = loader
         self.downloader = DefaultDownloadService(loader: loader)
-        self.gallery = GalleryStore(dataSource: client, album: nil)
+        // 首屏缓存：实现"先加载缓存数据，再后台检查是否更新"
+        self.gallery = GalleryStore(
+            dataSource: client,
+            album: nil,
+            cache: FirstPageCache(key: "first-page")
+        )
     }
 
     /// 能力开关。未加载到配置时一律为 false —— 宁可少显示，也不要显示了却点不动。

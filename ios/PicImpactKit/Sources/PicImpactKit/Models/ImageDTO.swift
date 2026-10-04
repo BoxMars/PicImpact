@@ -8,7 +8,7 @@ import Foundation
 /// `pnpm api:verify-contract` 拦在服务端，而不是在这里被静默吞掉。
 /// 注意 `Hashable`：SwiftUI 的 `navigationDestination(item:)` 要求这一条。
 /// 所有字段本就可哈希，所以合成即可（自定义的 `init(from:)` 不影响合成）。
-public struct ImageDTO: Decodable, Sendable, Equatable, Hashable, Identifiable {
+public struct ImageDTO: Codable, Sendable, Equatable, Hashable, Identifiable {
     public let id: String
     /// 原始文件名，保存到相册时用作文件名
     public let imageName: String
@@ -106,7 +106,7 @@ public extension ImageDTO {
 }
 
 /// 单页图片列表（对应 `GET /images` 的 data）
-public struct ImagePageDTO: Decodable, Sendable, Equatable {
+public struct ImagePageDTO: Codable, Sendable, Equatable {
     public let list: [ImageDTO]
     public let page: Int
     /// 页大小由服务端决定（固定 24）。**不要硬编码**，从响应里读。

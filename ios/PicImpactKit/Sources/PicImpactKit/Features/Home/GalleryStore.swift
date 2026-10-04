@@ -34,6 +34,8 @@ public final class GalleryStore {
     public let tag: String?
 
     private let dataSource: GalleryDataSource
+    /// 首屏磁盘缓存，用来"先出缓存、再后台校验"。为 nil 时行为与以前完全一致。
+    private let cache: FirstPageCache?
     private var currentPage = 0
     /// 防止同一时刻发起多次加载（滚动时最容易触发）
     private var isLoading = false
@@ -41,11 +43,13 @@ public final class GalleryStore {
     public init(
         dataSource: GalleryDataSource,
         album: String? = nil,
-        tag: String? = nil
+        tag: String? = nil,
+        cache: FirstPageCache? = nil
     ) {
         self.dataSource = dataSource
         self.album = album
         self.tag = tag
+        self.cache = cache
     }
 
     /// 首屏前几张要最高下载优先级（对应 Web 的 fetchPriority=high）。
@@ -60,9 +64,22 @@ public final class GalleryStore {
         images.isEmpty && phase == .loaded
     }
 
-    /// 首次进入时加载首页；已加载过则不做任何事（避免每次 onAppear 都重拉）
+    /// 首次进入时加载首页；已加载过则不做任何事（避免每次 onAppear 都重拉）。
+    ///
+    /// 顺序是"**先加载缓存数据，再后台检查是否更新**"：
+    /// 1. 有缓存就立刻铺上（`phase` 直接是 `.loaded`，不显示占位指示器）
+    /// 2. 无论有没有缓存，都再请求一次第一页校验更新；有内容时这次是**静默**的
+    ///    （不切回加载态、失败也不覆盖现有内容）
     public func loadFirstPageIfNeeded() async {
         guard currentPage == 0, !isLoading else { return }
+
+        if images.isEmpty, let cache, let cached = await cache.load(), !cached.list.isEmpty {
+            images = cached.list
+            pageSize = cached.pageSize
+            hasMore = cached.hasMore
+            phase = .loaded
+        }
+
         await load(page: 1, replacing: true)
     }
 
@@ -94,8 +111,15 @@ public final class GalleryStore {
 
     private func load(page: Int, replacing: Bool, isRefresh: Bool = false) async {
         isLoading = true
+        // 调用前是否已经有内容（缓存铺上的、或之前加载的）
+        let hadContent = !images.isEmpty
+        // 有内容时的"第一页校验"是**静默**的：不切回加载态，用户看到的仍是现有内容
+        let silentRevalidation = hadContent && page == 1 && replacing && !isRefresh
+
         if isRefresh {
             phase = .refreshing
+        } else if silentRevalidation {
+            // 保持 .loaded
         } else {
             phase = (page == 1 && replacing) ? .loadingFirstPage : .loadingNextPage
         }
@@ -120,8 +144,13 @@ public final class GalleryStore {
             }
             currentPage = page
             phase = .loaded
+            // 第一页成功了就更新缓存（供下次启动立刻显示）
+            if page == 1, replacing, let cache {
+                await cache.save(result)
+            }
         } catch {
-            phase = .failed(Self.describe(error))
+            // 静默校验失败：保留现有内容，不要把用户已看到的画面换成错误页
+            phase = silentRevalidation ? .loaded : .failed(Self.describe(error))
         }
 
         isLoading = false

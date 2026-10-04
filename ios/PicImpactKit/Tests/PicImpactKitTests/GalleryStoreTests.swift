@@ -205,3 +205,97 @@ struct GalleryStoreTests {
         #expect(StubGalleryDataSource.makeImage(id: "still", type: 1).isLivePhoto == false)
     }
 }
+
+/// 首屏缓存：**先加载缓存数据，再后台检查是否更新**。
+///
+/// 背景：`/images?page=1` 实测 1.5–3.4s，而每次启动都要重取。用户要求
+/// "先加载缓存数据，然后再后台检查是否更新"。
+@Suite("T8 · 首屏缓存的先显示后校验")
+@MainActor
+struct GalleryCacheTests {
+
+    private func makeCache() -> FirstPageCache {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PicImpactCacheTests-\(UUID().uuidString)")
+        return FirstPageCache(directory: dir, key: "first-page")
+    }
+
+    private func page(_ ids: [String]) -> ImagePageDTO {
+        ImagePageDTO(
+            list: ids.map { StubGalleryDataSource.makeImage(id: $0) },
+            page: 1,
+            pageSize: 24,
+            pageTotal: 1,
+            hasMore: false,
+            album: nil
+        )
+    }
+
+    @Test("缓存能存能取")
+    func roundTrips() async {
+        let cache = makeCache()
+        #expect(await cache.load() == nil, "初始应没有缓存")
+        await cache.save(page(["a", "b"]))
+        let loaded = await cache.load()
+        #expect(loaded?.list.map(\.id) == ["a", "b"])
+    }
+
+    @Test("有缓存时：网络还没回来就先显示缓存内容，且不回到加载态")
+    func showsCacheBeforeRevalidation() async throws {
+        let cache = makeCache()
+        await cache.save(page(["cached-1", "cached-2"]))
+
+        // 假数据源返回 p1-i0..2，但要 300ms 才回来 —— 用来观察"中间状态"
+        let source = StubGalleryDataSource(totalPages: 1, itemsPerPage: 3)
+        await source.setDelay(300_000_000)
+        let store = GalleryStore(dataSource: source, cache: cache)
+
+        let task = Task { await store.loadFirstPageIfNeeded() }
+        try await Task.sleep(nanoseconds: 120_000_000)   // 网络仍在路上
+        let duringFetch = store.images.map(\.id)
+        let phaseDuringFetch = store.phase
+        await task.value
+
+        #expect(duringFetch == ["cached-1", "cached-2"], "网络未返回时就该显示缓存内容，实际 \(duringFetch)")
+        #expect(phaseDuringFetch == .loaded, "显示缓存期间不该回到加载态，实际 \(phaseDuringFetch)")
+        #expect(store.images.map(\.id) == ["p1-i0", "p1-i1", "p1-i2"], "校验完成后应换成新数据")
+    }
+
+    @Test("后台校验失败时：保留缓存内容，不换成错误页")
+    func failedRevalidationKeepsCache() async {
+        let cache = makeCache()
+        await cache.save(page(["cached-1"]))
+
+        let source = StubGalleryDataSource(totalPages: 1)
+        await source.setFailOnPage(1)
+        let store = GalleryStore(dataSource: source, cache: cache)
+
+        await store.loadFirstPageIfNeeded()
+
+        #expect(store.images.map(\.id) == ["cached-1"], "校验失败不该丢掉已显示的缓存内容")
+        #expect(store.phase == .loaded, "校验失败不该切到错误页，实际 \(store.phase)")
+    }
+
+    @Test("首次成功加载后会写缓存，供下次启动立刻显示")
+    func writesCacheAfterSuccess() async {
+        let cache = makeCache()
+        let source = StubGalleryDataSource(totalPages: 1, itemsPerPage: 3)
+        let store = GalleryStore(dataSource: source, cache: cache)
+
+        await store.loadFirstPageIfNeeded()
+
+        let cached = await cache.load()
+        #expect(cached?.list.map(\.id) == ["p1-i0", "p1-i1", "p1-i2"], "加载成功后应写入缓存")
+    }
+
+    @Test("没有缓存时行为与以前一致：会经过 loadingFirstPage")
+    func withoutCacheBehavesAsBefore() async {
+        let source = StubGalleryDataSource(totalPages: 1, itemsPerPage: 3)
+        let store = GalleryStore(dataSource: source)   // 不传缓存
+        #expect(store.phase == .idle)
+        await store.loadFirstPageIfNeeded()
+        #expect(store.phase == .loaded)
+        #expect(store.images.count == 3)
+    }
+}
+
