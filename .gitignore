@@ -28,6 +28,11 @@ certificates
 .corepack/
 
 # Swift / Xcode
-ios/.build/
+# 注意：含斜杠的 gitignore 模式是**锚定**的。SwiftPM 把构建目录放在**包根**
+# （ios/PicImpactKit/.build），所以只写 `ios/.build/` 根本不会匹配 —— 这正是我
+# 第一次把 2329 个编译产物（约 150MB）误提交进仓库的原因。
+**/.build/
 ios/DerivedData/
+**/DerivedData/
 *.xcuserstate
+*.xcworkspace/xcuserdata/

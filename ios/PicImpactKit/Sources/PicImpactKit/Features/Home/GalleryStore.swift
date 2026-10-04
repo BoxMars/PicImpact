@@ -1,0 +1,125 @@
+import Foundation
+import Observation
+
+/// 画廊列表的分页状态机。
+///
+/// 把分页逻辑独立于视图，是因为它是这类界面最容易出错的地方：
+/// 重复加载、并发触发、末页判断、错误后无法重试。这些都能脱离 UI 测试。
+@Observable
+@MainActor
+public final class GalleryStore {
+
+    public enum Phase: Equatable, Sendable {
+        case idle
+        case loadingFirstPage
+        case loadingNextPage
+        case loaded
+        case failed(String)
+    }
+
+    public private(set) var images: [ImageDTO] = []
+    public private(set) var phase: Phase = .idle
+    /// 还有没有下一页。**以服务端返回的 hasMore 为准**，不要自己拿 page 和 pageTotal 算
+    public private(set) var hasMore = true
+    /// 页大小从 /config 读取，不硬编码
+    public private(set) var pageSize: Int = 24
+
+    public let album: String?
+    public let tag: String?
+
+    private let dataSource: GalleryDataSource
+    private var currentPage = 0
+    /// 防止同一时刻发起多次加载（滚动时最容易触发）
+    private var isLoading = false
+
+    public init(
+        dataSource: GalleryDataSource,
+        album: String? = nil,
+        tag: String? = nil
+    ) {
+        self.dataSource = dataSource
+        self.album = album
+        self.tag = tag
+    }
+
+    /// 首屏前几张要最高下载优先级（对应 Web 的 fetchPriority=high）。
+    /// 数量与 Web 端一致：前 4 张。
+    public static let priorityCount = 4
+
+    public func isPriority(index: Int) -> Bool {
+        index < Self.priorityCount
+    }
+
+    public var isEmpty: Bool {
+        images.isEmpty && phase == .loaded
+    }
+
+    /// 首次进入时加载首页；已加载过则不做任何事（避免每次 onAppear 都重拉）
+    public func loadFirstPageIfNeeded() async {
+        guard currentPage == 0, !isLoading else { return }
+        await load(page: 1, replacing: true)
+    }
+
+    /// 触底加载下一页
+    public func loadNextPage() async {
+        guard hasMore, !isLoading, currentPage > 0 else { return }
+        await load(page: currentPage + 1, replacing: false)
+    }
+
+    /// 下拉刷新：清空重来
+    public func refresh() async {
+        guard !isLoading else { return }
+        images = []
+        currentPage = 0
+        hasMore = true
+        await load(page: 1, replacing: true)
+    }
+
+    /// 失败后重试（失败时不在 phase 里保留 page 进度，重试当前目标页）
+    public func retry() async {
+        guard !isLoading else { return }
+        if currentPage == 0 {
+            await load(page: 1, replacing: true)
+        } else {
+            await load(page: currentPage + 1, replacing: false)
+        }
+    }
+
+    private func load(page: Int, replacing: Bool) async {
+        isLoading = true
+        phase = (page == 1 && replacing) ? .loadingFirstPage : .loadingNextPage
+
+        do {
+            let result = try await dataSource.images(
+                album: album,
+                tag: tag,
+                camera: nil,
+                lens: nil,
+                page: page
+            )
+            pageSize = result.pageSize
+            hasMore = result.hasMore
+
+            if replacing {
+                images = result.list
+            } else {
+                // 去重：服务端理论上不会重复，但翻页与刷新竞态时宁可多一层保险
+                let existing = Set(images.map(\.id))
+                images.append(contentsOf: result.list.filter { !existing.contains($0.id) })
+            }
+            currentPage = page
+            phase = .loaded
+        } catch {
+            phase = .failed(Self.describe(error))
+        }
+
+        isLoading = false
+    }
+
+    private static func describe(_ error: Error) -> String {
+        if let apiError = error as? APIError {
+            return apiError.errorDescription ?? "加载失败"
+        }
+        return error.localizedDescription
+    }
+}
