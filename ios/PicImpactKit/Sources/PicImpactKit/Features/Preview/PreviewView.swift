@@ -41,18 +41,12 @@ public struct PreviewView: View {
         self.onSelectTag = onSelectTag
     }
 
-    /// 0 = 顶栏还在，图片内缩；1 = 顶栏已滚走，图片通栏
-    private var expansion: CGFloat {
-        guard Self.supportsScrollTracking else { return 1 }
-        return min(max(scrollOffset / Self.expansionDistance, 0), 1)
-    }
+    /// 宽屏断点：对齐 Web 的 `sm:`（640px）。
+    /// 达到后详情页从"上下堆叠"改成"左右分栏"（Web 的 `sm:grid-cols-3`）。
+    private static let wideBreakpoint: CGFloat = 640
 
-    private static var supportsScrollTracking: Bool {
-        if #available(iOS 18.0, macOS 15.0, *) { return true }
-        return false
-    }
-
-    public var body: some View {
+    /// 窄屏（iPhone 竖屏）：保持原有行为 —— 顶栏滚走、图片展开通栏、图片+标题钉住。
+    private var stackedLayout: some View {
         ScrollView {
             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
                 // 顶栏在滚动内容里：往上滑就跟着滚走（用户要求"看不到"）
@@ -72,6 +66,68 @@ public struct PreviewView: View {
         .modifier(ScrollOffsetReporter { offset in
             scrollOffset = offset
         })
+    }
+
+    /// 宽屏（iPad / iPhone 横屏）：照 Web 的 `sm:grid sm:grid-cols-3` ——
+    /// 图片占 2/3 放左边并居中、高度上限 90vh；标题与信息占 1/3 放右边、独立滚动。
+    ///
+    /// 这样横屏照片不会被拉满整屏（也就不会"太宽显示不了"）：
+    /// 图片宽度从整屏降到 2/3，高度再被 90vh 限制。
+    private func wideLayout(size: CGSize) -> some View {
+        let inset: CGFloat = 8              // Web: p-2
+        let gap: CGFloat = 16               // Web: gap-4
+        let maxHeight = size.height * 0.9   // Web: max-h-[90vh]
+        let available = max(0, size.width - inset * 2 - gap)
+        let imageWidth = available * 2 / 3
+        let infoWidth = available - imageWidth
+
+        return VStack(spacing: 0) {
+            PreviewTopBar(image: model.image, onBack: { dismiss() })
+                .padding(.horizontal, inset)
+                .padding(.vertical, 8)
+
+            HStack(alignment: .top, spacing: gap) {
+                // 左：图片（2/3）。用固定框架 + ProgressiveImageView 自身的
+                // aspectRatio(.fit)，图片会按比例居中，不会被拉伸。
+                PreviewImageView(model: model)
+                    .frame(width: imageWidth, height: maxHeight, alignment: .center)
+
+                // 右：标题 + 信息（1/3），独立滚动
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        PreviewTitleBlock(model: model, inset: 32)
+                        PreviewInfoPanel(model: model, features: features, onSelectTag: onSelectTag)
+                    }
+                    .frame(width: infoWidth, alignment: .leading)
+                    .padding(.vertical, 4)
+                }
+                .frame(width: infoWidth, height: maxHeight)
+            }
+            .padding(.horizontal, inset)
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// 0 = 顶栏还在，图片内缩；1 = 顶栏已滚走，图片通栏
+    private var expansion: CGFloat {
+        guard Self.supportsScrollTracking else { return 1 }
+        return min(max(scrollOffset / Self.expansionDistance, 0), 1)
+    }
+
+    private static var supportsScrollTracking: Bool {
+        if #available(iOS 18.0, macOS 15.0, *) { return true }
+        return false
+    }
+
+    public var body: some View {
+        GeometryReader { proxy in
+            if proxy.size.width >= Self.wideBreakpoint {
+                wideLayout(size: proxy.size)
+            } else {
+                stackedLayout
+            }
+        }
         .contentMargins(.bottom, 0, for: .scrollContent)
         // 图片滚到最上面钉住时不要从状态栏里透出来
         .islandPageBackground()
@@ -170,21 +226,37 @@ struct PreviewPinnedHeader: View {
     }
 
     private var imageSection: some View {
-        Group {
-            if model.image.isLivePhoto {
-                LivePhotoView(imageURL: model.image.displayURL, videoURL: model.image.videoResourceURL)
-            } else {
-                ProgressiveImageView(
-                    preview: model.previewImage,
-                    original: model.originalImage,
-                    aspectRatio: model.image.aspectRatio
-                )
-            }
-        }
+        PreviewImageView(model: model)
     }
 
-    @ViewBuilder
     private var titleSection: some View {
+        PreviewTitleBlock(model: model, inset: titleInset)
+    }
+}
+
+/// 图片本体（Live Photo 或普通图片）。详情页的窄屏与宽屏共用。
+struct PreviewImageView: View {
+    let model: PreviewModel
+
+    var body: some View {
+        if model.image.isLivePhoto {
+            LivePhotoView(imageURL: model.image.displayURL, videoURL: model.image.videoResourceURL)
+        } else {
+            ProgressiveImageView(
+                preview: model.previewImage,
+                original: model.originalImage,
+                aspectRatio: model.image.aspectRatio
+            )
+        }
+    }
+}
+
+/// 标题 + 描述。窄屏在图片下方（缩进 32 与卡片内文字对齐），宽屏在右栏顶部。
+struct PreviewTitleBlock: View {
+    let model: PreviewModel
+    let inset: CGFloat
+
+    var body: some View {
         if !model.image.title.isEmpty || !model.image.detail.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 if !model.image.title.isEmpty {
@@ -206,6 +278,7 @@ struct PreviewPinnedHeader: View {
                         .lineLimit(2)
                 }
             }
+            .padding(.horizontal, inset)
         }
     }
 }
