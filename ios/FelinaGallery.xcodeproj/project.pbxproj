@@ -19,7 +19,7 @@
 		FD627A9AAD76FB3A8A6D7DDB /* PicImpactApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PicImpactApp.swift; sourceTree = "<group>"; };
 		D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 		FE719673B9C90C989A3C89E0 /* Resources/Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Resources/Localizable.xcstrings; sourceTree = "<group>"; };
-		B74174040CB144B324B695CF /* 大福映画.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "大福映画.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F5F19BC1874D3D5D6F6DCC09 /* FelinaGallery.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "大福映画.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,12 +37,12 @@
 		361FF3508AF23F4E0CB329EA = {
 			isa = PBXGroup;
 			children = (
-				7824C56D1034E65D313C9FC1 /* 大福映画 */,
+				7824C56D1034E65D313C9FC1 /* FelinaGallery */,
 				31793280A19CDC7880B10A8E /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		7824C56D1034E65D313C9FC1 /* 大福映画 */ = {
+		7824C56D1034E65D313C9FC1 /* FelinaGallery */ = {
 			isa = PBXGroup;
 			children = (
 				D1850B4A18E13A8A2C9E9140 /* AppEnvironment.swift */,
@@ -50,13 +50,13 @@
 				D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */,
 				FE719673B9C90C989A3C89E0 /* Resources/Localizable.xcstrings */,
 			);
-			path = "大福映画";
+			path = "FelinaGallery";
 			sourceTree = "<group>";
 		};
 		31793280A19CDC7880B10A8E /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				B74174040CB144B324B695CF /* 大福映画.app */,
+				F5F19BC1874D3D5D6F6DCC09 /* FelinaGallery.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -64,9 +64,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		976EED56402FB2A5BE5FFBF3 /* 大福映画 */ = {
+		649EC0E160669E1922F5718F /* FelinaGallery */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A886B50DF087AEF7B87CDC65 /* Build configuration list for PBXNativeTarget "大福映画" */;
+			buildConfigurationList = A886B50DF087AEF7B87CDC65 /* Build configuration list for PBXNativeTarget "FelinaGallery" */;
 			buildPhases = (
 				C2511B36F0F0E810A9E46328 /* Sources */,
 				019BAB185F97B56993A7087D /* Frameworks */,
@@ -76,30 +76,30 @@
 			);
 			dependencies = (
 			);
-			name = "大福映画";
+			name = "FelinaGallery";
 			packageProductDependencies = (
 				20E0B2E074C6CDBFC1E20429 /* PicImpactKit */,
 			);
-			productName = "大福映画";
-			productReference = B74174040CB144B324B695CF /* 大福映画.app */;
+			productName = "FelinaGallery";
+			productReference = F5F19BC1874D3D5D6F6DCC09 /* FelinaGallery.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		8EDD4E3EDB787756351E9B9A /* Project object */ = {
+		367D7F9E1B1F0DDC79C2A403 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2650;
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
-					976EED56402FB2A5BE5FFBF3 = {
+					649EC0E160669E1922F5718F = {
 						CreatedOnToolsVersion = 26.5;
 					};
 				};
 			};
-			buildConfigurationList = 26E84C2B3712F7DFAC8AD93F /* Build configuration list for PBXProject "大福映画" */;
+			buildConfigurationList = 26E84C2B3712F7DFAC8AD93F /* Build configuration list for PBXProject "FelinaGallery" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = zh;
 			hasScannedForEncodings = 0;
@@ -118,7 +118,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				976EED56402FB2A5BE5FFBF3 /* 大福映画 */,
+				649EC0E160669E1922F5718F /* FelinaGallery */,
 			);
 		};
 /* End PBXProject section */
@@ -255,7 +255,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		26E84C2B3712F7DFAC8AD93F /* Build configuration list for PBXProject "大福映画" */ = {
+		26E84C2B3712F7DFAC8AD93F /* Build configuration list for PBXProject "FelinaGallery" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				5D9646B92BECD8E12745F5D8 /* Debug */,
@@ -264,7 +264,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A886B50DF087AEF7B87CDC65 /* Build configuration list for PBXNativeTarget "大福映画" */ = {
+		A886B50DF087AEF7B87CDC65 /* Build configuration list for PBXNativeTarget "FelinaGallery" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				07ADDFD2B07302882ABEF067 /* Debug */,
@@ -289,5 +289,5 @@
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 8EDD4E3EDB787756351E9B9A /* Project object */;
+	rootObject = 367D7F9E1B1F0DDC79C2A403 /* Project object */;
 }

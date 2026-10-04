@@ -5,10 +5,10 @@
          <BuildActionEntry buildForTesting = "YES" buildForRunning = "YES" buildForProfiling = "YES" buildForArchiving = "YES" buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "976EED56402FB2A5BE5FFBF3"
-               BuildableName = "大福映画.app"
-               BlueprintName = "大福映画"
-               ReferencedContainer = "container:大福映画.xcodeproj">
+               BlueprintIdentifier = "649EC0E160669E1922F5718F"
+               BuildableName = "FelinaGallery.app"
+               BlueprintName = "FelinaGallery"
+               ReferencedContainer = "container:FelinaGallery.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -17,10 +17,10 @@
       <BuildableProductRunnable runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "976EED56402FB2A5BE5FFBF3"
-            BuildableName = "大福映画.app"
-            BlueprintName = "大福映画"
-            ReferencedContainer = "container:大福映画.xcodeproj">
+            BlueprintIdentifier = "649EC0E160669E1922F5718F"
+            BuildableName = "FelinaGallery.app"
+            BlueprintName = "FelinaGallery"
+            ReferencedContainer = "container:FelinaGallery.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -28,10 +28,10 @@
       <BuildableProductRunnable runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "976EED56402FB2A5BE5FFBF3"
-            BuildableName = "大福映画.app"
-            BlueprintName = "大福映画"
-            ReferencedContainer = "container:大福映画.xcodeproj">
+            BlueprintIdentifier = "649EC0E160669E1922F5718F"
+            BuildableName = "FelinaGallery.app"
+            BlueprintName = "FelinaGallery"
+            ReferencedContainer = "container:FelinaGallery.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

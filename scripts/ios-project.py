@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-生成 ios/大福映画.xcodeproj。
+生成 ios/FelinaGallery.xcodeproj。
 
 为什么不手写 project.pbxproj：那是一份由 Xcode 维护的、充满不透明 UUID 的文件，
 手改极易出错且无法审查。把生成过程脚本化之后：
@@ -8,7 +8,7 @@
   - 依赖关系、构建设置都在这里一目了然，diff 时可读
 
 用法：python3 scripts/ios-project.py
-校验：xcodebuild -project ios/大福映画.xcodeproj -list
+校验：xcodebuild -project ios/FelinaGallery.xcodeproj -list
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 IOS = ROOT / "ios"
-PROJECT_NAME = "大福映画"
+PROJECT_NAME = "FelinaGallery"
 APP_DIR = IOS / PROJECT_NAME
 PACKAGE_RELATIVE = "PicImpactKit"  # 相对于工程文件所在目录
 
