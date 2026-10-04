@@ -24,6 +24,29 @@
 
 ---
 
+## 进度
+
+| 任务 | 状态 | 验证方式与结果 |
+|---|---|---|
+| T1 工程与包结构 | ✅ 完成 | `swift build` 通过；`ios/PicImpactKit` 为本地 SPM 包，分层目录就位 |
+| T2 `AnimalTokens` | ✅ 完成 | **7 个测试通过**：48 条令牌与 `animal-island-ui/dist/index.css` 逐字对照（基准文件由编译产物直接生成，非手写）。反验：把 `animal-text-color` 改成 `#000000` → 立刻失败 |
+| T6 `MasonryLayout` | ✅ 完成 | **9 个测试通过**，含**与 Chrome 实际渲染逐项比对 x/y**（基准由真实浏览器导出）。反验：破坏 span 公式 → 报「第 4 项 y 不一致：Swift 144.0，浏览器 160.0」 |
+| T3 `IslandCard` | ⬜ 待做 | 令牌已就绪，只差视图 |
+| T4 `APIClient` + Models | ⬜ 待做 | 契约 fixture 已由 Web 端 API 就绪 |
+| T5 图片缓存 | ⬜ 待做 | |
+| T7 `HomeView` | ⬜ 待做 | 依赖 T3+T4+T6 |
+| T8 首页视觉验收 | ⬜ 待做 | |
+| T9–T12 预览页 | ⬜ 待做 | |
+| T13–T14 交付前 | ⬜ 待做 | |
+
+**环境记录**：`macOS 26.5.2 / Swift 6.3.2 / Xcode 26.5 / iphonesimulator SDK 26.5`，可直接 `swift test`（无需模拟器）。
+`Package.swift` 同时声明 iOS 17 与 macOS 14 —— 后者是为了让 `swift test` 在 Mac 上直接跑，迭代快得多；用到 iOS 专有 API 时用 `#if os(iOS)` 隔开。
+
+**交叉验证的做法（值得沿用到后续任务）**：不自己实现一套"看起来对"的算法，而是让 Web 端渲染同一个组件、把真实几何导出成 golden 数据，再让 Swift 实现去对齐它。
+这样"两端一致"是可机器判定的，而不是靠肉眼看截图。
+
+---
+
 ## 阶段 1：iOS 骨架与设计系统
 
 ### T1. 工程与包结构

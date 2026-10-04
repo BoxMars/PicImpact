@@ -26,3 +26,8 @@ certificates
 # 本地依赖 store / corepack 缓存（沙箱内安装时使用，不应入库）
 .pnpm-store/
 .corepack/
+
+# Swift / Xcode
+ios/.build/
+ios/DerivedData/
+*.xcuserstate
