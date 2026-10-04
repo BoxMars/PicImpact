@@ -124,21 +124,6 @@ public final class PreviewModel {
         public let value: String
     }
 
-    /// 拍摄参数胶囊：图标 + 值 + 无障碍标签
-    public struct ParamItem: Identifiable, Equatable, Sendable {
-        public let id: String
-        public let icon: AnimalIconName
-        public let value: String
-        public let label: String
-    }
-
-    /// 设备信息里的"图标 + 文本"行
-    public struct DeviceItem: Identifiable, Equatable, Sendable {
-        public let id: String
-        public let icon: AnimalIconName
-        public let text: String
-    }
-
     /// 焦距文本。
     ///
     /// Web 用 `parseFloat(focal_length).toFixed(2) + ' mm'` → `"5.96 mm"`。
@@ -166,46 +151,55 @@ public final class PreviewModel {
         return rows
     }
 
-    /// 拍摄参数：焦距 / 光圈 / 曝光时间 / 感光度（顺序与 Web 一致）
+    /// 拍摄参数：焦距 / 光圈 / 曝光时间 / 感光度（顺序与 Web 一致）。
     ///
-    /// 关于这几个标签的文案来源：Web 里宽度参数胶囊的 `label` 是**硬编码中文字面量**
-    /// （"焦距"/"光圈"/"曝光时间"/"感光度"），只有"焦距"在 i18n 表里另有同值条目。
-    /// 这里照实处理：有键的走 i18n，没有的用字面量 —— 不去编造不存在的键。
-    public var captureParams: [ParamItem] {
-        var items: [ParamItem] = []
+    /// 按用户要求，这里**与其他分区保持一致**：标签—值行、不带图标。
+    /// （Web 用的是"只有图标、文字标签放在 tooltip"的胶囊；去掉图标后就只剩裸值，
+    /// 反而看不懂，所以这里补上标签。）
+    public var captureParams: [InfoRow] {
+        var rows: [InfoRow] = []
         if let focal = focalLengthText {
-            items.append(ParamItem(id: "focal_length", icon: .map, value: focal, label: "焦距"))
+            rows.append(InfoRow(id: "focal_length", label: "焦距", value: focal))
         }
         if let fNumber = image.exif?.fNumber, !fNumber.isEmpty {
-            items.append(ParamItem(id: "f_number", icon: .variant, value: fNumber, label: "光圈"))
+            rows.append(InfoRow(id: "f_number", label: "光圈", value: fNumber))
         }
         if let exposure = image.exif?.exposureTime, !exposure.isEmpty {
-            items.append(ParamItem(id: "exposure_time", icon: .miles, value: exposure, label: "曝光时间"))
+            rows.append(InfoRow(id: "exposure_time", label: "曝光时间", value: exposure))
         }
         if let iso = image.exif?.isoSpeedRating, !iso.isEmpty {
-            items.append(ParamItem(id: "iso", icon: .critterpedia, value: "ISO \(iso)", label: "感光度"))
+            rows.append(InfoRow(id: "iso", label: "感光度", value: "ISO \(iso)"))
         }
-        return items
+        return rows
     }
 
-    /// 设备信息：厂商+机型、镜头（都带图标）
-    public var deviceItems: [DeviceItem] {
-        var items: [DeviceItem] = []
-        // Web 要求 make 与 model **同时存在**才显示这一行
+    /// 设备信息：相机 / 镜头 / 焦距。
+    ///
+    /// 按用户要求，厂商机型与镜头原先**只有值没有标签**（Web 用图标代替标签），
+    /// 现在补上「相机」「镜头」，与其他分区一致。
+    public var deviceRows: [InfoRow] {
+        var rows: [InfoRow] = []
+        // Web 要求 make 与 model **同时存在**才显示相机行
         if let make = image.exif?.make, !make.isEmpty,
            let model = image.exif?.model, !model.isEmpty {
-            items.append(DeviceItem(id: "camera", icon: .camera, text: "\(make) \(model)"))
+            rows.append(InfoRow(
+                id: "camera",
+                label: IslandStrings.text("Words.camera"),
+                value: "\(make) \(model)"
+            ))
         }
         if let lens = image.exif?.lensModel, !lens.isEmpty {
-            items.append(DeviceItem(id: "lens", icon: .design, text: lens))
+            rows.append(InfoRow(id: "lens", label: IslandStrings.text("Words.lens"), value: lens))
         }
-        return items
-    }
-
-    /// 设备信息里的焦距行（与拍摄参数里的重复，Web 两端都显示，故保留）
-    public var deviceFocalRow: InfoRow? {
-        guard let focal = focalLengthText else { return nil }
-        return InfoRow(id: "device_focal", label: IslandStrings.text("Exif.focalLength"), value: focal)
+        // 焦距在拍摄参数里也出现一次 —— Web 两处都显示，保持
+        if let focal = focalLengthText {
+            rows.append(InfoRow(
+                id: "focal_length",
+                label: IslandStrings.text("Exif.focalLength"),
+                value: focal
+            ))
+        }
+        return rows
     }
 
     /// 拍摄模式：曝光程序 / 曝光模式 / 白平衡
@@ -240,8 +234,7 @@ public final class PreviewModel {
         var data = PreviewInfoData()
         data.basicInfo = basicInfoRows
         data.captureParams = captureParams
-        data.deviceItems = deviceItems
-        data.deviceFocalRow = deviceFocalRow
+        data.device = deviceRows
         data.captureMode = captureModeRows
         data.technical = technicalRows
         return data

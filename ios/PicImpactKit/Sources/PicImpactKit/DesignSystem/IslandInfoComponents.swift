@@ -45,41 +45,6 @@ public struct IslandRow: View {
     }
 }
 
-/// 拍摄参数项（图标 + 值）。
-///
-/// Web 里这里是 `ParamBadge`：高 32、圆角 16、描边 1.5 `#c4b89e`、底 `rgb(247,243,223)`、
-/// 阴影 `0 2px 0 0 #bdaea0`。**按用户要求去掉了边框**，并且顺带去掉同色底与硬阴影：
-/// 底色与卡片同为纸色（本来就看不出），只去描边会剩一道悬空的硬阴影，比保留边框更怪。
-/// 现在是纯粹的"图标 + 文字"，与前文卡片操作行的处理一致。
-///
-/// 图标 14、值 11pt/700/`#725d42` 仍与 Web 一致。
-public struct IslandParamBadge: View {
-    private let icon: AnimalIconName
-    private let value: String
-    private let accessibilityLabel: String
-
-    public init(icon: AnimalIconName, value: String, label: String) {
-        self.icon = icon
-        self.value = value
-        self.accessibilityLabel = label
-    }
-
-    public var body: some View {
-        HStack(spacing: 6) {
-            AnimalIcon(icon, size: 14)
-            Text(value)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(AnimalSignatures.cardText) // #725d42
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Spacer(minLength: 0)
-        }
-        .frame(height: 32)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(accessibilityLabel) \(value)")
-    }
-}
-
 /// 虚线分隔线。对应 Web 的 `<Divider type="dashed-teal" />`：
 /// `linear-gradient(to right, #19c8b9 50%, transparent 50%) center / 12px 2px repeat-x`
 /// —— 也就是 6px 实 / 6px 空的 2px 高虚线，横向重复。

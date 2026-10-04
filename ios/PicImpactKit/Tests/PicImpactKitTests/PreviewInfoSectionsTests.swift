@@ -34,16 +34,16 @@ struct PreviewInfoSectionsTests {
             .init(id: "data_time", label: "拍摄时间", value: "2026-10-02 20:15:12"),
         ]
         data.captureParams = [
-            .init(id: "focal_length", icon: .map, value: "5.96 mm", label: "焦距"),
-            .init(id: "f_number", icon: .variant, value: "f/1.6", label: "光圈"),
-            .init(id: "exposure_time", icon: .miles, value: "1/13", label: "曝光时间"),
-            .init(id: "iso", icon: .critterpedia, value: "ISO 640", label: "感光度"),
+            .init(id: "focal_length", label: "焦距", value: "5.96 mm"),
+            .init(id: "f_number", label: "光圈", value: "f/1.6"),
+            .init(id: "exposure_time", label: "曝光时间", value: "1/13"),
+            .init(id: "iso", label: "感光度", value: "ISO 640"),
         ]
-        data.deviceItems = [
-            .init(id: "camera", icon: .camera, text: "Apple iPhone 17"),
-            .init(id: "lens", icon: .design, text: "iPhone 17 back dual wide camera 5.96mm f/1.6"),
+        data.device = [
+            .init(id: "camera", label: "相机", value: "Apple iPhone 17"),
+            .init(id: "lens", label: "镜头", value: "iPhone 17 back dual wide camera 5.96mm f/1.6"),
+            .init(id: "focal_length", label: "焦距", value: "5.96 mm"),
         ]
-        data.deviceFocalRow = .init(id: "device_focal", label: "焦距", value: "5.96 mm")
         data.captureMode = [
             .init(id: "exposure_program", label: "曝光程序", value: "Normal program"),
             .init(id: "exposure_mode", label: "曝光模式", value: "Auto exposure"),
@@ -76,26 +76,31 @@ struct PreviewInfoSectionsTests {
         #expect(Self.count(pixels, 0x19C8B9) > 20, "分区标题的青色没画出来")
     }
 
-    @Test("拍摄参数四个胶囊的图标都画出来了")
-    func paramBadgeIconsRender() throws {
+    @Test("拍摄参数不带图标，与其他分区一样是标签—值行（按用户要求，回归）")
+    func captureParamsHaveNoIcons() throws {
+        // 这里曾经是四个带图标的两列胶囊（icon-map/variant/miles/critterpedia）。
+        // 按用户要求改成与其他分区一致的标签—值行，图标全部移除。
         let pixels = try #require(Self.rasterizeAtDeviceScale(
             PreviewInfoSections(data: Self.makeData())
                 .background(AnimalSignatures.cardPaper)
-                .frame(width: 340, height: 520)
+                .frame(width: 340, height: 560)
         ))
-        // 逐图标特征色：map 青 / variant 绿 / miles 青绿 / critterpedia 蓝绿
-        let expectations: [(String, UInt32)] = [
-            ("焦距 icon-map", 0x59C9C0),
-            ("光圈 icon-variant", 0x5AA15B),
-            ("曝光时间 icon-miles", 0x5ABF98),
-            ("感光度 icon-critterpedia", 0x34ADB6),
+        let forbidden: [(String, UInt32)] = [
+            ("icon-map", 0x59C9C0),
+            ("icon-variant", 0x5AA15B),
+            ("icon-miles", 0x5ABF98),
+            ("icon-critterpedia", 0x34ADB6),
+            ("icon-camera", 0xFF66AD),
+            ("icon-design", 0xFFCF4F),
         ]
-        for (label, hex) in expectations {
+        for (name, hex) in forbidden {
             #expect(
-                Self.count(pixels, hex, tolerance: 4) > 0,
-                "\(label) 的特征色 \(String(format: "#%06X", hex)) 没画出来"
+                Self.count(pixels, hex, tolerance: 4) == 0,
+                "\(name) 的特征色仍在，说明该分区还在画图标"
             )
         }
+        // 但内容（标签与数值）必须还在：用正文色判断
+        #expect(Self.count(pixels, 0x725D42, tolerance: 6) > 0, "标签—值行的文字应仍在")
     }
 
     @Test("设备信息不显示图标（按用户要求，回归）")
@@ -109,50 +114,9 @@ struct PreviewInfoSectionsTests {
         ))
         #expect(Self.count(pixels, 0xFF66AD, tolerance: 4) == 0, "设备信息不该再出现 icon-camera")
         #expect(Self.count(pixels, 0xFFCF4F, tolerance: 4) == 0, "设备信息不该再出现 icon-design")
-        // 但拍摄参数那四个胶囊的图标仍在（那是另一处，不受影响）
-        #expect(Self.count(pixels, 0x59C9C0, tolerance: 4) > 0, "拍摄参数的 icon-map 仍应存在")
-    }
-
-    @Test("拍摄参数项没有边框/底色/硬阴影（按用户要求，回归）")
-    func paramBadgeHasNoBorder() throws {
-        // 这里曾经是"胶囊"：纸色底 + 1.5pt 描边 + 2pt 硬阴影。
-        // 按用户要求去掉边框；由于底色与卡片同为纸色（本来就看不出），
-        // 只去描边会剩一道悬空硬阴影，所以三者一并去掉，现在是纯粹的图标 + 文字。
-        let pixels = try #require(IslandCardTests.rasterize(
-            VStack(spacing: 8) {
-                IslandParamBadge(icon: .map, value: "5.96 mm", label: "焦距")
-                IslandParamBadge(icon: .variant, value: "f/1.6", label: "光圈")
-            }
-            .padding(12)
-            .background(AnimalSignatures.cardPaper)
-            .frame(width: 320)
-        ))
-        // 判据用"同一行内连续同色像素的最长长度"，而不是"是否存在该颜色"：
-        // 图标的深色描边抗锯齿到纸色上会混出接近 #c4b89e 的零星像素，
-        // 按"存在"判断必然假失败（这是这条测试返工的第二个原因）。
-        // 实测：无边框时最长连续 3px；有边框时 550px（硬阴影 556px）。
-        // 两者差两个数量级，阈值取 50 很安全。
-        func longestRun(_ hex: UInt32, tolerance: Int) -> Int {
-            var best = 0
-            for y in 0..<pixels.height {
-                var run = 0
-                for x in 0..<pixels.width {
-                    if pixels.matches(x, y, hex, tolerance: tolerance) {
-                        run += 1
-                        best = max(best, run)
-                    } else {
-                        run = 0
-                    }
-                }
-            }
-            return best
-        }
-
-        #expect(longestRun(0xC4B89E, tolerance: 4) < 50, "参数项仍有描边（出现了横向长条）")
-        #expect(longestRun(0xBDAEA0, tolerance: 4) < 50, "参数项仍有硬阴影（出现了横向长条）")
-        // 但图标必须还在（去掉的是框，不是内容）
-        #expect(Self.count(pixels, 0x59C9C0, tolerance: 4) > 0, "焦距的 icon-map 仍应在")
-        #expect(Self.count(pixels, 0x5AA15B, tolerance: 4) > 0, "光圈的 icon-variant 仍应在")
+        // 注：早先这里还有一条"拍摄参数的 icon-map 仍应存在"。
+        // 后来按用户要求参数分区也去掉了图标，那条断言随之作废 ——
+        // 现在整个信息区都不该有图标，由 captureParamsHaveNoIcons 统一覆盖。
     }
 
     @Test("分区之间是青色虚线（有实有虚，不是实线）")

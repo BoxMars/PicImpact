@@ -165,8 +165,8 @@ struct PreviewModelTests {
 
         #expect(data.basicInfo.map(\.id) == ["dimensions", "pixels", "data_time"])
         #expect(data.captureParams.map(\.id) == ["focal_length", "f_number", "exposure_time", "iso"])
-        #expect(data.deviceItems.map(\.id) == ["camera", "lens"])
-        #expect(data.deviceFocalRow?.id == "device_focal")
+        // 设备信息统一成标签—值行：相机 / 镜头 / 焦距
+        #expect(data.device.map(\.id) == ["camera", "lens", "focal_length"])
         #expect(data.captureMode.map(\.id) == ["exposure_program", "exposure_mode", "white_balance"])
         #expect(data.technical.map(\.id) == ["bits"])
     }
@@ -181,16 +181,18 @@ struct PreviewModelTests {
         #expect(model.focalLengthText == "5.96 mm")
         #expect(model.captureParams.first { $0.id == "focal_length" }?.value == "5.96 mm")
         // 设备信息里也重复出现一次（Web 两处都显示）
-        #expect(model.deviceFocalRow?.value == "5.96 mm")
+        #expect(model.deviceRows.first { $0.id == "focal_length" }?.value == "5.96 mm")
     }
 
-    @Test("拍摄参数的图标与 Web 一一对应（map/variant/miles/critterpedia）")
-    func captureParamIconsMatchWeb() async throws {
+    @Test("拍摄参数是标签—值行，标签与数值都对（顺序与 Web 一致）")
+    func captureParamsAreLabeledRows() async throws {
+        // 这里曾经断言"图标与 Web 一一对应（map/variant/miles/critterpedia）"；
+        // 按用户要求改成与其他分区一致的标签—值行，图标已移除，改为断言标签与数值。
         let (loader, directory) = Self.makeLoader()
         defer { try? FileManager.default.removeItem(at: directory) }
         let params = PreviewModel(image: Self.makeImage(), loader: loader).captureParams
-        #expect(params.map(\.icon) == [.map, .variant, .miles, .critterpedia])
-        #expect(params.first { $0.id == "iso" }?.value == "ISO 640")
+        #expect(params.map(\.label) == ["焦距", "光圈", "曝光时间", "感光度"])
+        #expect(params.map(\.value) == ["5.96 mm", "f/1.6", "1/13", "ISO 640"])
     }
 
     @Test("设备信息要求 make 与 model 同时存在（与 Web 一致）")
@@ -200,8 +202,8 @@ struct PreviewModelTests {
         // 只有 model 没有 make
         let onlyModel = #"{"model":"iPhone 17","lens_model":"back camera"}"#
         let data = PreviewModel(image: Self.makeImage(exifJSON: onlyModel), loader: loader).infoData
-        #expect(data.deviceItems.contains { $0.id == "camera" } == false, "缺 make 时不该显示相机行")
-        #expect(data.deviceItems.contains { $0.id == "lens" }, "镜头行不受影响")
+        #expect(data.device.contains { $0.id == "camera" } == false, "缺 make 时不该显示相机行")
+        #expect(data.device.contains { $0.id == "lens" }, "镜头行不受影响")
     }
 
     @Test("分区标题与行标签取自与 Web 同一份 i18n 表")
@@ -254,7 +256,7 @@ struct PreviewModelTests {
         // EXIF 为空，但尺寸来自图片本身，仍应展示
         #expect(data.basicInfo.map(\.id).contains("dimensions"))
         #expect(data.captureParams.isEmpty)
-        #expect(data.deviceItems.isEmpty)
+        #expect(data.device.isEmpty)
         #expect(data.captureMode.isEmpty)
         #expect(data.technical.isEmpty)
         let values = data.basicInfo.map(\.value)

@@ -3,9 +3,8 @@ import SwiftUI
 /// 详情页的信息数据。把 `PreviewModel` 的计算结果打包，便于视图与测试各自独立使用。
 public struct PreviewInfoData: Equatable, Sendable {
     public var basicInfo: [PreviewModel.InfoRow] = []
-    public var captureParams: [PreviewModel.ParamItem] = []
-    public var deviceItems: [PreviewModel.DeviceItem] = []
-    public var deviceFocalRow: PreviewModel.InfoRow?
+    public var captureParams: [PreviewModel.InfoRow] = []
+    public var device: [PreviewModel.InfoRow] = []
     public var captureMode: [PreviewModel.InfoRow] = []
     public var technical: [PreviewModel.InfoRow] = []
 
@@ -13,8 +12,8 @@ public struct PreviewInfoData: Equatable, Sendable {
 
     /// 是否有任何内容可展示（全空时不渲染整块面板）
     public var isEmpty: Bool {
-        basicInfo.isEmpty && captureParams.isEmpty && deviceItems.isEmpty
-            && deviceFocalRow == nil && captureMode.isEmpty && technical.isEmpty
+        basicInfo.isEmpty && captureParams.isEmpty && device.isEmpty
+            && captureMode.isEmpty && technical.isEmpty
     }
 }
 
@@ -48,37 +47,15 @@ public struct PreviewInfoSections: View {
             if !data.captureParams.isEmpty {
                 divider
                 section("Exif.captureParams") {
-                    // Web 是 `grid grid-cols-2 gap-2`
-                    LazyVGrid(
-                        columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
-                        alignment: .leading,
-                        spacing: 8
-                    ) {
-                        ForEach(data.captureParams) { item in
-                            IslandParamBadge(icon: item.icon, value: item.value, label: item.label)
-                        }
-                    }
+                    // 按用户要求与其他分区一致：标签—值行，不带图标、不做两列
+                    rows(data.captureParams)
                 }
             }
 
-            if !data.deviceItems.isEmpty || data.deviceFocalRow != nil {
+            if !data.device.isEmpty {
                 divider
                 section("Exif.deviceInfo") {
-                    VStack(alignment: .leading, spacing: 6) {
-                        // 按用户要求：设备信息**不显示图标**，只留文字。
-                        // `DeviceItem.icon` 仍然保留 —— 它记录了 Web 端该行用哪个图标
-                        // （camera / design），是数据结构的一部分，只是不渲染。
-                        ForEach(data.deviceItems) { item in
-                            Text(item.text)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(AnimalSignatures.cardText)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        if let row = data.deviceFocalRow {
-                            IslandRow(label: row.label, value: row.value)
-                        }
-                    }
+                    rows(data.device)
                 }
             }
 
