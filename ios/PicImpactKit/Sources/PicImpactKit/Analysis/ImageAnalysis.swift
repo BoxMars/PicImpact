@@ -95,7 +95,11 @@ public struct Histogram: Equatable, Sendable {
 /// 抄错任何一处，同一张图在两端会得出不同的影调结论。
 public enum ImageAnalysis {
 
-    /// 采样尺寸（与 Web 一致：影调最大 200，直方图最大 300）
+    /// 采样尺寸（与 Web 一致：影调最大 200，直方图最大 300）。
+    ///
+    /// ⚠️ 注意这个公式**会把小图也放大**到 maxSize（`min(maxSize/w, maxSize/h)` 在
+    /// 图比 maxSize 小时是个大于 1 的系数）。Web 端就是这么写的，我们照抄 ——
+    /// 放大后的插值会略微改变统计结果，若这里"顺手修好"不改大，两端结论就会不一致。
     public static func sampledSize(width: Int, height: Int, maxSize: Int) -> (width: Int, height: Int) {
         guard width > 0, height > 0 else { return (0, 0) }
         let scale = min(Double(maxSize) / Double(width), Double(maxSize) / Double(height))

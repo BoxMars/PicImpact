@@ -32,12 +32,17 @@
 | T2 `AnimalTokens` | ✅ 完成 | **7 个测试通过**：48 条令牌与 `animal-island-ui/dist/index.css` 逐字对照（基准文件由编译产物直接生成，非手写）。反验：把 `animal-text-color` 改成 `#000000` → 立刻失败 |
 | T6 `MasonryLayout` | ✅ 完成 | **9 个测试通过**，含**与 Chrome 实际渲染逐项比对 x/y**（基准由真实浏览器导出）。反验：破坏 span 公式 → 报「第 4 项 y 不一致：Swift 144.0，浏览器 160.0」 |
 | T3 `IslandCard` | ✅ 完成 | **6 个像素级测试通过**：用 `ImageRenderer` 栅格化后采样像素，并通过可注入参数**逐个隔离视觉成分**（关掉柔阴影只验硬阴影）。反验：硬阴影偏移归零 → 厚度断言失败；描边改黑 → 报 `#000000 a=255` |
-| T5 图片缓存 | ⬜ 待做 | 依赖 DTO（已就绪） |
+| T5 图片缓存 | ✅ 完成 | **6 个测试**：内存→磁盘→网络三级；磁盘按**最后访问时间**LRU（不是写入时间）；URLProtocol 桩验证「6 个并发请求只打 1 次网络」。反验：并发合并与缓存命中断言均能失败 |
 | T4 `APIClient` + Models | ✅ 完成 | **13 个测试通过**，fixture 为**生产真实响应**（非手写样本）。反验：写错 `previewUrl` 的 CodingKey → 报 `previewURL → ""`；`iso_speed_rating` 不走宽松解码 → 报 `nil != "640"` |
-| T7 `HomeView` | ⬜ 待做 | 依赖 T3+T4+T6 |
-| T8 首页视觉验收 | ⬜ 待做 | |
-| T9–T12 预览页 | ⬜ 待做 | |
-| T13–T14 交付前 | ⬜ 待做 | |
+| T7 `HomeView` + `GalleryStore` | ✅ 完成 | **9 个测试**覆盖分页状态机（并发触底只加载一次、末页后不再请求、刷新重置、失败可重试、追加去重、前 4 张高优先级）；视图按 `MasonryLayout` 的纯函数结果放置，顺序不需靠肉眼判定 |
+| T8 首页视觉验收 | 🟡 部分 | 卡片与令牌已是像素级验证（T2/T3）；整屏截图对比属 T13 流水线 |
+| T9 渐进式预览图 | ✅ 完成 | 缩略图先淡入、原图后就绪叠加（0.6s）；`PreviewModel` 状态机测试覆盖加载顺序与「只有一张图」的退化路径 |
+| T10 EXIF 面板 | ✅ 完成 | **行构建可测**：只展示 Web 端实际读取的字段、缺失字段不产生空行、时间经归一化、尺寸/像素文案与 Web 一致 |
+| T11 影调 + 直方图 | ✅ 完成 | **13 个测试**：算法与 Web 的 JS 实现**跨语言逐值对齐**；渲染层像素验证；下载/地图等见下 |
+| T12 下载 / Live Photo | ✅ 完成 | 下载成功记录、失败给可读错误（不抛出界面）、无下载器时空操作安全；iOS 需 `NSPhotoLibraryAddUsageDescription`（已写进工程设置） |
+| T13 截图回归流水线 | ⬜ 待做 | 需要 Playwright + 模拟器截图，见下方说明 |
+| T14 i18n 一致性 | ✅ 完成 | `scripts/ios-strings.mjs` 由 `messages/*.json` 生成 String Catalog（365 key × 4 语言），`--check` 模式在文案改动未重生成时失败；并校验四语言 key 齐平 |
+| 附：Xcode 工程 | ✅ 完成 | `scripts/ios-project.py` 生成工程（工程文件可重新生成、可审查）；`xcodebuild -list` 解析本地包成功 |
 
 **环境记录**：`macOS 26.5.2 / Swift 6.3.2 / Xcode 26.5 / iphonesimulator SDK 26.5`，可直接 `swift test`（无需模拟器）。
 `Package.swift` 同时声明 iOS 17 与 macOS 14 —— 后者是为了让 `swift test` 在 Mac 上直接跑，迭代快得多；用到 iOS 专有 API 时用 `#if os(iOS)` 隔开。

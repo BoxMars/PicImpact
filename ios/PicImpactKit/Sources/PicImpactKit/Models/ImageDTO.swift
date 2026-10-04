@@ -6,7 +6,9 @@ import Foundation
 /// 解码策略上有意做了一点防御（`labels` 容忍 null、字符串字段容忍缺失），
 /// 但**不做无差别兜底** —— 字段整体消失属于破坏性变更，应由 Web 侧的
 /// `pnpm api:verify-contract` 拦在服务端，而不是在这里被静默吞掉。
-public struct ImageDTO: Decodable, Sendable, Equatable, Identifiable {
+/// 注意 `Hashable`：SwiftUI 的 `navigationDestination(item:)` 要求这一条。
+/// 所有字段本就可哈希，所以合成即可（自定义的 `init(from:)` 不影响合成）。
+public struct ImageDTO: Decodable, Sendable, Equatable, Hashable, Identifiable {
     public let id: String
     /// 原始文件名，保存到相册时用作文件名
     public let imageName: String
