@@ -21,7 +21,7 @@ struct AnimalIconTests {
 
     // MARK: - 资源
 
-    @Test("8 份 SVG 素材都在包资源里")
+    @Test("全部 SVG 素材都在包资源里")
     func sourcesAreBundled() throws {
         for name in AnimalIconName.allCases {
             let url = try #require(
@@ -44,7 +44,10 @@ struct AnimalIconTests {
         #expect(AnimalIconName.diy.rawValue == "icon-diy")
         #expect(AnimalIconName.helicopter.rawValue == "icon-helicopter")
         #expect(AnimalIconName.shopping.rawValue == "icon-shopping")
-        #expect(AnimalIconName.allCases.count == 8)
+        #expect(AnimalIconName.design.rawValue == "icon-design")
+        #expect(AnimalIconName.chat.rawValue == "icon-chat")
+        // 8 个用于卡片/EXIF 芯片，design 与 chat 用于详情页
+        #expect(AnimalIconName.allCases.count == 10)
     }
 
     @Test("尺寸常量与 Web 一致：芯片 14、操作行 18")

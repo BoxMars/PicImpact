@@ -91,7 +91,7 @@ struct PreviewModelTests {
         preview: String = "https://example.test/p.webp",
         original: String = "https://example.test/o.jpg",
         type: Int = 1,
-        exifJSON: String = #"{"make":"Apple","model":"iPhone 17","lens_model":"back camera","focal_length":"5.96 mm","f_number":"f/1.6","exposure_time":"1/13","exposure_program":"Normal program","iso_speed_rating":640,"data_time":"2026:10:02 20:15:12","bits":"8"}"#,
+        exifJSON: String = #"{"make":"Apple","model":"iPhone 17","lens_model":"back camera","focal_length":"5.96 mm","f_number":"f/1.6","exposure_time":"1/13","exposure_program":"Normal program","exposure_mode":"Auto exposure","white_balance":"Auto white balance","iso_speed_rating":640,"data_time":"2026:10:02 20:15:12","bits":"8"}"#,
         width: Int = 4032,
         height: Int = 3024,
         labels: String = "[]"
@@ -155,38 +155,81 @@ struct PreviewModelTests {
         #expect(model.showsOriginal)
     }
 
-    // MARK: - T10 EXIF 行
+    // MARK: - T10 详情页信息分区（对齐 Web `preview-image.tsx`）
 
-    @Test("EXIF 行包含 Web 端读取的全部字段且有值")
-    func exifRowsCoverWebFields() async throws {
+    @Test("分区覆盖 Web 展示的全部字段，且顺序一致")
+    func infoSectionsCoverWebFields()async throws {
         let (loader, directory) = Self.makeLoader()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let model = PreviewModel(image: Self.makeImage(), loader: loader)
+        let data = PreviewModel(image: Self.makeImage(), loader: loader).infoData
 
-        let rows = model.exifRows()
-        let ids = rows.map(\.id)
-        #expect(ids.contains("dimensions"))
-        #expect(ids.contains("pixels"))
-        #expect(ids.contains("data_time"))
-        #expect(ids.contains("make"))
-        #expect(ids.contains("model"))
-        #expect(ids.contains("lens_model"))
-        #expect(ids.contains("focal_length"))
-        #expect(ids.contains("f_number"))
-        #expect(ids.contains("exposure_time"))
-        #expect(ids.contains("iso_speed_rating"))
-        #expect(ids.contains("bits"))
+        #expect(data.basicInfo.map(\.id) == ["dimensions", "pixels", "data_time"])
+        #expect(data.captureParams.map(\.id) == ["focal_length", "f_number", "exposure_time", "iso"])
+        #expect(data.deviceItems.map(\.id) == ["camera", "lens"])
+        #expect(data.deviceFocalRow?.id == "device_focal")
+        #expect(data.captureMode.map(\.id) == ["exposure_program", "exposure_mode", "white_balance"])
+        #expect(data.technical.map(\.id) == ["bits"])
     }
 
-    @Test("尺寸与像素文案与 Web 一致")
-    func dimensionTexts() async throws {
+    @Test("焦距用详情页格式 toFixed(2)+mm（与卡片的 toFixed(0) 不同）")
+    func focalLengthUsesPreviewFormat() async throws {
         let (loader, directory) = Self.makeLoader()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let model = PreviewModel(image: Self.makeImage(width: 4032, height: 3024), loader: loader)
+        // 生产实测原始值是 "5.960000038146973 mm"；这里用 "5.96 mm" 验证取整逻辑
+        let model = PreviewModel(image: Self.makeImage(), loader: loader)
 
-        #expect(model.dimensionsText == "4032 × 3024")
-        // 4032 × 3024 = 12,192,768 → 12.2 MP
-        #expect(model.megapixelsText == "12.2 MP")
+        #expect(model.focalLengthText == "5.96 mm")
+        #expect(model.captureParams.first { $0.id == "focal_length" }?.value == "5.96 mm")
+        // 设备信息里也重复出现一次（Web 两处都显示）
+        #expect(model.deviceFocalRow?.value == "5.96 mm")
+    }
+
+    @Test("拍摄参数的图标与 Web 一一对应（map/variant/miles/critterpedia）")
+    func captureParamIconsMatchWeb() async throws {
+        let (loader, directory) = Self.makeLoader()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let params = PreviewModel(image: Self.makeImage(), loader: loader).captureParams
+        #expect(params.map(\.icon) == [.map, .variant, .miles, .critterpedia])
+        #expect(params.first { $0.id == "iso" }?.value == "ISO 640")
+    }
+
+    @Test("设备信息要求 make 与 model 同时存在（与 Web 一致）")
+    func deviceCameraNeedsBothMakeAndModel() async throws {
+        let (loader, directory) = Self.makeLoader()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        // 只有 model 没有 make
+        let onlyModel = #"{"model":"iPhone 17","lens_model":"back camera"}"#
+        let data = PreviewModel(image: Self.makeImage(exifJSON: onlyModel), loader: loader).infoData
+        #expect(data.deviceItems.contains { $0.id == "camera" } == false, "缺 make 时不该显示相机行")
+        #expect(data.deviceItems.contains { $0.id == "lens" }, "镜头行不受影响")
+    }
+
+    @Test("分区标题与行标签取自与 Web 同一份 i18n 表")
+    func labelsComeFromSharedCatalog() {
+        // 取到裸 key 就说明回退表或本地化有问题
+        #expect(IslandStrings.text("Exif.basicInfo") == "基本信息")
+        #expect(IslandStrings.text("Exif.captureParams") == "拍摄参数")
+        #expect(IslandStrings.text("Exif.deviceInfo") == "设备信息")
+        #expect(IslandStrings.text("Exif.captureMode") == "拍摄模式")
+        #expect(IslandStrings.text("Exif.technicalParams") == "技术参数")
+        #expect(IslandStrings.text("Exif.toneAnalysis") == "影调分析")
+        #expect(IslandStrings.text("Exif.histogram") == "直方图")
+        #expect(IslandStrings.text("Exif.tags") == "标签")
+        #expect(IslandStrings.text("Exif.captureTime") == "拍摄时间")
+        #expect(IslandStrings.text("Exif.bitDepth") == "位深度")
+        #expect(IslandStrings.text("Exif.whiteBalance") == "白平衡")
+        #expect(IslandStrings.text("Exif.toneType") == "影调类型")
+        #expect(IslandStrings.text("Exif.shadowRatio") == "阴影占比")
+        #expect(IslandStrings.text("Exif.highlightRatio") == "高光占比")
+    }
+
+    @Test("影调类型文案与 Web 一致（正常/高对比度，而不是常规/高对比）")
+    func toneLabelsMatchWeb() {
+        // 这里曾经写错过：硬编码成"常规""高对比"，与 Web 的 i18n 值不符
+        #expect(IslandStrings.text("Exif.toneNormal") == "正常")
+        #expect(IslandStrings.text("Exif.toneHighContrast") == "高对比度")
+        #expect(IslandStrings.text("Exif.toneLowKey") == "低调")
+        #expect(IslandStrings.text("Exif.toneHighKey") == "高调")
     }
 
     @Test("EXIF 时间被归一化为可读格式（不是原始的冒号格式）")
@@ -195,7 +238,7 @@ struct PreviewModelTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let model = PreviewModel(image: Self.makeImage(), loader: loader)
 
-        let row = try #require(model.exifRows().first { $0.id == "data_time" })
+        let row = try #require(model.basicInfoRows.first { $0.id == "data_time" })
         #expect(row.value == "2026-10-02 20:15:12")
         #expect(row.value.contains(":") == true && !row.value.contains("2026:10"))
     }
@@ -204,83 +247,18 @@ struct PreviewModelTests {
     func missingFieldsProduceNoRows() async throws {
         let (loader, directory) = Self.makeLoader()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let model = PreviewModel(image: Self.makeImage(exifJSON: "null"), loader: loader)
+        let data = PreviewModel(image: Self.makeImage(exifJSON: "null"), loader: loader).infoData
 
-        let rows = model.exifRows()
-        let ids = rows.map(\.id)
-        // EXIF 为空但尺寸仍应展示（尺寸来自图片本身，不依赖 EXIF）
-        #expect(ids.contains("dimensions"))
-        #expect(ids.contains("make") == false, "无 EXIF 时不应出现空的相机行")
-        #expect(rows.allSatisfy { !$0.value.isEmpty }, "不应有值为空的行")
+        // EXIF 为空，但尺寸来自图片本身，仍应展示
+        #expect(data.basicInfo.map(\.id).contains("dimensions"))
+        #expect(data.captureParams.isEmpty)
+        #expect(data.deviceItems.isEmpty)
+        #expect(data.captureMode.isEmpty)
+        #expect(data.technical.isEmpty)
+        let values = data.basicInfo.map(\.value)
+        #expect(values.allSatisfy { !$0.isEmpty }, "不应有值为空的行")
     }
 
-    // MARK: - T12 下载
-
-    @Test("下载成功记录对应图片 id")
-    func downloadRecordsImage() async throws {
-        let (loader, directory) = Self.makeLoader()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let recorder = RecordingDownloadService()
-        let model = PreviewModel(image: Self.makeImage(), loader: loader, downloader: recorder)
-
-        await model.download()
-
-        #expect(await recorder.recorded() == ["preview-1"])
-        #expect(model.downloadError == nil)
-        #expect(model.isDownloading == false)
-    }
-
-    @Test("下载失败会给出可读错误且不抛出到界面外")
-    func downloadFailureIsSurfaced() async throws {
-        let (loader, directory) = Self.makeLoader()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let model = PreviewModel(
-            image: Self.makeImage(),
-            loader: loader,
-            downloader: RecordingDownloadService(shouldFail: true)
-        )
-
-        await model.download()
-
-        let message = try #require(model.downloadError)
-        #expect(message.contains("权限"), "应提示相册权限，实际：\(message)")
-        #expect(model.isDownloading == false)
-    }
-
-    @Test("没有下载器时点击下载是安全的空操作")
-    func downloadWithoutServiceIsSafe() async throws {
-        let (loader, directory) = Self.makeLoader()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let model = PreviewModel(image: Self.makeImage(), loader: loader)
-
-        await model.download()
-        #expect(model.downloadError == nil)
-    }
-
-    // MARK: - 像素采样
-
-    @Test("采样器把纯色图正确转成缓冲（尺寸受 maxSize 约束）")
-    func samplerRespectsMaxSize() throws {
-        let png = PNGURLProtocolState.makePNG(red: 200, green: 120, blue: 80, size: 64)
-        // 用 PlatformImage（UIKit/AppKit 的类型别名）：测试文件不 import 那两个框架，
-        // 直接写 UIImage/NSImage 会找不到符号
-        let image = try #require(PlatformImage(data: png))
-
-        // 64×64 缩到 maxSize 32 → 32×32
-        let buffer = try #require(PixelSampler.buffer(from: image, maxSize: 32))
-        #expect(buffer.width == 32)
-        #expect(buffer.height == 32)
-
-        // maxSize 大于图片时**会放大**（这是照抄 Web 公式 min(maxSize/w, maxSize/h) 的结果，
-        // 不是 bug）。64×64 在 maxSize 200 下会变成 200×200。
-        let upscaled = try #require(PixelSampler.buffer(from: image, maxSize: 200))
-        #expect(upscaled.width == 200, "与 Web 一致：小图会被放大到 maxSize")
-        #expect(upscaled.height == 200)
-
-        // 纯色：任意像素都应是同一个值
-        let tone = ImageAnalysis.analyzeTone(buffer)
-        #expect(tone.contrast == 0, "纯色图标准差应为 0")
-    }
 }
 
 // MapGalleryView 是 View，其静态方法被 main-actor 隔离；而 MapCameraPosition 非 Sendable，

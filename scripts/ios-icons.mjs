@@ -44,6 +44,8 @@ const ICONS = {
   'icon-helicopter': '操作 · 复制分享直链',
   'icon-shopping': '操作 · 下载原图',
   'icon-design': '详情页 · 镜头（lens_model）',
+  // 注意：详情页的"分享直链"用的是 icon-chat，卡片里的同名操作用的是 icon-helicopter —— 两处不同
+  'icon-chat': '详情页 · 分享直链',
 }
 
 const checkMode = process.argv.includes('--check')

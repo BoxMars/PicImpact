@@ -109,34 +109,139 @@ public final class PreviewModel {
         isDownloading = false
     }
 
-    // MARK: - EXIF 行
+    // MARK: - 分区展示数据
+    //
+    // 结构与 Web `preview-image.tsx` 的分区一一对应：
+    //   基本信息 / 拍摄参数 / 设备信息 / 拍摄模式 / 技术参数
+    // 文案取自同一份 i18n 表（`IslandStrings`），因此两端**措辞**也一致。
 
-    /// 构建 EXIF 展示行。
+    public struct InfoRow: Identifiable, Equatable, Sendable {
+        public let id: String
+        public let label: String
+        public let value: String
+    }
+
+    /// 拍摄参数胶囊：图标 + 值 + 无障碍标签
+    public struct ParamItem: Identifiable, Equatable, Sendable {
+        public let id: String
+        public let icon: AnimalIconName
+        public let value: String
+        public let label: String
+    }
+
+    /// 设备信息里的"图标 + 文本"行
+    public struct DeviceItem: Identifiable, Equatable, Sendable {
+        public let id: String
+        public let icon: AnimalIconName
+        public let text: String
+    }
+
+    /// 焦距文本。
     ///
-    /// **只展示 Web 端实际读取的字段**（见 `preview-image.tsx`）——
-    /// 多展示或少展示都会让两端信息不一致。
-    public func exifRows() -> [EXIFRow] {
-        var rows: [EXIFRow] = []
+    /// Web 用 `parseFloat(focal_length).toFixed(2) + ' mm'` → `"5.96 mm"`。
+    /// **注意与卡片的区别**：卡片里是 `toFixed(0)` → `"6mm"`，两处格式不同，不能互相套用。
+    public var focalLengthText: String? {
+        guard let raw = image.exif?.focalLength else { return nil }
+        // 取前导数字部分，等价于 JS 的 parseFloat
+        let head = raw.drop(while: { $0 == " " }).prefix(while: { $0.isNumber || $0 == "." || $0 == "-" })
+        guard let value = Double(head) else { return nil }
+        return String(format: "%.2f mm", value)
+    }
 
-        func add(_ key: String, _ label: String, _ value: String?) {
-            guard let value, !value.isEmpty else { return }
-            rows.append(EXIFRow(id: key, label: label, value: value))
+    /// 基本信息：尺寸 / 像素 / 拍摄时间
+    public var basicInfoRows: [InfoRow] {
+        var rows: [InfoRow] = []
+        if let dimensions = dimensionsText {
+            rows.append(InfoRow(id: "dimensions", label: IslandStrings.text("Exif.dimensions"), value: dimensions))
         }
-
-        add("dimensions", "尺寸", dimensionsText)
-        add("pixels", "像素", megapixelsText)
-        add("data_time", "拍摄时间", EXIFTimeFormatter.displayString(fromEXIF: image.exif?.dataTime))
-        add("make", "厂商", image.exif?.make)
-        add("model", "相机", image.exif?.model)
-        add("lens_model", "镜头", image.exif?.lensModel)
-        add("focal_length", "焦距", image.exif?.focalLength)
-        add("f_number", "光圈", image.exif?.fNumber)
-        add("exposure_time", "快门", image.exif?.exposureTime)
-        add("exposure_program", "曝光程序", image.exif?.exposureProgram)
-        add("iso_speed_rating", "ISO", image.exif?.isoSpeedRating)
-        add("bits", "位深", image.exif?.bits)
-
+        if let megapixels = megapixelsText {
+            rows.append(InfoRow(id: "pixels", label: IslandStrings.text("Exif.pixels"), value: megapixels))
+        }
+        if let time = EXIFTimeFormatter.displayString(fromEXIF: image.exif?.dataTime), !time.isEmpty {
+            rows.append(InfoRow(id: "data_time", label: IslandStrings.text("Exif.captureTime"), value: time))
+        }
         return rows
+    }
+
+    /// 拍摄参数：焦距 / 光圈 / 曝光时间 / 感光度（顺序与 Web 一致）
+    ///
+    /// 关于这几个标签的文案来源：Web 里宽度参数胶囊的 `label` 是**硬编码中文字面量**
+    /// （"焦距"/"光圈"/"曝光时间"/"感光度"），只有"焦距"在 i18n 表里另有同值条目。
+    /// 这里照实处理：有键的走 i18n，没有的用字面量 —— 不去编造不存在的键。
+    public var captureParams: [ParamItem] {
+        var items: [ParamItem] = []
+        if let focal = focalLengthText {
+            items.append(ParamItem(id: "focal_length", icon: .map, value: focal, label: "焦距"))
+        }
+        if let fNumber = image.exif?.fNumber, !fNumber.isEmpty {
+            items.append(ParamItem(id: "f_number", icon: .variant, value: fNumber, label: "光圈"))
+        }
+        if let exposure = image.exif?.exposureTime, !exposure.isEmpty {
+            items.append(ParamItem(id: "exposure_time", icon: .miles, value: exposure, label: "曝光时间"))
+        }
+        if let iso = image.exif?.isoSpeedRating, !iso.isEmpty {
+            items.append(ParamItem(id: "iso", icon: .critterpedia, value: "ISO \(iso)", label: "感光度"))
+        }
+        return items
+    }
+
+    /// 设备信息：厂商+机型、镜头（都带图标）
+    public var deviceItems: [DeviceItem] {
+        var items: [DeviceItem] = []
+        // Web 要求 make 与 model **同时存在**才显示这一行
+        if let make = image.exif?.make, !make.isEmpty,
+           let model = image.exif?.model, !model.isEmpty {
+            items.append(DeviceItem(id: "camera", icon: .camera, text: "\(make) \(model)"))
+        }
+        if let lens = image.exif?.lensModel, !lens.isEmpty {
+            items.append(DeviceItem(id: "lens", icon: .design, text: lens))
+        }
+        return items
+    }
+
+    /// 设备信息里的焦距行（与拍摄参数里的重复，Web 两端都显示，故保留）
+    public var deviceFocalRow: InfoRow? {
+        guard let focal = focalLengthText else { return nil }
+        return InfoRow(id: "device_focal", label: IslandStrings.text("Exif.focalLength"), value: focal)
+    }
+
+    /// 拍摄模式：曝光程序 / 曝光模式 / 白平衡
+    public var captureModeRows: [InfoRow] {
+        var rows: [InfoRow] = []
+        if let program = image.exif?.exposureProgram, !program.isEmpty {
+            rows.append(InfoRow(id: "exposure_program", label: IslandStrings.text("Exif.exposureProgram"), value: program))
+        }
+        if let mode = image.exif?.exposureMode, !mode.isEmpty {
+            rows.append(InfoRow(id: "exposure_mode", label: IslandStrings.text("Exif.exposureMode"), value: mode))
+        }
+        if let balance = image.exif?.whiteBalance, !balance.isEmpty {
+            rows.append(InfoRow(id: "white_balance", label: IslandStrings.text("Exif.whiteBalance"), value: balance))
+        }
+        return rows
+    }
+
+    /// 技术参数：位深度 / CFA 模式
+    public var technicalRows: [InfoRow] {
+        var rows: [InfoRow] = []
+        if let bits = image.exif?.bits, !bits.isEmpty {
+            rows.append(InfoRow(id: "bits", label: IslandStrings.text("Exif.bitDepth"), value: bits))
+        }
+        if let cfa = image.exif?.cfaPattern, !cfa.isEmpty {
+            rows.append(InfoRow(id: "cfa_pattern", label: IslandStrings.text("Exif.cfaPattern"), value: cfa))
+        }
+        return rows
+    }
+
+    /// 打包成详情页视图需要的分区数据
+    public var infoData: PreviewInfoData {
+        var data = PreviewInfoData()
+        data.basicInfo = basicInfoRows
+        data.captureParams = captureParams
+        data.deviceItems = deviceItems
+        data.deviceFocalRow = deviceFocalRow
+        data.captureMode = captureModeRows
+        data.technical = technicalRows
+        return data
     }
 
     public var dimensionsText: String? {

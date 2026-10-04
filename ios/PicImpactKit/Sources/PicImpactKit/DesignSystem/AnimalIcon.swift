@@ -22,6 +22,8 @@ public enum AnimalIconName: String, CaseIterable, Sendable {
     case diy = "icon-diy"
     case helicopter = "icon-helicopter"
     case shopping = "icon-shopping"
+    case design = "icon-design"
+    case chat = "icon-chat"
 }
 
 /// 图标尺寸。两个值都取自 Web 端：EXIF 芯片里 14，操作行里 18。

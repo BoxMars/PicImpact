@@ -16,6 +16,10 @@ public struct EXIF: Decodable, Sendable, Equatable, Hashable {
     public let fNumber: String?
     public let exposureTime: String?
     public let exposureProgram: String?
+    /// 对应 EXIF `exposure_mode` —— Web 的"拍摄模式"分区要用
+    public let exposureMode: String?
+    /// 对应 EXIF `white_balance`
+    public let whiteBalance: String?
     /// 生产实测类型为**数字**（如 640），故走宽松解码
     public let isoSpeedRating: String?
     /// EXIF 原始时间格式：`2026:10:02 20:15:12`，需经 `EXIFTimeFormatter` 归一化
@@ -31,6 +35,8 @@ public struct EXIF: Decodable, Sendable, Equatable, Hashable {
         case fNumber = "f_number"
         case exposureTime = "exposure_time"
         case exposureProgram = "exposure_program"
+        case exposureMode = "exposure_mode"
+        case whiteBalance = "white_balance"
         case isoSpeedRating = "iso_speed_rating"
         case dataTime = "data_time"
         case bits
@@ -49,6 +55,8 @@ public struct EXIF: Decodable, Sendable, Equatable, Hashable {
         fNumber = text(.fNumber)
         exposureTime = text(.exposureTime)
         exposureProgram = text(.exposureProgram)
+        exposureMode = text(.exposureMode)
+        whiteBalance = text(.whiteBalance)
         isoSpeedRating = text(.isoSpeedRating)
         dataTime = text(.dataTime)
         bits = text(.bits)
