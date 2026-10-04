@@ -28,11 +28,19 @@ public struct GalleryHeader: View {
     public var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: 12) {
-                // 图标 + 缎带标题 + 图标
-                HStack(spacing: 8) {
-                    AnimalIcon(.critterpedia, size: 28)
-                    IslandRibbon(text: title, fontSize: 28)
-                    AnimalIcon(.camera, size: 28)
+                // 图标 + 缎带标题 + 图标。
+                //
+                // 为什么用 ViewThatFits：Web 是桌面布局，28pt 的缎带加上左右各 1.6em 内边距
+                // 接近 410pt —— 在 402pt 宽的手机上会**横向溢出被切掉**（实测包围盒顶到屏幕右缘）。
+                // 这里按可用宽度逐级选更小的字号，缎带的几何全是 em 相对单位，会整体等比缩小。
+                // 桌面 / iPad 上仍然取第一档 28pt，与 Web 一致。
+                ViewThatFits(in: .horizontal) {
+                    ribbonRow(fontSize: 28)
+                    ribbonRow(fontSize: 24)
+                    ribbonRow(fontSize: 21)
+                    ribbonRow(fontSize: 18)
+                    ribbonRow(fontSize: 16)
+                    ribbonRow(fontSize: 14)
                 }
 
                 // 打字机副标题
@@ -59,6 +67,15 @@ public struct GalleryHeader: View {
                 .padding(.top, 12)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// 缎带标题行。字号越小整条缎带越窄（几何全是 em 相对单位）
+    private func ribbonRow(fontSize: CGFloat) -> some View {
+        HStack(spacing: 8) {
+            AnimalIcon(.critterpedia, size: 28)
+            IslandRibbon(text: title, fontSize: fontSize)
+            AnimalIcon(.camera, size: 28)
+        }
     }
 
     /// Nook Miles 风格的计数胶囊

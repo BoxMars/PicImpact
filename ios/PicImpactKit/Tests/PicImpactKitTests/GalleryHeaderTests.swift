@@ -118,6 +118,40 @@ struct GalleryHeaderTests {
         #expect(Self.count(pixels, 0xF7F3DF) > 50, "计数胶囊底色（纸色）缺失")
     }
 
+    @Test("窄屏下头部不横向溢出：两侧图标都还在画面内（回归）")
+    func headerFitsNarrowWidth() throws {
+        // 回归测试。Web 是桌面布局，缎带在 28pt 下整行接近 410pt；
+        // 直接照搬到 402pt 宽的手机上会横向溢出，两侧图标被切到屏幕外
+        // （实测缎带包围盒顶到屏幕右缘）。修复方式是 ViewThatFits 逐级缩小字号。
+        let pixels = try #require(Self.rasterize(
+            GalleryHeader(title: "大福映画 Felina Gallery", subtitle: "", photoCount: 24)
+                .background(AnimalTokens.bg)
+                .frame(width: 393, height: 220)
+        ))
+
+        func count(_ hex: UInt32, xRange: Range<Int>, tolerance: Int = 6) -> Int {
+            var hit = 0
+            for y in 0..<pixels.height {
+                for x in xRange where pixels.matches(x, y, hex, tolerance: tolerance) {
+                    hit += 1
+                }
+            }
+            return hit
+        }
+
+        let third = pixels.width / 3
+        // 左侧 critterpedia 的蓝绿必须出现在左三分之一内
+        #expect(
+            count(0x34ADB6, xRange: 0..<third) > 0,
+            "左侧图标被挤出画面 —— 头部发生了横向溢出"
+        )
+        // 右侧 camera 的粉必须出现在右三分之一内
+        #expect(
+            count(0xFF66AD, xRange: (third * 2)..<pixels.width) > 0,
+            "右侧图标被挤出画面 —— 头部发生了横向溢出"
+        )
+    }
+
     @Test("照片数为 0 时不显示计数胶囊")
     func pillHiddenWhenEmpty() throws {
         let header = GalleryHeader(title: "T", subtitle: "", photoCount: 0)
