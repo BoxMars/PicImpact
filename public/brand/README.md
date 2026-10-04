@@ -1,35 +1,42 @@
 # 大福映画 Felina Gallery · Logo
 
-**logo 直接使用站点既有的 icon**，不再自己画。
+**logo 就是站点线上真正在用的那个图标**，不自己画。
 
-## 来源
+## 来源（这是我第一版找错的地方）
+
+线上 HTML 里是这样引用的：
+
+```html
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
+<link rel="icon" href="https://felina-asset.boxz.dev/assert/ICON-Felina.jpg"/>
+```
+
+即 favicon **不是** `public/` 下的静态文件，而是**配置项** `custom_favicon_url`
+（API 里暴露为 `site.faviconUrl`），指向 R2 上的 `assert/ICON-Felina.jpg`。
+来源见 `app/layout.tsx`：
+
+```ts
+icons: { icon: data?.find((i) => i.config_key === 'custom_favicon_url')?.config_value || './favicon.ico' }
+```
+
+我第一版只翻了 `public/`（`favicon.svg` / `apple-touch-icon.png` / `maskable-icon.png`），
+**那是没被用到的默认文件**，所以找错了。
+
+## 文件
 | 文件 | 说明 |
 |---|---|
-| `felina-logo-icon.png` | 复制自 `public/maskable-icon.png`（750×750，四周透明，PWA maskable 版） |
-| `felina-logo-banner.svg` / `.png` | 该图标 + 「大福映画 / Felina Gallery」文字，2048×768 |
+| `felina-logo-icon.jpg` | 站点真实图标，640×640 JPEG（`ICON-Felina.jpg` 原样） |
+| `felina-logo-banner.svg` / `.png` | 该图标 + 「大福映画 / Felina Gallery」，2048×768 |
 
-站点原有的图标资源（均在 `public/`）：
+图标内容（像素统计）：银灰 `#D8D8D8` + 暖褐 `#C0A890`/`#A89078` + 深色 `#181818`，
+左下角橙色 `#F29866` —— 与「美短虎斑」一致。
 
-| 文件 | 实际尺寸 | 特征 |
-|---|---|---|
-| `favicon.svg` | 134×134 | 内嵌 base64 PNG（原作者文件名为「相机练习.png」） |
-| `favicon.ico` | — | 浏览器标签页 |
-| `apple-touch-icon.png` | **750×750** | 满幅，无透明 |
-| `maskable-icon.png` | **750×750** | 内容 618×618，四周透明（与 `icons/icon-512x512.png` 同一文件） |
-| `icons/icon-192x192.png`、`icon-512x512.png` | 750×750 | 与 maskable 同文件 |
+## 备注
+- 该图是 **JPEG（无 alpha 通道）**。这恰好符合 iOS AppIcon 的要求（AppIcon 不允许透明），
+  可直接用来生成各尺寸 App 图标。
+- `public/` 下静态文件的 `manifest.json` 声明尺寸（192/512）与实际（750×750）不一致，
+  属既有问题，且这些文件线上并未被引用。
 
-> 注：`manifest.json` 里声明的尺寸（192/512）与文件实际尺寸（750）**不一致**，属既有问题，
-> 未在本轮改动。
-
-## 为什么用带透明的那一版
-logo 要能放在任意背景上，所以选了四周透明的 `maskable-icon.png`，
-而不是满幅无透明的 `apple-touch-icon.png`。若需要满幅版本，用它替换即可。
-
-## 文字配色
-- 中文标题 `#725D42`、英文 `#19C8B9`、下划线 `#C4B89E` —— 全部取自 ACNH 设计系统，
-  与 App / 网页一致。
-
-## 之前那版手绘稿
-曾按「美短虎斑」手绘过一版（银灰毛 + 虎斑纹 + 额头 M + 绿眼），
-用户认为不好看，已废弃删除。**根本原因：作者没有视觉能力**，
-无法判断画得好不好看；毛色也是从像素统计推断的（暗调暖光把银灰照成米黄，推断错了）。
+## 之前两版手绘稿
+都废弃删除了。根本原因是**作者没有视觉能力**，无法判断画得好不好看；
+第一版连毛色都推错了（用"中心区域主色"统计，被暗调暖光带偏，把银灰虎斑算成了奶油色）。
