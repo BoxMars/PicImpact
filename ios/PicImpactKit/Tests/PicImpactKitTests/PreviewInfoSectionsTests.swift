@@ -441,3 +441,39 @@ struct PreviewInfoSectionsTests {
         #expect(full.maxX - full.minX > inset.maxX - inset.minX, "展开后图片应更宽")
     }
 }
+
+/// 影调分析与直方图必须能**只靠缩略图**算出来。
+///
+/// 回归背景：`PreviewModel.load()` 原本把分析放在**原图下载之后** —— 原图是几 MB，
+/// 用户滑到详情页时这两栏还没出现（"iPad 上看不到影调分析和直方图"）。
+/// 现在缩略图到位就先算一次，所以"只用缩略图能算出结果"是这条修复的前提。
+@Suite("影调与直方图的分析时机")
+@MainActor
+struct PreviewAnalysisTimingTests {
+    @Test("只有缩略图时也能算出影调分析与直方图")
+    func analysisWorksFromPreviewOnly() async {
+        let json = """
+        {"id":"x","title":"t","detail":"","width":4,"height":3,"type":1,
+         "url":"https://example.invalid/o.jpg","previewUrl":"https://example.invalid/p.jpg",
+         "exif":{"f_number":"f/1.6"},"labels":[]}
+        """
+        guard let image = try? APIDecoding.makeDecoder().decode(ImageDTO.self, from: Data(json.utf8)) else {
+            Issue.record("测试用 ImageDTO 解码失败"); return
+        }
+        let model = PreviewModel(image: image, loader: ImageLoader())
+
+        #if canImport(AppKit)
+        let preview = NSImage(size: NSSize(width: 16, height: 12), flipped: false) { rect in
+            NSColor.systemBlue.setFill()
+            rect.fill()
+            return true
+        }
+        model.previewImage = preview
+        #endif
+
+        await model.runAnalysis()
+
+        #expect(model.tone != nil, "只给缩略图也应算出影调分析（这是不再等原图的前提）")
+        #expect(model.histogram != nil, "只给缩略图也应算出直方图")
+    }
+}

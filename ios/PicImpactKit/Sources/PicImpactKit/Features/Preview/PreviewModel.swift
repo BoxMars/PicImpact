@@ -25,7 +25,9 @@ public final class PreviewModel {
     }
 
     public private(set) var phase: LoadPhase = .idle
-    public private(set) var previewImage: PlatformImage?
+    /// 用 `internal(set)` 是为了让测试能直接注入一张图来验证分析路径 ——
+    /// 与 `tone` / `histogram` 的测试缝一致。
+    public internal(set) var previewImage: PlatformImage?
     public private(set) var originalImage: PlatformImage?
     /// 写权限设为 internal：测试需要在不加载真实图片的情况下直接注入，
     /// 才能栅格化验证明细页的分析分区（否则要么依赖网络，要么测不到）。
@@ -73,10 +75,20 @@ public final class PreviewModel {
             }
         }
 
-        // 2) 原图（失败不算致命：缩略图仍然可看）
+        // 2) **先用缩略图出影调分析和直方图**，不要等原图。
+        //
+        // 原来是放在原图下载**之后**才分析 —— 而原图是 4000×3000 的几 MB 文件，
+        // 实测缩略图就要 1.8–3.3s，原图更久。于是用户滑到详情页时
+        //「影调分析 / 直方图」两栏还不存在（用户反馈"iPad 上看不到影调分析和直方图"）。
+        // 缩略图是同一张图的下采样，色彩分布基本一致，足以支撑这两个统计。
+        await runAnalysis()
+
+        // 3) 原图（失败不算致命：缩略图仍然可看）
+        var loadedOriginal = false
         if let originalURL = image.originalURL, originalURL != image.displayURL {
             if let original = try? await loader.image(for: originalURL) {
                 originalImage = original
+                loadedOriginal = true
                 phase = .originalReady
             }
         } else if previewImage != nil {
@@ -85,8 +97,10 @@ public final class PreviewModel {
             phase = .originalReady
         }
 
-        // 3) 分析（用原图优先，回退缩略图）
-        await runAnalysis()
+        // 4) 原图到位后用原图再算一次（更精确）；上面那次的结果先顶着，界面不用空着
+        if loadedOriginal {
+            await runAnalysis()
+        }
     }
 
     /// 分析用图：优先原图，回退缩略图
