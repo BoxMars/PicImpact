@@ -314,6 +314,11 @@ def main() -> None:
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				// iPad 必须支持全部四个方向，否则 App Store 校验报
+				// "Invalid bundle ... to support iPad multitasking"。
+				// 用 _iPad 变体单独设置（生成 Info.plist 里的 UISupportedInterfaceOrientations~ipad），
+				// 这样 iPhone 仍然保持三方向、不额外允许倒置。
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -344,6 +349,11 @@ def main() -> None:
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				// iPad 必须支持全部四个方向，否则 App Store 校验报
+				// "Invalid bundle ... to support iPad multitasking"。
+				// 用 _iPad 变体单独设置（生成 Info.plist 里的 UISupportedInterfaceOrientations~ipad），
+				// 这样 iPhone 仍然保持三方向、不额外允许倒置。
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
