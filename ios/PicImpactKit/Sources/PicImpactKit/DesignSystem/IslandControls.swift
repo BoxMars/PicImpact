@@ -1,5 +1,32 @@
 import SwiftUI
 
+extension View {
+    /// 岛屿胶囊外观：纸色底 + 描边 + 硬阴影。
+    ///
+    /// ## ⚠️ 顺序不能变：阴影必须在描边**之前**
+    /// 反过来写（描边在前、阴影在后）会在描边内侧挤出一条阴影色的线 ——
+    /// 实测剖面（顶边，2x）：
+    /// ```
+    /// y20-22 #C4B89E 描边   y23 #F7F3DF 纸色   y24-26 #BDAEA0 阴影   y27 #F7F3DF
+    /// ```
+    /// 也就是按钮看起来有两条边框。
+    ///
+    /// 这个坑已经在 `IslandCard` 与返回/分享按钮上**各踩过一次**，所以把外观收到这一个
+    /// 函数里：只写一遍顺序，只有一个地方可能写错。
+    func islandPill(cornerRadius: CGFloat = 16, shadowOffsetY: CGFloat = 2) -> some View {
+        self
+            .background(AnimalSignatures.cardPaper)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .circular))
+            // 阴影在前
+            .shadow(color: AnimalSignatures.cardShadowHard, radius: 0, x: 0, y: shadowOffsetY)
+            // 描边在后
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .circular)
+                    .strokeBorder(AnimalSignatures.cardBorder, lineWidth: 1.5)
+            }
+    }
+}
+
 /// ACNH 风格的分享按钮：调**系统分享面板**，分享站点上的对应链接。
 ///
 /// 用 `ShareLink` 而不是自己包 `UIActivityViewController`：
@@ -55,13 +82,7 @@ public struct IslandShareButton: View {
             label0
                 .padding(.horizontal, 12)
                 .frame(height: 32)
-                .background(AnimalSignatures.cardPaper)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .circular))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 16, style: .circular)
-                        .strokeBorder(AnimalSignatures.cardBorder, lineWidth: 1.5)
-                }
-                .shadow(color: AnimalSignatures.cardShadowHard, radius: 0, x: 0, y: 2)
+                .islandPill()
         }
     }
 
@@ -106,13 +127,7 @@ public struct IslandBackButton: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 32)
-            .background(AnimalSignatures.cardPaper)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .circular))
-            .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .circular)
-                    .strokeBorder(AnimalSignatures.cardBorder, lineWidth: 1.5)
-            }
-            .shadow(color: AnimalSignatures.cardShadowHard, radius: 0, x: 0, y: 2)
+            .islandPill()
         }
         .buttonStyle(IslandCardPressStyle())
         .accessibilityLabel(label)
