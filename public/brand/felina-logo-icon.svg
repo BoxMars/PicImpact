@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- 大福映画 Felina Gallery · 图标
+       配色依据（都来自实测或 ACNH 设计系统）：
+         猫毛  #F0DCC0 / #D8B48C   ← 四张照片中心区域实测主色 #E0C0A0/#C0A080
+         描边  #4C3C33             ← ACNH 图标统一的深棕描边
+         项圈  #19C8B9             ← ACNH primary（与 App 的青色标题一致）
+         铃铛  #FFCF4F             ← ACNH icon-design 的黄色
+         耳朵  #E68E6D             ← ACNH icon-diy 的陶土色
+         卡片  #F7F3DF / 边 #C4B89E ← ACNH 纸卡 -->
+  <rect x="28" y="28" width="968" height="968" rx="200" fill="#F7F3DF" stroke="#C4B89E" stroke-width="24"/>
+
+  <!-- 耳朵 -->
+  <path d="M300 430 L336 268 L482 372 Z" fill="#F0DCC0" stroke="#4C3C33" stroke-width="22" stroke-linejoin="round"/>
+  <path d="M724 430 L688 268 L542 372 Z" fill="#F0DCC0" stroke="#4C3C33" stroke-width="22" stroke-linejoin="round"/>
+  <path d="M352 392 L366 318 L440 366 Z" fill="#E68E6D"/>
+  <path d="M672 392 L658 318 L584 366 Z" fill="#E68E6D"/>
+
+  <!-- 头 -->
+  <ellipse cx="512" cy="546" rx="262" ry="238" fill="#F0DCC0" stroke="#4C3C33" stroke-width="22"/>
+
+  <!-- 腮红 -->
+  <ellipse cx="360" cy="606" rx="52" ry="34" fill="#F8A6B2" opacity="0.75"/>
+  <ellipse cx="664" cy="606" rx="52" ry="34" fill="#F8A6B2" opacity="0.75"/>
+
+  <!-- 眼睛（开心的弯月眼） -->
+  <path d="M376 512 q46 -54 92 0" fill="none" stroke="#4C3C33" stroke-width="26" stroke-linecap="round"/>
+  <path d="M556 512 q46 -54 92 0" fill="none" stroke="#4C3C33" stroke-width="26" stroke-linecap="round"/>
+
+  <!-- 鼻子 -->
+  <path d="M482 596 L542 596 L512 626 Z" fill="#E68E6D" stroke="#4C3C33" stroke-width="14" stroke-linejoin="round"/>
+  <!-- 嘴 -->
+  <path d="M512 626 q-30 40 -60 6" fill="none" stroke="#4C3C33" stroke-width="16" stroke-linecap="round"/>
+  <path d="M512 626 q30 40 60 6" fill="none" stroke="#4C3C33" stroke-width="16" stroke-linecap="round"/>
+
+  <!-- 胡须 -->
+  <g stroke="#4C3C33" stroke-width="12" stroke-linecap="round" fill="none">
+    <path d="M300 556 L186 528"/><path d="M296 596 L178 596"/><path d="M300 636 L186 664"/>
+    <path d="M724 556 L838 528"/><path d="M728 596 L846 596"/><path d="M724 636 L838 664"/>
+  </g>
+
+  <!-- 项圈 + 铃铛 -->
+  <path d="M300 690 q212 108 424 0" fill="none" stroke="#19C8B9" stroke-width="34" stroke-linecap="round"/>
+  <circle cx="512" cy="762" r="46" fill="#FFCF4F" stroke="#4C3C33" stroke-width="18"/>
+  <path d="M474 762 h76" stroke="#4C3C33" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="512" cy="784" r="10" fill="#4C3C33"/>
+</svg>
