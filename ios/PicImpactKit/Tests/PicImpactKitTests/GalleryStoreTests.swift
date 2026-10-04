@@ -220,13 +220,13 @@ struct GalleryCacheTests {
         return FirstPageCache(directory: dir, key: "first-page")
     }
 
-    private func page(_ ids: [String]) -> ImagePageDTO {
+    private func page(_ ids: [String], hasMore: Bool = false) -> ImagePageDTO {
         ImagePageDTO(
             list: ids.map { StubGalleryDataSource.makeImage(id: $0) },
             page: 1,
             pageSize: 24,
-            pageTotal: 1,
-            hasMore: false,
+            pageTotal: hasMore ? 2 : 1,
+            hasMore: hasMore,
             album: nil
         )
     }
@@ -286,6 +286,27 @@ struct GalleryCacheTests {
 
         let cached = await cache.load()
         #expect(cached?.list.map(\.id) == ["p1-i0", "p1-i1", "p1-i2"], "加载成功后应写入缓存")
+    }
+
+    @Test("缓存命中但后台校验失败时，仍然能翻下一页（回归）")
+    func paginatesAfterFailedRevalidation() async {
+        let cache = makeCache()
+        // 注意 hasMore: true —— 缓存里存的是第 1 页，后面还有第 2 页
+        await cache.save(page(["cached-1", "cached-2"], hasMore: true))
+
+        // 第一页校验失败（模拟网络抖动），但后续页是可用的
+        let source = StubGalleryDataSource(totalPages: 3, itemsPerPage: 3)
+        await source.setFailOnPage(1)
+        let store = GalleryStore(dataSource: source, cache: cache)
+
+        await store.loadFirstPageIfNeeded()
+        #expect(store.images.map(\.id) == ["cached-1", "cached-2"], "应保留缓存内容")
+
+        // 关键：这里曾经被 `currentPage > 0` 挡住，导致后面永远加载不出来
+        await store.loadNextPage()
+        let requested = await source.requested()
+        #expect(requested.contains(2), "缓存命中后仍应能请求第 2 页，实际请求了 \(requested)")
+        #expect(store.images.count > 2, "第 2 页应追加到列表，实际 \(store.images.map(\.id))")
     }
 
     @Test("没有缓存时行为与以前一致：会经过 loadingFirstPage")

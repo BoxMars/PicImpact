@@ -78,6 +78,12 @@ public final class GalleryStore {
             pageSize = cached.pageSize
             hasMore = cached.hasMore
             phase = .loaded
+            // ⚠️ 必须同时推进 currentPage。
+            // 它是"已经拿到第几页"的唯一依据，`loadNextPage()` 的守卫是 `currentPage > 0`。
+            // 曾经这里只铺数据不推进页码，想着"让后台校验走完整的首页路径" —— 结果是：
+            // 后台校验一旦失败（网络慢/抖动），currentPage 停在 0，**后续分页永远被挡住**
+            // （用户反馈"app 也分页了？加载不出后面的来了"）。
+            currentPage = 1
         }
 
         await load(page: 1, replacing: true)
