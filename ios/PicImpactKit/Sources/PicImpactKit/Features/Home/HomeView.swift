@@ -1,26 +1,50 @@
 import SwiftUI
 
+#if canImport(UIKit)
+import UIKit
+#endif
+
 /// 首页画廊（ACNH 岛屿卡 + 行优先瀑布流 + 无限滚动）。
 ///
-/// 布局完全由 `MasonryLayout`（纯函数、已与浏览器实际渲染逐项对齐）算出，
-/// 视图只负责把算好的 frame 应用上去 —— 这样"顺序对不对"不需要靠肉眼看。
+/// 布局由 `MasonryLayout`（纯函数，已与浏览器实际渲染逐项对齐）算出，视图只负责应用
+/// 算好的 frame —— 这样"顺序对不对"不需要靠肉眼判定。
+///
+/// ## 高度从哪里来（这是与 Web 行为对齐的关键）
+/// - 图片部分：由宽高比与列宽直接算出，渲染前即可知
+/// - 信息块部分：内容长短不一（标题一两行、描述有无、EXIF 芯片是否换行、标签多少），
+///   **必须实测**。这里让每个卡片用 `GeometryReader` 上报信息块自身高度，
+///   回传后参与布局。
+///
+/// 之所以不会重蹈 Web 端的覆辙（测量值含预留间距 → 跨行数正反馈 → 每轮长 16px）：
+/// 测量对象是**信息块的自然内容高度**，而卡片永远不会被容器拉伸
+/// （`MasonryLayout` 只给偏移量，不给拉伸；容器也不是 Grid）。
 public struct HomeView: View {
     @State private var store: GalleryStore
+    @State private var infoHeights: [String: CGFloat] = [:]
+    @State private var downloadingIDs: Set<String> = []
+
     private let loader: ImageLoader
     private let showDownload: Bool
+    private let downloader: DownloadService?
     private let onSelect: (ImageDTO) -> Void
 
     public init(
         store: GalleryStore,
         loader: ImageLoader,
         showDownload: Bool = false,
+        downloader: DownloadService? = nil,
         onSelect: @escaping (ImageDTO) -> Void = { _ in }
     ) {
         _store = State(initialValue: store)
         self.loader = loader
         self.showDownload = showDownload
+        self.downloader = downloader
         self.onSelect = onSelect
     }
+
+    /// 尚未测量时的兜底高度。取"标题一行 + 描述 + EXIF 一行 + 操作行"的常见情形，
+    /// 实测值到达后会立刻替换 —— 兜底只影响首帧，不会长期偏离。
+    private static let estimatedInfoHeight: CGFloat = 150
 
     public var body: some View {
         GeometryReader { proxy in
@@ -30,42 +54,32 @@ public struct HomeView: View {
                 max(0, proxy.size.width - padding * 2)
             )
             let columns = MasonryLayout.columns(forWidth: proxy.size.width)
-            let layout = makeLayout(contentWidth: contentWidth, columns: columns)
+            let metrics = MasonryLayout.Metrics.web(containerWidth: contentWidth, columns: columns)
+            let layout = makeLayout(metrics: metrics)
 
             ScrollView {
                 ZStack(alignment: .topLeading) {
-                    // 透明占位撑出滚动高度
                     Color.clear.frame(height: layout.contentHeight)
 
                     ForEach(Array(store.images.enumerated()), id: \.element.id) { index, image in
                         let placement = layout.placements[index]
-                        GalleryCell(
-                            image: image,
-                            columnWidth: layout.columnWidth,
-                            loader: loader,
-                            showDownload: showDownload,
-                            onTap: { onSelect(image) },
-                            onDownload: {}
-                        )
-                        // 布局只给"内容高度"，卡片自身高度由同一份计算得出，二者一致
-                        .offset(x: placement.frame.minX, y: placement.frame.minY)
-                        .onAppear {
-                            // 接近末尾时预取下一页
-                            if index >= store.images.count - 4 {
-                                Task { await store.loadNextPage() }
+                        cell(for: image, columnWidth: metrics.columnWidth)
+                            .offset(x: placement.frame.minX, y: placement.frame.minY)
+                            .onAppear {
+                                if index >= store.images.count - 4 {
+                                    Task { await store.loadNextPage() }
+                                }
                             }
-                        }
                     }
 
                     if case let .failed(message) = store.phase, store.images.isEmpty {
                         failureView(message)
-                            .frame(width: contentWidth, alignment: .center)
+                            .frame(width: contentWidth)
                             .padding(.top, 80)
                     }
 
                     if store.phase == .loadingFirstPage {
-                        ProgressView()
-                            .frame(width: contentWidth, height: 160, alignment: .center)
+                        ProgressView().frame(width: contentWidth, height: 160)
                     }
                 }
                 .frame(width: contentWidth, alignment: .topLeading)
@@ -79,38 +93,79 @@ public struct HomeView: View {
         }
     }
 
+    private func cell(for image: ImageDTO, columnWidth: CGFloat) -> some View {
+        GalleryCell(
+            image: image,
+            columnWidth: columnWidth,
+            loader: loader,
+            showDownload: showDownload,
+            isDownloading: downloadingIDs.contains(image.id),
+            onTap: { onSelect(image) },
+            onDownload: { Task { await performDownload(image) } },
+            onCopyLink: { LinkActions.copyImageLink(image) },
+            onShareLink: { LinkActions.copyShareLink(image) },
+            onInfoHeightChange: { height in
+                // 仅在变化超过半像素时更新，避免布局抖动与无谓的重算
+                guard height > 0 else { return }
+                if let current = infoHeights[image.id], abs(current - height) < 0.5 { return }
+                infoHeights[image.id] = height
+            }
+        )
+    }
+
+    /// 用同一份 `MasonryLayout` 计算放置位置。
+    /// 每项高度 = 图片等比缩放高度（可算） + 信息块实测高度（回退到估算值）
+    private func makeLayout(metrics: MasonryLayout.Metrics) -> MasonryLayout {
+        let heights: [CGFloat] = store.images.map { image in
+            let imageHeight: CGFloat = image.aspectRatio > 0
+                ? max(1, metrics.columnWidth / image.aspectRatio)
+                : metrics.columnWidth
+            let infoHeight = infoHeights[image.id] ?? Self.estimatedInfoHeight
+            return imageHeight + infoHeight
+        }
+        return MasonryLayout.layout(heights: heights, metrics: metrics)
+    }
+
+    private func performDownload(_ image: ImageDTO) async {
+        guard let downloader, !downloadingIDs.contains(image.id) else { return }
+        downloadingIDs.insert(image.id)
+        _ = try? await downloader.download(image)
+        downloadingIDs.remove(image.id)
+    }
+
     private func failureView(_ message: String) -> some View {
         VStack(spacing: AnimalTokens.spacingMD) {
             Text(message)
                 .font(.system(size: AnimalTokens.fontSize))
                 .foregroundStyle(AnimalTokens.textSecondary)
                 .multilineTextAlignment(.center)
-            Button("重试") {
-                Task { await store.retry() }
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(AnimalTokens.primary)
+            Button("重试") { Task { await store.retry() } }
+                .buttonStyle(.borderedProminent)
+                .tint(AnimalTokens.primary)
         }
-    }
-
-    /// 用同一份 `MasonryLayout` 计算放置位置。
-    ///
-    /// 每项的高度 = 图片等比缩放后的高度 + 固定信息块高度 ——
-    /// 都在渲染之前就能算出，所以不需要"先渲染再测量"，也就不会出现重排跳动。
-    private func makeLayout(contentWidth: CGFloat, columns: Int) -> MasonryLayout {
-        let metrics = MasonryLayout.Metrics.web(containerWidth: contentWidth, columns: columns)
-        let heights: [CGFloat] = store.images.map { image in
-            let imageHeight: CGFloat = image.aspectRatio > 0
-                ? max(1, metrics.columnWidth / image.aspectRatio)
-                : metrics.columnWidth
-            return imageHeight + GalleryCellMetrics.infoBlockHeight
-        }
-        return MasonryLayout.layout(heights: heights, metrics: metrics)
     }
 }
 
-private extension MasonryLayout {
-    var columnWidth: CGFloat {
-        placements.first?.frame.width ?? 0
+/// 复制链接 / 分享直链。
+///
+/// 对应 Web 卡片操作行里的 `icon-diy`（复制图片链接）与 `icon-helicopter`（复制分享直链）。
+/// 触屏上没有剪贴板失败的常见场景，但仍要给出反馈。
+public enum LinkActions {
+    /// 图片直链
+    public static func copyImageLink(_ image: ImageDTO) {
+        copy(image.url)
+    }
+
+    /// 分享直链：指向预览页。与 Web 的 `${origin}/preview/${id}` 语义一致
+    public static func copyShareLink(_ image: ImageDTO, baseURL: URL = URL(string: "https://felina.boxz.dev")!) {
+        let shareURL = baseURL.appendingPathComponent("preview").appendingPathComponent(image.id)
+        copy(shareURL.absoluteString)
+    }
+
+    private static func copy(_ value: String) {
+        guard !value.isEmpty else { return }
+        #if canImport(UIKit)
+        UIPasteboard.general.string = value
+        #endif
     }
 }

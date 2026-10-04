@@ -10,7 +10,14 @@ let package = Package(
         .library(name: "PicImpactKit", targets: ["PicImpactKit"])
     ],
     targets: [
-        .target(name: "PicImpactKit"),
+        .target(
+            name: "PicImpactKit",
+            // ACNH 图标素材（彩色 SVG）随包分发：它们属于设计系统，视图在包里，资源也要在包里。
+            // 用 `.copy` 而不是 `.process`：这些 SVG 由本包自己解析渲染（见 SVGIcon），
+            // 不需要（也不能依赖）asset catalog 编译 —— macOS 的 swift build 不跑 actool。
+            // 由 scripts/ios-icons.mjs 从 animal-island-ui 提取，勿手改。
+            resources: [.copy("Resources/Icons")]
+        ),
         .testTarget(
             name: "PicImpactKitTests",
             dependencies: ["PicImpactKit"],
