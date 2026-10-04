@@ -16,6 +16,9 @@ if swift test > "$OUT" 2>&1; then
     exit 0
 else
     echo "❌ 测试失败：" >&2
-    grep -E "✘|Expectation failed|error:|Test run with" "$OUT" | head -20 >&2
+    # 不用 `grep | head`：head 提前关闭管道会让脚本以 SIGPIPE(141) 退出，
+    # 掩盖掉本意的退出码 1（这个坑真踩过）。改为先取再打印。
+    grep -E "✘|Expectation failed|error:|Test run with" "$OUT" > "$OUT.summary" || true
+    awk 'NR <= 20' "$OUT.summary" >&2
     exit 1
 fi
