@@ -226,7 +226,7 @@ struct PreviewInfoSectionsTests {
         let model = PreviewModel(image: image, loader: ImageLoader())
         let pixels = try #require(IslandCardTests.rasterize(
             VStack(spacing: 0) {
-                PreviewPinnedHeader(model: model, onBack: {})
+                PreviewPinnedHeader(model: model, expansion: 1)
                 PreviewInfoPanel(model: model, features: .none, onSelectTag: { _ in })
             }
                 .frame(width: 393, height: 1200),
@@ -346,44 +346,51 @@ struct PreviewInfoSectionsTests {
         """
         let image = try APIDecoding.makeDecoder().decode(ImageDTO.self, from: Data(json.utf8))
         let model = PreviewModel(image: image, loader: ImageLoader())
-        // 只约束宽度：`PreviewPinnedHeader` 里有 maxWidth: .infinity + 居中对齐，
-        // 若再给一个固定高度，内容会被**垂直居中**，顶栏就跑到画面中间去了
+        // 渲染真正的顶栏视图。注意不要给它固定高度：里面有 maxWidth: .infinity +
+        // 居中对齐，给了固定高度内容会被**垂直居中**，顶栏就跑到画面中间去
         // （第一版正是这样，导致"分享按钮不在上部"的假失败）。
-        // 高度交给内容本身即可 —— 它没有 maxHeight 约束。
         let pixels = try #require(IslandCardTests.rasterize(
-            PreviewPinnedHeader(model: model, onBack: {})
+            PreviewTopBar(image: image, onBack: {})
+                .padding(12)
                 .frame(width: 393),
             scale: 2
         ))
 
-        // 分享按钮用 icon-helicopter（#FFAD00）—— 全页只有它在用这个颜色
-        var helicopterRows: [Int] = []
+        // 顶栏的布局要求：返回在左、分享在右。
+        //
+        // ⚠️ 不能用描边色 #c4b89e 定位返回按钮：两个胶囊的描边**同色**，
+        // 它的包围盒会把分享按钮一起框进来（第一版就是这么假失败的）。
+        // 只有分享图标（icon-helicopter #FFAD00）是唯一标记；
+        // 返回按钮靠"左半区有文字色 #725d42"间接证明（它的箭头与"返回"二字）。
+        var shareMinX = Int.max
+        var shareMaxX = -1
         for y in 0..<pixels.height {
             for x in 0..<pixels.width where pixels.matches(x, y, 0xFFAD00, tolerance: 8) {
-                helicopterRows.append(y); break
+                shareMinX = min(shareMinX, x)
+                shareMaxX = max(shareMaxX, x)
             }
         }
-        let first = try #require(helicopterRows.first, "顶栏没找到分享按钮（icon-helicopter）")
-        #expect(
-            first < pixels.height / 5,
-            "分享按钮应在画面上部（顶栏），实际首次出现在 y=\(first) / \(pixels.height)"
-        )
+        #expect(shareMaxX >= 0, "顶栏没找到分享按钮（icon-helicopter）")
+        #expect(shareMinX > pixels.width / 2, "分享按钮应在右侧")
 
-        // 返回按钮是自绘箭头 + 描边胶囊：顶栏区域应出现描边色
-        var borderInTopBar = 0
-        for y in 0..<min(pixels.height, first + 80) {
-            for x in 0..<pixels.width where pixels.matches(x, y, 0xC4B89E, tolerance: 4) {
-                borderInTopBar += 1
+        func textPixels(in range: Range<Int>) -> Int {
+            var n = 0
+            for y in 0..<pixels.height {
+                for x in range where pixels.matches(x, y, 0x725D42, tolerance: 10) { n += 1 }
             }
+            return n
         }
-        #expect(borderInTopBar > 0, "顶栏的返回按钮应有描边胶囊")
+        #expect(textPixels(in: 0..<(pixels.width / 2)) > 0, "左半区应有返回按钮（箭头与文字）")
+        #expect(textPixels(in: (pixels.width / 2)..<pixels.width) > 0, "右半区应有分享按钮的文字")
     }
 
     @Test("图片与标题属于固定区，不在滚动区里（回归）")
     func imageAndTitleLiveInPinnedHeader() throws {
-        // 布局要求：顶栏/主图/标题固定不动，只有信息区滚动。
-        // 可机检的部分是"这两块内容归属哪个视图"：
-        // 固定区渲染出分享图标与图片占位；滚动区两者都不该有。
+        // 布局要求：图片与标题钉住，信息区自由滑动。
+        // 可机检的部分是"这两块内容归属哪个视图"。
+        //
+        // ⚠️ 这条测试曾被一次区域替换误删（替换的结束位置定位到了下一段），
+        // 导致用例数从 128 掉到 127 —— 所以改测试后要核对用例数。
         let json = """
         {"id":"p1","imageName":"IMG_1.jpeg","url":"https://x/o.jpg","previewUrl":"https://x/p.webp",
          "videoUrl":"","blurhash":"","width":4032,"height":3024,"title":"标题","detail":"描述",
@@ -397,7 +404,7 @@ struct PreviewInfoSectionsTests {
         let model = PreviewModel(image: image, loader: ImageLoader())
 
         let header = try #require(IslandCardTests.rasterize(
-            PreviewPinnedHeader(model: model, onBack: {}).frame(width: 393),
+            PreviewPinnedHeader(model: model, expansion: 1).frame(width: 393),
             scale: 2
         ))
         let panel = try #require(IslandCardTests.rasterize(
@@ -406,22 +413,67 @@ struct PreviewInfoSectionsTests {
             scale: 2
         ))
 
-        // 固定区：分享图标在，且**高度足够容纳主图**。
-        //
-        // 为什么用高度而不是颜色判断"主图在不在固定区"：
-        // 直方图面板的底用的也是 bgSecondary(#f0e8d8)，与图片占位**同色**，
-        // 按颜色判断会把滚动区里的直方图误认成主图（第一版就是这么假失败的）。
-        // 主图高约 271pt，加上顶栏与标题，固定区至少 350pt；
-        // 若主图不在固定区，它就只剩顶栏 + 标题，约 110pt。
-        #expect(Self.count(header, 0xFFAD00, tolerance: 8) > 0, "固定区应有分享按钮")
+        // 固定区必须把主图包进去 —— 否则它只有标题，高度会矮很多（约 128pt）。
+        // 为什么用高度而不是颜色：直方图面板的底也是 bgSecondary(#f0e8d8)，
+        // 与图片占位同色，按颜色判断会把滚动区里的直方图误认成主图。
         let headerHeightPT = CGFloat(header.height) / 2
         #expect(
             headerHeightPT > 300,
             "固定区高 \(headerHeightPT)pt，过矮 —— 主图疑似不在固定区"
         )
 
-        // 滚动区：不该有顶栏的分享按钮；但必须有信息分区
-        #expect(Self.count(panel, 0xFFAD00, tolerance: 8) == 0, "滚动区不该有分享按钮")
+        // 滚动区必须有信息分区，且不该有顶栏的分享按钮
         #expect(Self.count(panel, 0x19C8B9, tolerance: 6) > 0, "滚动区应有青色分区标题")
+        #expect(Self.count(panel, 0xFFAD00, tolerance: 8) == 0, "滚动区不该有分享按钮")
+
+        // 顶栏（含分享按钮）是独立的视图，不在这两块里
+        let topBar = try #require(IslandCardTests.rasterize(
+            PreviewTopBar(image: image, onBack: {}).padding(12).frame(width: 393),
+            scale: 2
+        ))
+        #expect(Self.count(topBar, 0xFFAD00, tolerance: 8) > 0, "顶栏应有分享按钮")
+    }
+
+    @Test("图片随滚动放大：内缩 → 通栏（用户要求的核心效果）")
+    func imageExpandsToFullBleed() throws {
+        // expansion = 0：顶栏还在，图片内缩 16pt 且带圆角
+        // expansion = 1：顶栏滚走，图片左右贴边（通栏）
+        let json = """
+        {"id":"p1","imageName":"IMG_1.jpeg","url":"https://x/o.jpg","previewUrl":"https://x/p.webp",
+         "videoUrl":"","blurhash":"","width":4032,"height":3024,"title":"标题","detail":"",
+         "type":1,"labels":[],"lon":"","lat":"",
+         "exif":{"make":"Apple","model":"iPhone 17","lens_model":"back camera","focal_length":"5.96 mm",
+                 "f_number":"f/1.6","exposure_time":"1/13","exposure_program":"Normal program",
+                 "iso_speed_rating":640,"data_time":"2026:10:02 20:15:12","bits":"8"},
+         "albumLicense":null,"createdAt":null}
+        """
+        let image = try APIDecoding.makeDecoder().decode(ImageDTO.self, from: Data(json.utf8))
+        let model = PreviewModel(image: image, loader: ImageLoader())
+
+        // 主图未加载时是平色占位 #f0e8d8，用它定位图片的水平范围。
+        // （该颜色在固定区里只有图片用；标题是文字色、强调条是青色。）
+        func imageSpan(_ expansion: CGFloat) throws -> (minX: Int, maxX: Int, width: Int) {
+            let pixels = try #require(IslandCardTests.rasterize(
+                PreviewPinnedHeader(model: model, expansion: expansion).frame(width: 393),
+                scale: 2
+            ))
+            var minX = Int.max
+            var maxX = -1
+            for y in 0..<pixels.height {
+                for x in 0..<pixels.width where pixels.matches(x, y, 0xF0E8D8, tolerance: 4) {
+                    minX = min(minX, x)
+                    maxX = max(maxX, x)
+                }
+            }
+            return (minX, maxX, pixels.width)
+        }
+
+        let inset = try imageSpan(0)
+        let full = try imageSpan(1)
+
+        #expect(inset.minX > 0, "未展开时图片应内缩，实际 minX=\(inset.minX)")
+        #expect(full.minX == 0, "展开后图片应贴左边缘，实际 minX=\(full.minX)")
+        #expect(full.maxX == full.width - 1, "展开后图片应贴右边缘，实际 maxX=\(full.maxX)")
+        #expect(full.maxX - full.minX > inset.maxX - inset.minX, "展开后图片应更宽")
     }
 }

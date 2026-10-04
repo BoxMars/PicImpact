@@ -5,18 +5,27 @@ import SwiftUI
 /// 结构对应 Web 端 `preview-image.tsx`：图片 → 标题/描述 → 基本信息 → 拍摄参数 →
 /// 设备信息 → 拍摄模式 → 技术参数 → 影调分析 → 直方图 → 标签。
 ///
-/// ## 布局：上半固定、下半滚动
-/// 按用户要求，**顶栏（返回/分享）、主图、标题固定不动**，只有信息区滚动。
-/// 这样在看 EXIF / 影调数据时照片一直可见，不必来回滚动对照。
-/// 固定区与滚动区之间用一条细线分隔，提示"下面才是可滚动的"。
+/// ## 滚动行为（按用户描述实现）
+/// 1. 往上滑时**顶栏（返回/分享）跟着滚走**，不再占位
+/// 2. 图片**放大到与屏幕等宽**（左右内边距归零、圆角一并去掉，真正通栏）
+/// 3. **图片与标题钉在顶部**，下面的信息区自由滑动
+/// 4. 固定区与滚动区之间**没有分隔线**
 ///
-/// 视觉按 ACNH 设计系统组织：主图与信息块都装进纸色岛屿卡片，
-/// 分区标题是青色小标，分区之间是青色虚线，拍摄参数用带图标的胶囊，
-/// 影调指标用比例条（数值本身与 Web 完全一致）。
+/// 实现方式：顶栏放在滚动内容最上方（自然滚走），
+/// 图片+标题作为 `LazyVStack` 的 **pinned section header**（滚到顶后钉住）。
+/// 图片的展开程度由滚动位移驱动 —— 用的是 iOS 18 的 `onScrollGeometryChange`；
+/// iOS 17 上没有这个 API，退化为"始终通栏"（终态一致，只是少了过渡动画）。
 public struct PreviewView: View {
     @State private var model: PreviewModel
     private let features: SiteConfigDTO.Features
     private let onSelectTag: (String) -> Void
+
+    /// 滚动位移，用来把图片从"内缩"过渡到"通栏"
+    @State private var scrollOffset: CGFloat = 0
+
+    /// 走完这段位移，图片就完全通栏。
+    /// 顶栏高 32 + 上 12 + 下 12 = 56，留一点余量取 60。
+    private static let expansionDistance: CGFloat = 60
 
     /// 返回：弹出当前页。用 `dismiss` 而不是自己管导航栈，
     /// 这样从任意入口（卡片、标签、深链接）进来都能正确返回。
@@ -32,21 +41,37 @@ public struct PreviewView: View {
         self.onSelectTag = onSelectTag
     }
 
+    /// 0 = 顶栏还在，图片内缩；1 = 顶栏已滚走，图片通栏
+    private var expansion: CGFloat {
+        guard Self.supportsScrollTracking else { return 1 }
+        return min(max(scrollOffset / Self.expansionDistance, 0), 1)
+    }
+
+    private static var supportsScrollTracking: Bool {
+        if #available(iOS 18.0, macOS 15.0, *) { return true }
+        return false
+    }
+
     public var body: some View {
-        VStack(spacing: 0) {
-            // 固定区：顶栏（返回/分享） + 主图 + 标题。
-            PreviewPinnedHeader(model: model, onBack: { dismiss() })
+        ScrollView {
+            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                // 顶栏在滚动内容里：往上滑就跟着滚走（用户要求"看不到"）
+                PreviewTopBar(image: model.image, onBack: { dismiss() })
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 12)
 
-            // 一条细线划出"下面才是可滚动的"
-            Rectangle()
-                .fill(AnimalSignatures.cardBorder.opacity(0.5))
-                .frame(height: 1)
-
-            // 自由滑动区
-            ScrollView {
-                PreviewInfoPanel(model: model, features: features, onSelectTag: onSelectTag)
+                Section {
+                    PreviewInfoPanel(model: model, features: features, onSelectTag: onSelectTag)
+                } header: {
+                    // 图片 + 标题：滚到顶后钉住
+                    PreviewPinnedHeader(model: model, expansion: expansion)
+                }
             }
         }
+        .modifier(ScrollOffsetReporter { offset in
+            scrollOffset = offset
+        })
         .background(AnimalTokens.bg)
         // 顶部用自绘的 ACNH 控件（返回 / 分享），不再用系统导航栏。
         // 加平台判断是因为 `.navigationBar` 这个 placement 在 macOS 上不存在，
@@ -56,60 +81,83 @@ public struct PreviewView: View {
         #endif
         .task { await model.load() }
     }
+
 }
 
-/// 详情页的**固定区**：顶栏 + 主图 + 标题。
+
+/// 上报滚动位移。
 ///
-/// 拆成独立视图有两个原因：
-/// 1. 它要在 `ScrollView` 之外（固定不动）
-/// 2. `ImageRenderer` 渲染 `ScrollView` 时**不会**渲染其内容，
-///    拆出来才能在测试里直接栅格化验证
-struct PreviewPinnedHeader: View {
-    let model: PreviewModel
+/// `onScrollGeometryChange` 是 iOS 18 才有的，所以这里做可用性判断：
+/// iOS 17 上什么都不做，`PreviewView` 会把展开度固定为 1（始终通栏）。
+private struct ScrollOffsetReporter: ViewModifier {
+    let onChange: (CGFloat) -> Void
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, macOS 15.0, *) {
+            content.onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, newValue in
+                onChange(newValue)
+            }
+        } else {
+            content
+        }
+    }
+}
+
+/// 详情页顶栏：左上「返回」、右上「分享」，都用 ACNH 的胶囊样式（图标 + 文字）。
+///
+/// 为什么自绘而不是用系统导航栏：整套界面是 ACNH 风格，
+/// 系统导航栏的细线返回箭头与 ACNH 图标不是一套语言；
+/// 而且导航栏只能放图标按钮，放不下"返回 / 分享"这样的文字。
+///
+/// 抽成独立视图是为了可测：它现在挂在 `PreviewView` 的滚动内容里，
+/// 测试可以直接栅格化它。
+struct PreviewTopBar: View {
+    let image: ImageDTO
     let onBack: () -> Void
 
-    /// 岛屿卡片的内边距。
+    var body: some View {
+        HStack(spacing: 8) {
+            IslandBackButton(action: onBack)
+            Spacer(minLength: 0)
+            IslandShareButton(
+                url: LinkActions.shareURL(for: image),
+                iconSize: 16,
+                fontSize: 12,
+                style: .pill
+            )
+        }
+    }
+}
+
+/// 详情页的**固定区**：主图 + 标题（滚到顶后钉住）。
+///
+/// `expansion`：0 = 顶栏还在，图片内缩；1 = 顶栏已滚走，图片通栏。
+struct PreviewPinnedHeader: View {
+    let model: PreviewModel
+    let expansion: CGFloat
+
+    /// 标题缩进：与信息卡片**内部**文字对齐。
     ///
-    /// 卡片**外**的内容（标题、描述）要额外缩进这么多，
-    /// 才能与卡片**内**的文字左对齐 —— 否则卡片内的文字比标题多缩进一层
-    /// （页面 16 + 卡片 16 = 32pt vs 标题 16pt），看起来是错位的。
-    private let cardInnerPadding: CGFloat = 16
+    /// 卡片内有 16pt 内边距，加上页面 16pt，卡片内文字在 32pt；
+    /// 标题取 32 才能与它对齐（这是用户先前明确要求过的）。
+    private let titleInset: CGFloat = 32
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // 顶栏：左上返回、右上分享，都是 ACNH 胶囊（图标 + 文字）。
-            // 顶栏按页面边距对齐（chrome 的常规做法），不跟着标题做卡片内缩进。
-            HStack(spacing: 8) {
-                IslandBackButton(action: onBack)
-                Spacer(minLength: 0)
-                IslandShareButton(
-                    url: LinkActions.shareURL(for: model.image),
-                    iconSize: 16,
-                    fontSize: 12,
-                    style: .pill
-                )
-            }
-
-            if case let .failed(message) = model.phase {
-                Text(message)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(AnimalTokens.error)
-                    .padding(.leading, cardInnerPadding)
-            }
-
-            // 主图装进岛屿卡片：与画廊卡片同一套圆角/描边/硬阴影
-            IslandCard {
-                imageSection
-            }
+            imageSection
+                // 展开到通栏：内边距归零、圆角一并去掉
+                .clipShape(RoundedRectangle(cornerRadius: 18 * (1 - expansion), style: .circular))
+                .padding(.horizontal, 16 * (1 - expansion))
 
             titleSection
-                .padding(.leading, cardInnerPadding)
+                .padding(.horizontal, titleInset)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
         .padding(.bottom, 12)
-        .frame(maxWidth: 900, alignment: .leading)
-        .frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity)
+        // 必须不透明：下面滚上来的内容要从它背后经过
+        .background(AnimalTokens.bg)
     }
 
     private var imageSection: some View {
