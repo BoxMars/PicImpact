@@ -32,8 +32,8 @@
 | T2 `AnimalTokens` | ✅ 完成 | **7 个测试通过**：48 条令牌与 `animal-island-ui/dist/index.css` 逐字对照（基准文件由编译产物直接生成，非手写）。反验：把 `animal-text-color` 改成 `#000000` → 立刻失败 |
 | T6 `MasonryLayout` | ✅ 完成 | **9 个测试通过**，含**与 Chrome 实际渲染逐项比对 x/y**（基准由真实浏览器导出）。反验：破坏 span 公式 → 报「第 4 项 y 不一致：Swift 144.0，浏览器 160.0」 |
 | T3 `IslandCard` | ⬜ 待做 | 令牌已就绪，只差视图 |
-| T4 `APIClient` + Models | ⬜ 待做 | 契约 fixture 已由 Web 端 API 就绪 |
-| T5 图片缓存 | ⬜ 待做 | |
+| T5 图片缓存 | ⬜ 待做 | 依赖 DTO（已就绪） |
+| T4 `APIClient` + Models | ✅ 完成 | **13 个测试通过**，fixture 为**生产真实响应**（非手写样本）。反验：写错 `previewUrl` 的 CodingKey → 报 `previewURL → ""`；`iso_speed_rating` 不走宽松解码 → 报 `nil != "640"` |
 | T7 `HomeView` | ⬜ 待做 | 依赖 T3+T4+T6 |
 | T8 首页视觉验收 | ⬜ 待做 | |
 | T9–T12 预览页 | ⬜ 待做 | |
@@ -220,3 +220,16 @@
 | EXIF `exif` 字段形状不确定 | DTO 原样透传 + 客户端容忍未知字段；契约测试覆盖 |
 | 布尔配置语义搞反 | 已修并加断言（`'true'` 而非 `'1'`）；T12 要求两种取值都测 |
 | 字体子集缺字 | 用一个包含中日文全字符集的样张在 T8 阶段过一遍 |
+
+### 实施中发现并记录的问题
+
+1. **EXIF 字段类型不统一**：生产响应里 `iso_speed_rating` 是**数字**（`640`），而 `bits` / `f_number` 是字符串。
+   按 `String?` 直接解会让整页解码失败。已用 `LenientString` 处理：能解成什么就转成什么，
+   遇到不认识的类型返回 nil 而不是抛错 —— 与契约里「客户端必须忽略未知字段」是同一套前向兼容思路。
+2. **`createdAt` 带毫秒**（`2026-10-03T11:36:14.539Z`）：`JSONDecoder.iso8601` 不接受小数秒，
+   必须自定义策略，否则 24 条全部解不开。
+3. **Swift 6 严格并发**：`DateFormatter` / `ISO8601DateFormatter` 都不是 `Sendable`，
+   作为 `static let` 共享会直接编译失败。已改为按需新建（调用频率是每张图一次，开销可忽略，
+   换来彻底无共享状态）。另：两者没有共同的可调用父类型，**不能塞进同一数组遍历**
+   （数组会退化成 `[Formatter]`，没有 `date(from:)`）。
+4. **`app/probe-masonry`** 是取浏览器基准用的临时探针页，取完即删（不要提交）。
