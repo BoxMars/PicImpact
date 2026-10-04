@@ -108,17 +108,13 @@ public struct HomeView: View {
                     // 而 phase 仍是 .loadingFirstPage，内联那个也还亮着 —— 实测两个刷新）。
                     // 现在把"我自己画 spinner"这个可能性直接去掉，同屏最多只有一个。
                     if store.phase == .loadingFirstPage {
-                        // ⚠️ 骨架**不能参与布局**：实测把它直接放进布局后，
-                        // 真实卡片到达时页面会自己向下滚约 470pt —— 缎带标题从 102pt
-                        // 被滚出画面，用户看到的就是"一打开在最底部、标题往下跑了"。
-                        // 去掉骨架则完全正常（缎带在 1s/3s/6s 都稳定在 102pt）。
-                        //
-                        // 这里用"零高度 + 溢出的 overlay"：不改变滚动内容的高度，
-                        // 但骨架仍然显示在头部下方。
+                        // ⚠️ 加载提示**不能参与布局**：之前那版骨架直接放进布局后，
+                        // 真实卡片到达时页面会自己向下滚约 470pt（缎带标题被滚出画面）。
+                        // 继续用"零高度 + 溢出的 overlay"：不改变滚动内容的高度。
                         Color.clear
                             .frame(height: 0)
                             .overlay(alignment: .top) {
-                                skeletonPlaceholder(width: contentWidth)
+                                GalleryLoadingIndicator()
                             }
                     }
                 }
@@ -172,10 +168,6 @@ public struct HomeView: View {
                 infoHeights[image.id] = height
             }
         )
-    }
-
-    private func skeletonPlaceholder(width: CGFloat) -> some View {
-        GallerySkeleton(width: width)
     }
 
     /// 用同一份 `MasonryLayout` 计算放置位置。
@@ -254,26 +246,34 @@ public enum LinkActions {
 /// 所以这里把"App 自己画 spinner"这个可能性直接去掉：同屏最多只剩系统那一个。
 /// 图片占位同理（见 `CachedAsyncImage`）。
 ///
-/// 抽成独立视图是为了能在测试里直接栅格化断言 —— 骨架与 spinner 的像素特征差别很大
-/// （骨架有纸色/描边/硬阴影三种颜色；spinner 只有一圈弧线），可以据此守住回归。
-struct GallerySkeleton: View {
-    let width: CGFloat
+/// 首屏加载提示：ACNH 图标 + "加载中"。
+///
+/// 用户要求替换掉原来的两个占位框（"取消那个两个框框，换成 acnh 的图标+加载中"）。
+///
+/// ⚠️ 它会被放在"零高度 + 溢出 overlay"里使用，**不要**在这里写会影响父布局的修饰符 ——
+/// 一旦它参与滚动内容的布局，真实卡片到达时页面会自己向下滚（曾经发生过，
+/// 表现为"一打开在最底部、标题往下跑"）。
+struct GalleryLoadingIndicator: View {
+    @State private var pulsing = false
 
     var body: some View {
-        VStack(spacing: AnimalTokens.spacingLG) {
-            ForEach(0..<2, id: \.self) { _ in
-                // 这里原本也把 .shadow 写在 .overlay 之后 —— 就是用户看到的
-                // "加载页两个圆角边框、上面有缝隙"。统一走 islandSurface。
-                Color.clear
-                    .frame(width: width, height: 200)
-                    .islandSurface(
-                        borderWidth: AnimalSignatures.cardBorderWidth,
-                        cornerRadius: AnimalSignatures.cardCornerRadius,
-                        shadowOffsetY: AnimalSignatures.cardShadowOffsetY
-                    )
-            }
+        VStack(spacing: 12) {
+            AnimalIcon(.camera, size: 44)
+                .opacity(pulsing ? 0.45 : 1)
+                .scaleEffect(pulsing ? 0.94 : 1)
+            Text("加载中")
+                .font(.system(size: 13, weight: .heavy))
+                .tracking(0.04 * 13)
+                .foregroundStyle(AnimalTokens.textSecondary) // #9f927d
         }
         .frame(maxWidth: .infinity)
+        .padding(.top, 56)
+        .padding(.bottom, 40)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.75).repeatForever(autoreverses: true)) {
+                pulsing = true
+            }
+        }
     }
 }
 

@@ -60,15 +60,23 @@ struct LoadingIndicatorTests {
         #expect(Self.count(pixels, 0xF0E8D8, tolerance: 4) > 1000, "占位应是 bgSecondary 平色块")
     }
 
-    @Test("首次加载显示骨架卡（纸色/描边/硬阴影），不是 spinner")
-    func firstLoadShowsSkeleton() throws {
+    @Test("首次加载是 ACNH 图标 + 文字，不再有那两个占位框（回归）")
+    func firstLoadShowsIconAndText() throws {
         let pixels = try #require(IslandCardTests.rasterize(
-            GallerySkeleton(width: 320).padding(16).background(AnimalTokens.bg),
+            GalleryLoadingIndicator().padding(16).background(AnimalTokens.bg),
             scale: 2
         ))
-        // 骨架必须画出卡片的三种特征色；单纯的 spinner 一种都没有
-        #expect(Self.count(pixels, 0xF7F3DF, tolerance: 4) > 1000, "骨架应有纸色块")
-        #expect(Self.count(pixels, 0xC4B89E, tolerance: 4) > 100, "骨架应有卡片描边")
-        #expect(Self.count(pixels, 0xBDAEA0, tolerance: 4) > 50, "骨架应有硬阴影")
+        // 用户要求"取消那两个框框"：纸色块 / 卡片描边 / 硬阴影都必须消失。
+        //
+        // 阈值来自**实测**（不是估的）：
+        //   仅图标+文字：描边 0、硬阴影 22、纸色 0
+        //   加一个占位框：描边 4644、硬阴影 1367、纸色 89984
+        // 硬阴影给到 22 是因为 **camera 图标自身**含少量接近 #BDAEA0 的像素 ——
+        // 用严格的 <20 会误报（我第一次就是这么写的，测试在正确代码上就挂了）。
+        #expect(Self.count(pixels, 0xC4B89E, tolerance: 4) < 100, "不该再有卡片描边（那两个框）")
+        #expect(Self.count(pixels, 0xBDAEA0, tolerance: 4) < 200, "不该再有硬阴影（那两个框）")
+        #expect(Self.count(pixels, 0xF7F3DF, tolerance: 4) < 500, "不该再有纸色块（那两个框）")
+        // 应该有"加载中"的文字色（#9f927d）
+        #expect(Self.count(pixels, 0x9F927D, tolerance: 10) > 300, "应有'加载中'文字")
     }
 }

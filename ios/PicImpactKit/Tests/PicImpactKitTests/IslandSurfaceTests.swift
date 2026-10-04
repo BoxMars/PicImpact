@@ -39,9 +39,6 @@ struct IslandSurfaceTests {
                 IslandShareButton(url: URL(string: "https://felina.boxz.dev/preview/x")!, style: .pill)
                     .padding(16).background(Color.white)
             )),
-            ("加载骨架", AnyView(
-                GallerySkeleton(width: 200).padding(16).background(Color.white)
-            )),
             ("头部计数胶囊", AnyView(
                 GalleryHeader(title: "T", subtitle: "", photoCount: 24)
                     .padding(16).background(Color.white)
