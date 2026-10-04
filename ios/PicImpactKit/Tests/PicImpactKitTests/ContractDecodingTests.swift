@@ -162,13 +162,13 @@ struct ContractDecodingTests {
 
     @Test("EXIF 时间从 `YYYY:MM:DD HH:MM:SS` 归一化")
     func exifTimeNormalization() {
-        #expect(EXIFTimeFormatter.displayString(fromEXIF: "2026:10:02 20:15:12") == "2026-10-02 20:15:12")
+        #expect(EXIFTimeFormatter.displayDate(fromEXIF: "2026:10:02 20:15:12") == "2026-10-02")
         // 部分设备写连字符
-        #expect(EXIFTimeFormatter.displayString(fromEXIF: "2026-10-02 20:15:12") == "2026-10-02 20:15:12")
+        #expect(EXIFTimeFormatter.displayDate(fromEXIF: "2026-10-02 20:15:12") == "2026-10-02")
         // 缺失或空串应返回 nil，由界面决定降级方式
-        #expect(EXIFTimeFormatter.displayString(fromEXIF: nil) == nil)
-        #expect(EXIFTimeFormatter.displayString(fromEXIF: "") == nil)
-        #expect(EXIFTimeFormatter.displayString(fromEXIF: "   ") == nil)
+        #expect(EXIFTimeFormatter.displayDate(fromEXIF: nil) == nil)
+        #expect(EXIFTimeFormatter.displayDate(fromEXIF: "") == nil)
+        #expect(EXIFTimeFormatter.displayDate(fromEXIF: "   ") == nil)
     }
 
     // MARK: - 错误映射

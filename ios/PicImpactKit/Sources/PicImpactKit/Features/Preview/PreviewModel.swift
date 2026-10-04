@@ -157,7 +157,7 @@ public final class PreviewModel {
         if let megapixels = megapixelsText {
             rows.append(InfoRow(id: "pixels", label: IslandStrings.text("Exif.pixels"), value: megapixels))
         }
-        if let time = EXIFTimeFormatter.displayString(fromEXIF: image.exif?.dataTime), !time.isEmpty {
+        if let time = EXIFTimeFormatter.displayDate(fromEXIF: image.exif?.dataTime), !time.isEmpty {
             rows.append(InfoRow(id: "data_time", label: IslandStrings.text("Exif.captureTime"), value: time))
         }
         return rows

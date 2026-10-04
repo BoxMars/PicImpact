@@ -71,13 +71,20 @@ public struct EXIF: Decodable, Sendable, Equatable, Hashable {
 /// 直接丢给 `DateFormatter` 硬解会得到错误结果或 nil。
 public enum EXIFTimeFormatter {
 
-    /// 归一化为 `yyyy-MM-dd HH:mm:ss`；无法解析时返回 nil（界面应自行决定如何降级）
-    public static func displayString(fromEXIF raw: String?) -> String? {
+    /// 归一化为 **`yyyy-MM-dd`（只保留日期）**；无法解析时返回 nil。
+    ///
+    /// 与 Web 的 `formatExifDateTimeForDisplay` 一致 —— 它的实现就是
+    /// `normalized.slice(0,10)`，注释写明输出是 `"YYYY-MM-DD"`。
+    ///
+    /// 命名为 `displayDate` 而不是 `displayString`：早先叫后者且返回了完整时间
+    /// `yyyy-MM-dd HH:mm:ss`，结果卡片和详情页都多显示了时分秒（Web 并不显示）。
+    /// 名字里带上 Date 可以避免这类误用。
+    public static func displayDate(fromEXIF raw: String?) -> String? {
         guard let date = parse(raw) else { return nil }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: date)
     }
 

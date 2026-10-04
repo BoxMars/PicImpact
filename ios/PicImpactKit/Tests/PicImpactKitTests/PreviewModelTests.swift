@@ -239,8 +239,10 @@ struct PreviewModelTests {
         let model = PreviewModel(image: Self.makeImage(), loader: loader)
 
         let row = try #require(model.basicInfoRows.first { $0.id == "data_time" })
-        #expect(row.value == "2026-10-02 20:15:12")
-        #expect(row.value.contains(":") == true && !row.value.contains("2026:10"))
+        // 只保留日期（与 Web 的 formatExifDateTimeForDisplay 一致，它输出 YYYY-MM-DD）
+        #expect(row.value == "2026-10-02")
+        #expect(row.value.contains(" ") == false, "不应再带时分秒")
+        #expect(row.value.contains("2026:10") == false, "不应保留 EXIF 的冒号格式")
     }
 
     @Test("缺失的 EXIF 字段不会产生空行")

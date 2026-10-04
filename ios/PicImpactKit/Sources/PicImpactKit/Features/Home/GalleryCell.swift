@@ -137,7 +137,7 @@ public struct GalleryCell: View {
     /// ① 标题 + 日期
     @ViewBuilder
     private var titleRow: some View {
-        let date = EXIFTimeFormatter.displayString(fromEXIF: image.exif?.dataTime)
+        let date = EXIFTimeFormatter.displayDate(fromEXIF: image.exif?.dataTime)
         if !image.title.isEmpty || date != nil {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 if !image.title.isEmpty {
@@ -258,34 +258,53 @@ public struct GalleryCell: View {
 
     /// ⑥ 操作行（Web: gap 14, height 24）
     private var actionRow: some View {
-        HStack(spacing: 14) {
-            Button(action: onCopyLink) {
-                AnimalIcon(.diy, size: AnimalIconSize.action)
-            }
-            .buttonStyle(.plain)
-            .help("复制图片链接")
-
-            Button(action: onShareLink) {
-                AnimalIcon(.helicopter, size: AnimalIconSize.action)
-            }
-            .buttonStyle(.plain)
-            .help("复制分享直链")
+        // 按用户要求：卡片下方只保留**两个**按钮（分享 / 下载），并且**带文字**。
+        // 不再提供"复制图片链接"（原来是 icon-diy 那个）。
+        // 用 ACNH 的胶囊样式，让文字按钮看起来像可点的控件而不是一行注释。
+        HStack(spacing: 8) {
+            actionButton(icon: .helicopter, label: "分享", action: onShareLink)
 
             if showDownload {
                 if isDownloading {
-                    ProgressView().controlSize(.mini)
-                } else {
-                    Button(action: onDownload) {
-                        AnimalIcon(.shopping, size: AnimalIconSize.action)
+                    HStack(spacing: 5) {
+                        ProgressView().controlSize(.mini)
+                        Text("下载中…")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(AnimalTokens.textSecondary)
                     }
-                    .buttonStyle(.plain)
-                    .help("下载原图")
+                    .padding(.horizontal, 10)
+                    .frame(height: 26)
+                    .background(AnimalSignatures.cardPaper)
+                    .clipShape(Capsule())
+                    .overlay { Capsule().strokeBorder(AnimalSignatures.cardBorder, lineWidth: 1.5) }
+                } else {
+                    actionButton(icon: .shopping, label: "下载", action: onDownload)
                 }
             }
 
             Spacer(minLength: 0)
         }
-        .frame(height: 24)
+        .frame(height: 26)
+    }
+
+    /// 卡片操作按钮：图标 + 文字的小胶囊
+    private func actionButton(icon: AnimalIconName, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                AnimalIcon(icon, size: 16)
+                Text(label)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(AnimalSignatures.cardText) // #725d42
+                    .fixedSize()
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 26)
+            .background(AnimalSignatures.cardPaper)
+            .clipShape(Capsule())
+            .overlay { Capsule().strokeBorder(AnimalSignatures.cardBorder, lineWidth: 1.5) }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 

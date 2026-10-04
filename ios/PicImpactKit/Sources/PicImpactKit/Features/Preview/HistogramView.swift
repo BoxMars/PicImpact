@@ -121,50 +121,67 @@ public struct ToneAnalysisView: View {
         ]
     }
 
-    /// 标签样式：Web `{ color: '#9f927d', fontWeight: 500, fontSize: 13 }`
-    private var labelFont: Font { .system(size: 13, weight: .medium) }
-    /// 取值样式：Web `{ color: '#725d42', fontWeight: 600, fontSize: 13 }`
-    private var valueFont: Font { .system(size: 13, weight: .semibold) }
+    private var labelFont: Font { .system(size: 12, weight: .medium) }
+    private var valueColor: Color { AnimalSignatures.cardText } // #725d42
 
     public var body: some View {
-        VStack(spacing: 8) {
-            // 影调类型：单独一行，值用更粗的字重（Web 是 fontWeight 700）
+        VStack(spacing: 9) {
+            // 影调结论单独一行，值用更粗的字重
             HStack(spacing: 8) {
                 Text(IslandStrings.text("Exif.toneType"))
-                    .font(labelFont)
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(AnimalTokens.textSecondary)
                 Spacer(minLength: 0)
                 Text(labels[analysis.toneType] ?? defaultLabels[analysis.toneType] ?? analysis.toneType.rawValue)
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(AnimalSignatures.cardText)
+                    .foregroundStyle(valueColor)
             }
 
-            // 四项指标排成两列（Web 是 `grid grid-cols-2 gap-x-4 gap-y-1.5`）
-            LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)],
-                alignment: .leading,
-                spacing: 6
-            ) {
-                // 亮度与对比度本身是 0-100 的分值，Web 直接加 `%`
-                metric("Exif.brightness", "\(analysis.brightness)%")
-                metric("Exif.contrast", "\(analysis.contrast)%")
-                // 阴影/高光是 0-1 的占比，Web 乘 100 后四舍五入再加 `%`
-                metric("Exif.shadowRatio", "\(Int((analysis.shadowRatio * 100).rounded()))%")
-                metric("Exif.highlightRatio", "\(Int((analysis.highlightRatio * 100).rounded()))%")
-            }
+            // 四项指标：标签 + 进度条 + 数值。
+            // 数值与 Web 完全一致（亮度/对比度直接加 %，阴影/高光乘 100 取整），
+            // 进度条是纯粹的视觉增强，让四个比例一眼可比。
+            metric("Exif.brightness", percent: analysis.brightness)
+            metric("Exif.contrast", percent: analysis.contrast)
+            metric("Exif.shadowRatio", percent: Int((analysis.shadowRatio * 100).rounded()))
+            metric("Exif.highlightRatio", percent: Int((analysis.highlightRatio * 100).rounded()))
         }
     }
 
-    private func metric(_ titleKey: String, _ value: String) -> some View {
+    private func metric(_ titleKey: String, percent: Int) -> some View {
         HStack(spacing: 8) {
             Text(IslandStrings.text(titleKey))
                 .font(labelFont)
                 .foregroundStyle(AnimalTokens.textSecondary)
-            Spacer(minLength: 0)
-            Text(value)
-                .font(valueFont)
-                .foregroundStyle(AnimalSignatures.cardText)
+                .frame(width: 58, alignment: .leading)
+            ToneBar(percent: percent)
+            Text("\(percent)%")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(valueColor)
+                .frame(width: 38, alignment: .trailing)
         }
     }
 }
 
+/// 影调指标的比例条（纯视觉增强，不承载信息）。
+public struct ToneBar: View {
+    private let percent: Int
+
+    public init(percent: Int) {
+        self.percent = percent
+    }
+
+    public var body: some View {
+        GeometryReader { proxy in
+            let clamped = min(max(percent, 0), 100)
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(AnimalSignatures.cardBorder.opacity(0.35))
+                Capsule()
+                    .fill(AnimalTokens.primary) // #19c8b9
+                    // 最小值 3 让 0% 附近也留一点可见的形状，避免看起来像没渲染
+                    .frame(width: max(3, proxy.size.width * CGFloat(clamped) / 100))
+            }
+        }
+        .frame(height: 8)
+    }
+}
