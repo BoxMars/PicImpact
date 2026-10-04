@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-生成 ios/PicImpact.xcodeproj。
+生成 ios/大福映画.xcodeproj。
 
 为什么不手写 project.pbxproj：那是一份由 Xcode 维护的、充满不透明 UUID 的文件，
 手改极易出错且无法审查。把生成过程脚本化之后：
@@ -8,7 +8,7 @@
   - 依赖关系、构建设置都在这里一目了然，diff 时可读
 
 用法：python3 scripts/ios-project.py
-校验：xcodebuild -project ios/PicImpact.xcodeproj -list
+校验：xcodebuild -project ios/大福映画.xcodeproj -list
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 IOS = ROOT / "ios"
-PROJECT_NAME = "PicImpact"
+PROJECT_NAME = "大福映画"
 APP_DIR = IOS / PROJECT_NAME
 PACKAGE_RELATIVE = "PicImpactKit"  # 相对于工程文件所在目录
 
@@ -150,7 +150,7 @@ def main() -> None:
 {chr(10).join(f"\t\t\t\t{file_refs[name]} /* {name} */," for name in swift_sources)}
 {chr(10).join(f"\t\t\t\t{file_refs[rel]} /* {rel} */," for rel in resources)}
 			);
-			path = {PROJECT_NAME};
+			path = "{PROJECT_NAME}";
 			sourceTree = "<group>";
 		}};
 		{products_group_id} /* Products */ = {{
@@ -176,11 +176,11 @@ def main() -> None:
 			);
 			dependencies = (
 			);
-			name = {PROJECT_NAME};
+			name = "{PROJECT_NAME}";
 			packageProductDependencies = (
 				{package_product_id} /* PicImpactKit */,
 			);
-			productName = {PROJECT_NAME};
+			productName = "{PROJECT_NAME}";
 			productReference = {product_ref_id} /* {PROJECT_NAME}.app */;
 			productType = "com.apple.product-type.application";
 		}};

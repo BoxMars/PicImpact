@@ -19,7 +19,7 @@
 		FD627A9AAD76FB3A8A6D7DDB /* PicImpactApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PicImpactApp.swift; sourceTree = "<group>"; };
 		D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 		FE719673B9C90C989A3C89E0 /* Resources/Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Resources/Localizable.xcstrings; sourceTree = "<group>"; };
-		E31292F71CD2B7D16943C25C /* PicImpact.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "大福映画.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B74174040CB144B324B695CF /* 大福映画.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "大福映画.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,12 +37,12 @@
 		361FF3508AF23F4E0CB329EA = {
 			isa = PBXGroup;
 			children = (
-				7824C56D1034E65D313C9FC1 /* PicImpact */,
+				7824C56D1034E65D313C9FC1 /* 大福映画 */,
 				31793280A19CDC7880B10A8E /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		7824C56D1034E65D313C9FC1 /* PicImpact */ = {
+		7824C56D1034E65D313C9FC1 /* 大福映画 */ = {
 			isa = PBXGroup;
 			children = (
 				D1850B4A18E13A8A2C9E9140 /* AppEnvironment.swift */,
@@ -50,13 +50,13 @@
 				D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */,
 				FE719673B9C90C989A3C89E0 /* Resources/Localizable.xcstrings */,
 			);
-			path = PicImpact;
+			path = "大福映画";
 			sourceTree = "<group>";
 		};
 		31793280A19CDC7880B10A8E /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				E31292F71CD2B7D16943C25C /* PicImpact.app */,
+				B74174040CB144B324B695CF /* 大福映画.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -64,9 +64,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		2A131AAE44C299926BFAD955 /* PicImpact */ = {
+		976EED56402FB2A5BE5FFBF3 /* 大福映画 */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A886B50DF087AEF7B87CDC65 /* Build configuration list for PBXNativeTarget "PicImpact" */;
+			buildConfigurationList = A886B50DF087AEF7B87CDC65 /* Build configuration list for PBXNativeTarget "大福映画" */;
 			buildPhases = (
 				C2511B36F0F0E810A9E46328 /* Sources */,
 				019BAB185F97B56993A7087D /* Frameworks */,
@@ -76,30 +76,30 @@
 			);
 			dependencies = (
 			);
-			name = PicImpact;
+			name = "大福映画";
 			packageProductDependencies = (
 				20E0B2E074C6CDBFC1E20429 /* PicImpactKit */,
 			);
-			productName = PicImpact;
-			productReference = E31292F71CD2B7D16943C25C /* PicImpact.app */;
+			productName = "大福映画";
+			productReference = B74174040CB144B324B695CF /* 大福映画.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		16CA677916CB5B768016477A /* Project object */ = {
+		8EDD4E3EDB787756351E9B9A /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2650;
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
-					2A131AAE44C299926BFAD955 = {
+					976EED56402FB2A5BE5FFBF3 = {
 						CreatedOnToolsVersion = 26.5;
 					};
 				};
 			};
-			buildConfigurationList = 26E84C2B3712F7DFAC8AD93F /* Build configuration list for PBXProject "PicImpact" */;
+			buildConfigurationList = 26E84C2B3712F7DFAC8AD93F /* Build configuration list for PBXProject "大福映画" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = zh;
 			hasScannedForEncodings = 0;
@@ -118,7 +118,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				2A131AAE44C299926BFAD955 /* PicImpact */,
+				976EED56402FB2A5BE5FFBF3 /* 大福映画 */,
 			);
 		};
 /* End PBXProject section */
@@ -251,7 +251,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		26E84C2B3712F7DFAC8AD93F /* Build configuration list for PBXProject "PicImpact" */ = {
+		26E84C2B3712F7DFAC8AD93F /* Build configuration list for PBXProject "大福映画" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				5D9646B92BECD8E12745F5D8 /* Debug */,
@@ -260,7 +260,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A886B50DF087AEF7B87CDC65 /* Build configuration list for PBXNativeTarget "PicImpact" */ = {
+		A886B50DF087AEF7B87CDC65 /* Build configuration list for PBXNativeTarget "大福映画" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				07ADDFD2B07302882ABEF067 /* Debug */,
@@ -285,5 +285,5 @@
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 16CA677916CB5B768016477A /* Project object */;
+	rootObject = 8EDD4E3EDB787756351E9B9A /* Project object */;
 }

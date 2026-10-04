@@ -1250,3 +1250,29 @@ CFBundleDisplayName 大福映画
 CFBundleExecutable  大福映画
 CFBundleIdentifier  dev.boxz.felina
 ```
+
+
+### 工程改名：PicImpact → 大福映画
+
+用户："项目名还叫 picimpact，整体改一下"。
+
+**改了的**（有界、可验证的部分）：
+- `scripts/ios-project.py` 的 `PROJECT_NAME` → 大福映画（它同时决定工程名、target、scheme、源码目录）
+- `git mv ios/PicImpact ios/大福映画`、`git mv` 工程目录 → `ios/大福映画.xcodeproj`
+- 生成出的 scheme 变成 `大福映画.xcscheme`
+
+**踩的坑（这次很典型）**：改完 `PROJECT_NAME` 后工程直接**读不了** ——
+生成脚本写出的 pbxproj 里有**未加引号的中文**（`path = 大福映画;`、`productName = 大福映画;`）。
+ASCII 名不加引号没事，中文必须加。`xcodebuild` 只报 "Unable to read project"，看不出原因；
+是 `plutil -lint` 报出 "Unexpected character /" 才定位到格式问题。
+
+**教训（工具用法）**：
+1. 改生成脚本后，先用 **`plutil -lint`** 验证产物格式（秒级），再去构建（分钟级）——
+   这次我先构建了两次才发现，浪费了两轮。
+2. **`cmd >/dev/null 2>&1 && echo ✓` 会吞掉错误并误报成功** —— 本次会话已因此被误导两次
+   （生成脚本 SyntaxError、这次也是），判断成败必须看退出码或保留错误输出。
+
+**没改的（需要单独一轮）**：Swift 包 `PicImpactKit`（模块名 + 目录名）—— 它出现在
+23 个源文件里（18 个测试 + 5 个实现），改名要动目录 + 全部 `import` + `Package.swift` + 脚本，
+半途而废会留下编译不过的状态，所以这一轮**没有碰**。工程侧与包侧现在是不同名状态，
+但不影响构建与归档。
