@@ -72,12 +72,14 @@ public struct PreviewView: View {
         .modifier(ScrollOffsetReporter { offset in
             scrollOffset = offset
         })
-        // 底部延伸到屏幕下缘：内容要能一直显示到最底下（用户要求"下方也不用遮挡"）。
-        // 必须写在 islandPageBackground 之前 —— 那里的 .clipped() 是裁到当前框架的，
-        // 先把框架扩到底边，裁剪才只在**上方**起作用。
-        .ignoresSafeArea(edges: .bottom)
+        .contentMargins(.bottom, 0, for: .scrollContent)
         // 图片滚到最上面钉住时不要从状态栏里透出来
         .islandPageBackground()
+        // 底部延伸到屏幕下缘：内容要一直显示到最底下（用户要求"下方也不用遮挡"）。
+        // ⚠️ 必须放在 islandPageBackground **之后**（最外层）：
+        // 写在它之前会被后面的包装抵消，实测 ScrollView 框架仍停在 839pt
+        // （屏幕 874pt，少了 35pt 的 home indicator 安全区）。
+        .ignoresSafeArea(edges: .bottom)
         // 顶部用自绘的 ACNH 控件（返回 / 分享），不再用系统导航栏。
         // 加平台判断是因为 `.navigationBar` 这个 placement 在 macOS 上不存在，
         // 而本包同时要给 macOS 的单元测试编译。
