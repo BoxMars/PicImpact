@@ -117,16 +117,19 @@ public struct IslandShareButton: View {
     }
 }
 
-/// ACNH 风格的返回按钮（图标 + 文字）。
+/// ACNH 风格的「箭头 + 文字」胶囊按钮（返回 / 回到顶部共用）。
 ///
-/// 箭头是自己画的：这套设计系统里的 ACNH 图标（相机/里程点/购物袋…）没有方向箭头，
-/// 而系统 SF Symbol 的 `chevron.left` 是细线风格，和旁边的 ACNH 图标放在一起不像一套。
-/// 自绘一个圆头折线箭头更协调，也不引入外部素材。
-public struct IslandBackButton: View {
+/// 箭头是**自绘**的：这套 ACNH 图标（相机/聊天/图鉴/设计/DIY/直升机/地图/里程点/
+/// 购物袋/光圈）里**没有方向箭头**，而 SF Symbol 的细线箭头与它们不是一套语言。
+/// 另外库里也没有"向上"语义的图标，所以"回到顶部"同样用自绘箭头，
+/// 视觉上与返回按钮保持同一套。
+public struct IslandChevronButton: View {
+    private let direction: Chevron.Direction
     private let label: String
     private let action: () -> Void
 
-    public init(label: String = "返回", action: @escaping () -> Void) {
+    public init(direction: Chevron.Direction, label: String, action: @escaping () -> Void) {
+        self.direction = direction
         self.label = label
         self.action = action
     }
@@ -134,12 +137,16 @@ public struct IslandBackButton: View {
     public var body: some View {
         Button(action: action) {
             HStack(spacing: 5) {
-                Chevron(direction: .left)
+                Chevron(direction: direction)
                     .stroke(
                         AnimalSignatures.cardText, // #725d42
                         style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
                     )
-                    .frame(width: 7, height: 12)
+                    // up / down 是"竖着的"箭头，宽高要对调
+                    .frame(
+                        width: direction == .up ? 12 : 7,
+                        height: direction == .up ? 7 : 12
+                    )
                 Text(label)
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(AnimalSignatures.cardText)
@@ -154,16 +161,37 @@ public struct IslandBackButton: View {
     }
 }
 
-/// 圆头折线箭头。用它而不是 SF Symbol，理由见 `IslandBackButton`。
-struct Chevron: Shape {
-    enum Direction {
-        case left
-        case right
+/// 返回按钮（等价于 `IslandChevronButton(direction: .left, label: "返回")`）
+public struct IslandBackButton: View {
+    private let label: String
+    private let action: () -> Void
+
+    public init(label: String = "返回", action: @escaping () -> Void) {
+        self.label = label
+        self.action = action
     }
 
-    let direction: Direction
+    public var body: some View {
+        IslandChevronButton(direction: .left, label: label, action: action)
+    }
+}
 
-    func path(in rect: CGRect) -> Path {
+/// 圆头折线箭头。用它而不是 SF Symbol，理由见 `IslandBackButton`。
+/// 自绘的圆头折线箭头。公开是为了让 `IslandChevronButton` 的公开接口能引用它的方向。
+public struct Chevron: Shape {
+    public enum Direction: Sendable {
+        case left
+        case right
+        case up
+    }
+
+    public let direction: Direction
+
+    public init(direction: Direction) {
+        self.direction = direction
+    }
+
+    public func path(in rect: CGRect) -> Path {
         var path = Path()
         switch direction {
         case .left:
@@ -174,6 +202,10 @@ struct Chevron: Shape {
             path.move(to: CGPoint(x: rect.minX, y: rect.minY))
             path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
             path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        case .up:
+            path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.midX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
         }
         return path
     }

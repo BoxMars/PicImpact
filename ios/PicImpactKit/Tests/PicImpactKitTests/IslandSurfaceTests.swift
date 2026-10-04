@@ -31,6 +31,10 @@ struct IslandSurfaceTests {
             ("返回胶囊", AnyView(
                 IslandBackButton {}.padding(16).background(Color.white)
             )),
+            ("回到顶部胶囊", AnyView(
+                IslandChevronButton(direction: .up, label: "顶部") {}
+                    .padding(16).background(Color.white)
+            )),
             ("分享胶囊", AnyView(
                 IslandShareButton(url: URL(string: "https://felina.boxz.dev/preview/x")!, style: .pill)
                     .padding(16).background(Color.white)

@@ -22,6 +22,9 @@ public struct HomeView: View {
     @State private var store: GalleryStore
     @State private var infoHeights: [String: CGFloat] = [:]
     @State private var downloadingIDs: Set<String> = []
+    /// 头部（缎带标题所在的那块）是否还在画面里。
+    /// 滑出画面后右下角出现"回到顶部"，否则用户只能一路滑回去。
+    @State private var isHeaderVisible = true
 
     private let loader: ImageLoader
     private let showDownload: Bool
@@ -52,6 +55,9 @@ public struct HomeView: View {
     /// 实测值到达后会立刻替换 —— 兜底只影响首帧，不会长期偏离。
     private static let estimatedInfoHeight: CGFloat = 150
 
+    /// "回到顶部"滚动锚点的 id
+    private static let topAnchorID = "home-top"
+
     public var body: some View {
         GeometryReader { proxy in
             let padding = MasonryLayout.horizontalPadding(forWidth: proxy.size.width)
@@ -63,6 +69,7 @@ public struct HomeView: View {
             let metrics = MasonryLayout.Metrics.web(containerWidth: contentWidth, columns: columns)
             let layout = makeLayout(metrics: metrics)
 
+            ScrollViewReader { scrollProxy in
             ScrollView {
               VStack(spacing: 0) {
                 // 头部全宽（与 Web 一致：header 与 Divider 都在网格容器之外）
@@ -71,6 +78,7 @@ public struct HomeView: View {
                     subtitle: headerSubtitle,
                     photoCount: store.images.count
                 )
+                .id(Self.topAnchorID)
 
                 ZStack(alignment: .topLeading) {
                     Color.clear.frame(height: layout.contentHeight)
@@ -124,8 +132,25 @@ public struct HomeView: View {
             }
             // 首页**保留沉浸式**：内容可以滚到状态栏底下（用户明确说明这条限制只针对详情页）
             .background(AnimalTokens.bg)
+            .modifier(HeaderVisibilityTracker { visible in
+                if visible != isHeaderVisible { isHeaderVisible = visible }
+            })
             .refreshable { await store.refresh() }
             .task { await store.loadFirstPageIfNeeded() }
+            .overlay(alignment: .bottomTrailing) {
+                if !isHeaderVisible {
+                    IslandChevronButton(direction: .up, label: "顶部") {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            scrollProxy.scrollTo(Self.topAnchorID, anchor: .top)
+                        }
+                    }
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 24)
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: isHeaderVisible)
+            }
         }
     }
 
@@ -249,5 +274,33 @@ struct GallerySkeleton: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// 跟踪"头部（缎带标题）是否还在画面里"，用来决定何时显示"回到顶部"。
+///
+/// 为什么不用 PreferenceKey 上报 GeometryReader 的位置：实测那样上报的值
+/// **恒为 default（0）**、不随滚动变化（`headerMinY=0` 只打印一次），按钮永远不出现。
+/// `onScrollGeometryChange` 是专为读取滚动位置设计的 API，直接拿到 contentOffset。
+///
+/// 注意它是 **iOS 18+**；部署目标是 iOS 17，所以 iOS 17 上退化为"始终视为可见"
+/// （也就是不显示回到顶部按钮）。
+private struct HeaderVisibilityTracker: ViewModifier {
+    let onChange: (Bool) -> Void
+
+    /// 滚过这么多就算标题看不见了。
+    /// 缎带标题在头部内偏下（顶部还有 40pt 内边距），所以阈值取 100。
+    private static let threshold: CGFloat = 100
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, macOS 15.0, *) {
+            content.onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, offset in
+                onChange(offset < Self.threshold)
+            }
+        } else {
+            content
+        }
     }
 }
