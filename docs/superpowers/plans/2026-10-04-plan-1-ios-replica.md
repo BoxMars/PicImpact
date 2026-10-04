@@ -1113,3 +1113,33 @@ phaseDuringFetch → .loadingFirstPage == .loaded                ✗
 ```
 第二条尤其重要：它守的是"**显示缓存期间不能回到加载态**"——否则用户会看到
 内容闪一下又变成加载中。
+
+
+### `blurhash` 字段其实是 ThumbHash（我先看错了算法）
+
+用户同意"把 blurhash 用起来"。我按**标准 blurhash 规范**写了 Swift 解码器，
+并用真实数据校验 —— 结果 2/3 样本越界崩溃、唯一解出的偏差 0.21（≈54/255）。
+
+校验暴露的疑点很有说服力：**四个值全是固定 28 字符**，而标准 blurhash 的长度由组件数决定
+（4 + 2·numX·numY），首字符指向的组件数却是 54/4/32/5 —— 全都对不上 28 字符对应的 12 组件。
+
+于是去查**产品自己在用什么解码器**（这是关键，我一开始就该查）：
+```ts
+// hooks/use-blurhash.ts
+import { decodeThumbHash } from '~/lib/utils/blurhash-client'
+// package.json: "thumbhash": "0.1.1"
+```
+**字段名叫 blurhash，内容是 ThumbHash** —— 另一种格式（blurhash 的后继），
+所以定长 28、base64 字符集、按 blurhash 规范算不出长度，全都解释得通。
+
+**我的结论对了一半**：说"它不是标准 blurhash"是对的，但归因成"数据有问题"是错的 ——
+实际是我没先看产品的用法。这与**找错站点图标**（翻 `public/` 而没看线上 `<link rel=icon>`）
+是同一个毛病：**该看"产品实际用了什么"，而不是"我以为它是什么"**。
+
+**下一步（未开始）**：ThumbHash 的参考实现在仓库里
+（`lib/utils/blurhash-client.ts`），可以：
+1. 把它移植成 Swift 解码器
+2. **用 JS 参考实现生成期望像素**，与 Swift 输出逐像素比对 —— 这是可以做到完全客观的验证
+3. 再接进卡片/详情页：图片到位前显示 ThumbHash 的模糊版
+
+本轮没有改任何代码（实验都在 /tmp），因为算法选错时写进去只会得到随机色块。
