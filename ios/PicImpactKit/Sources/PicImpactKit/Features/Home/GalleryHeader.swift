@@ -89,12 +89,8 @@ public struct GalleryHeader: View {
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 14)
-        .background(AnimalSignatures.cardPaper)          // rgb(247,243,223)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .circular))
-        .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .circular)
-                .strokeBorder(AnimalSignatures.cardBorder, lineWidth: 1.5)
-        }
-        .shadow(color: AnimalSignatures.cardShadowHard, radius: 0, x: 0, y: 2)
+        // 这里原本把 .shadow 写在 .overlay 之后 —— 于是描边内侧多出一条阴影线
+        // （用户反馈的"两个边框"之一）。现在统一走 islandSurface。
+        .islandSurface(borderWidth: 1.5, cornerRadius: 20, shadowOffsetY: 2)
     }
 }

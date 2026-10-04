@@ -11,7 +11,8 @@ import Testing
 /// 上已经踩过一次的坑：描边内侧会挤进一条阴影色的线，看起来按钮有两条边框。
 /// 实测剖面（顶边，2x）：`y20-22 #C4B89E` → `y23 纸色` → `y24-26 #BDAEA0` → `y27 纸色`。
 ///
-/// 现在外观统一由 `View.islandPill()` 提供，顺序只写一遍。
+/// 现在外观统一由 `View.islandSurface()` 提供，顺序只写一遍；
+/// "描边内侧不得有阴影色"这条断言由 `IslandSurfaceTests` 对**所有**组件统一覆盖。
 @Suite("岛屿控件 · 返回/分享胶囊")
 @MainActor
 struct IslandControlsTests {
@@ -30,16 +31,6 @@ struct IslandControlsTests {
             .background(Color.white)
     }
 
-    @Test("返回按钮顶边只有一条边框")
-    func backPillHasSingleBorder() throws {
-        try Self.assertSingleTopBorder(try #require(IslandCardTests.rasterize(Self.backPill(), scale: 2)), label: "返回")
-    }
-
-    @Test("分享按钮顶边只有一条边框")
-    func sharePillHasSingleBorder() throws {
-        try Self.assertSingleTopBorder(try #require(IslandCardTests.rasterize(Self.sharePill(), scale: 2)), label: "分享")
-    }
-
     @Test("胶囊整体仍画出纸色底与描边（别把外观一起改没了）")
     func pillStillLooksLikePill() throws {
         let pixels = try #require(IslandCardTests.rasterize(Self.backPill(), scale: 2))
@@ -55,27 +46,4 @@ struct IslandControlsTests {
         #expect(border > 50, "胶囊应有描边")
     }
 
-    /// 从描边开始往下扫一段：不得出现阴影色。
-    ///
-    /// 关键点是**扫满一段窗口**而不是遇到内容就停 —— 那条阴影线恰恰紧跟在
-    /// 描边内侧的一像素纸色之后（`y23 纸色` → `y24 阴影`），提前退出会漏掉。
-    static func assertSingleTopBorder(_ pixels: Pixels, label: String) throws {
-        let midX = pixels.width / 2
-        var borderRow: Int?
-        for y in 0..<min(40, pixels.height) where pixels.matches(midX, y, 0xC4B89E, tolerance: 6) {
-            borderRow = y
-            break
-        }
-        let start = try #require(borderRow, "\(label)：顶边没找到描边")
-
-        var shadowRows: [Int] = []
-        for y in start..<min(start + 12, pixels.height)
-        where pixels.matches(midX, y, 0xBDAEA0, tolerance: 6) {
-            shadowRows.append(y)
-        }
-        #expect(
-            shadowRows.isEmpty,
-            "\(label)：描边内侧出现了阴影色（行 \(shadowRows)）—— 按钮会看起来有两条边框"
-        )
-    }
 }

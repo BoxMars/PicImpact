@@ -1,29 +1,49 @@
 import SwiftUI
 
 extension View {
-    /// 岛屿胶囊外观：纸色底 + 描边 + 硬阴影。
+    /// 岛屿外观：填充 → 裁剪 → **硬阴影** → 柔阴影（可选） → **描边**。
     ///
-    /// ## ⚠️ 顺序不能变：阴影必须在描边**之前**
+    /// ## ⚠️ 顺序不能变：阴影一律在描边**之前**
     /// 反过来写（描边在前、阴影在后）会在描边内侧挤出一条阴影色的线 ——
-    /// 实测剖面（顶边，2x）：
+    /// 看起来这个控件有**两条边框**。实测剖面（顶边，2x）：
     /// ```
     /// y20-22 #C4B89E 描边   y23 #F7F3DF 纸色   y24-26 #BDAEA0 阴影   y27 #F7F3DF
     /// ```
-    /// 也就是按钮看起来有两条边框。
     ///
-    /// 这个坑已经在 `IslandCard` 与返回/分享按钮上**各踩过一次**，所以把外观收到这一个
-    /// 函数里：只写一遍顺序，只有一个地方可能写错。
-    func islandPill(cornerRadius: CGFloat = 16, shadowOffsetY: CGFloat = 2) -> some View {
-        self
-            .background(AnimalSignatures.cardPaper)
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .circular))
-            // 阴影在前
-            .shadow(color: AnimalSignatures.cardShadowHard, radius: 0, x: 0, y: shadowOffsetY)
-            // 描边在后
+    /// ## 为什么必须合并到一个函数
+    /// 这个"纸色底 + 描边 + 硬阴影"的模式原先在**五个地方各写了一遍**，
+    /// 其中**三处写反了顺序**（骨架、计数胶囊、地图标记），用户为此反馈过三次。
+    /// 手写多遍必然出错 —— 所以现在只留这一个实现，顺序只有一处可能写错。
+    func islandSurface(
+        fill: Color = AnimalSignatures.cardPaper,
+        border: Color = AnimalSignatures.cardBorder,
+        borderWidth: CGFloat = 2,
+        cornerRadius: CGFloat,
+        shadowColor: Color = AnimalSignatures.cardShadowHard,
+        shadowOffsetY: CGFloat = 3,
+        softShadow: (color: Color, radius: CGFloat, offsetY: CGFloat)? = nil
+    ) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .circular)
+        return self
+            .background(fill)
+            .clipShape(shape)
+            // 硬阴影是"厚度"，必须保持实心（radius 0）
+            .shadow(color: shadowColor, radius: 0, x: 0, y: shadowOffsetY)
+            .shadow(
+                color: softShadow?.color ?? .clear,
+                radius: softShadow?.radius ?? 0,
+                x: 0,
+                y: softShadow?.offsetY ?? 0
+            )
+            // 描边最后 —— 顺序反了就会出现"两条边框"
             .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .circular)
-                    .strokeBorder(AnimalSignatures.cardBorder, lineWidth: 1.5)
+                shape.strokeBorder(border, lineWidth: borderWidth)
             }
+    }
+
+    /// 胶囊：小一号的岛屿外观（返回 / 分享按钮用）
+    func islandPill(cornerRadius: CGFloat = 16) -> some View {
+        islandSurface(borderWidth: 1.5, cornerRadius: cornerRadius, shadowOffsetY: 2)
     }
 }
 

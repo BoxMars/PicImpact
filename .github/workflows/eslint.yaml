@@ -30,3 +30,10 @@ jobs:
       # （删字段 / 改名 / 改类型都会被拦下；详见 docs/superpowers/api/public-api-v1.md）
       - name: Verify public API contract
         run: pnpm run api:verify-contract
+
+      # 守住"纸色底 + 描边 + 硬阴影"只能有一个实现。
+      # 这个模式原先手写了五遍、其中三处把顺序写反（描边内侧多一条阴影线，
+      # 控件看起来有两条边框），用户为此反馈过三次。顺序反了编译与运行都不报错，
+      # 只有像素级检查才看得出来，所以这里做静态审计。
+      - name: Audit island surfaces
+        run: ./scripts/ios-audit-surfaces.sh

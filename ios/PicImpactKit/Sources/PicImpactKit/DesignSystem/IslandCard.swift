@@ -64,21 +64,17 @@ public struct IslandCard<Content: View>: View {
     }
 
     public var body: some View {
-        content
-            .background(fill)
-            .clipShape(shape)
-            // 先硬后柔：硬阴影是"厚度"，必须保持实心（radius 0）
-            .shadow(color: hardShadowColor, radius: 0, x: 0, y: hardShadowOffsetY)
-            .shadow(color: softShadowColor, radius: softShadowRadius, x: 0, y: softShadowOffsetY)
-            // ⚠️ 描边必须放在阴影**之后**。
-            // 反过来写（阴影在描边之后）会在描边内侧挤出一条阴影色的线：
-            // 阴影作用的对象变成"含描边的合成视图"，其顶边落在卡片内部，
-            // 于是卡片顶边看起来有两条边框。实测（单变量对照）：
-            //   阴影在描边之后 → y30:#C4B89E y32:内容 y33:#BDAEA0 y35:内容
-            //   阴影在描边之前 → y30:#C4B89E y32:内容            ← 干净
-            .overlay {
-                shape.strokeBorder(borderColor, lineWidth: borderWidth)
-            }
+        // 外观统一走 islandSurface —— 顺序（阴影在前、描边在后）只在那一处定义，
+        // 避免这个坑被第 N 次写错。
+        content.islandSurface(
+            fill: fill,
+            border: borderColor,
+            borderWidth: borderWidth,
+            cornerRadius: cornerRadius,
+            shadowColor: hardShadowColor,
+            shadowOffsetY: hardShadowOffsetY,
+            softShadow: (softShadowColor, softShadowRadius, softShadowOffsetY)
+        )
     }
 }
 

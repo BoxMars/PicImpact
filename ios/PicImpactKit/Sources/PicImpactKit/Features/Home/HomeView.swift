@@ -225,18 +225,14 @@ struct GallerySkeleton: View {
     var body: some View {
         VStack(spacing: AnimalTokens.spacingLG) {
             ForEach(0..<2, id: \.self) { _ in
-                RoundedRectangle(cornerRadius: AnimalSignatures.cardCornerRadius, style: .circular)
-                    .fill(AnimalSignatures.cardPaper)
+                // 这里原本也把 .shadow 写在 .overlay 之后 —— 就是用户看到的
+                // "加载页两个圆角边框、上面有缝隙"。统一走 islandSurface。
+                Color.clear
                     .frame(width: width, height: 200)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: AnimalSignatures.cardCornerRadius, style: .circular)
-                            .strokeBorder(AnimalSignatures.cardBorder, lineWidth: AnimalSignatures.cardBorderWidth)
-                    }
-                    .shadow(
-                        color: AnimalSignatures.cardShadowHard,
-                        radius: 0,
-                        x: 0,
-                        y: AnimalSignatures.cardShadowOffsetY
+                    .islandSurface(
+                        borderWidth: AnimalSignatures.cardBorderWidth,
+                        cornerRadius: AnimalSignatures.cardCornerRadius,
+                        shadowOffsetY: AnimalSignatures.cardShadowOffsetY
                     )
             }
         }

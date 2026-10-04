@@ -101,13 +101,8 @@ public struct MapGalleryView: View {
 /// 地图上的照片标记：岛屿卡的小尺寸化（保持同一套视觉语言）
 private struct AnnotationPin: View {
     var body: some View {
-        RoundedRectangle(cornerRadius: 8, style: .circular)
-            .fill(AnimalSignatures.cardPaper)
+        Color.clear
             .frame(width: 26, height: 26)
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .circular)
-                    .strokeBorder(AnimalSignatures.cardBorder, lineWidth: 2)
-            }
-            .shadow(color: AnimalSignatures.cardShadowHard, radius: 0, x: 0, y: 2)
+            .islandSurface(cornerRadius: 8, shadowOffsetY: 2)
     }
 }
