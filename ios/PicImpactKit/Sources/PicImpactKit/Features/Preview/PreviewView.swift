@@ -216,8 +216,9 @@ struct PreviewPinnedHeader: View {
                 .clipShape(RoundedRectangle(cornerRadius: 18 * (1 - expansion), style: .circular))
                 .padding(.horizontal, 16 * (1 - expansion))
 
+            // 缩进由 PreviewTitleBlock 自己负责，这里**不要**再加一层，
+            // 否则会加两次（32+32=64pt），与卡片内文字错开 —— 有测试盯着这条对齐。
             titleSection
-                .padding(.horizontal, titleInset)
         }
         .padding(.bottom, 12)
         .frame(maxWidth: .infinity)
