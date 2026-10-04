@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		8459C49DD0190DDA25B88360 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1850B4A18E13A8A2C9E9140 /* AppEnvironment.swift */; };
 		B559DA1591FD181A13506091 /* PicImpactApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD627A9AAD76FB3A8A6D7DDB /* PicImpactApp.swift */; };
+		0B41E8445712D1BAB920ACE7 /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */; };
 		BA8E772C6ADFB26A720EA0B8 /* Resources/Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FE719673B9C90C989A3C89E0 /* Resources/Localizable.xcstrings */; };
 		80E258D80648DD2F5BC60B41 /* PicImpactKit in Frameworks */ = {isa = PBXBuildFile; productRef = 20E0B2E074C6CDBFC1E20429 /* PicImpactKit */; };
 /* End PBXBuildFile section */
@@ -16,6 +17,7 @@
 /* Begin PBXFileReference section */
 		D1850B4A18E13A8A2C9E9140 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		FD627A9AAD76FB3A8A6D7DDB /* PicImpactApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PicImpactApp.swift; sourceTree = "<group>"; };
+		D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 		FE719673B9C90C989A3C89E0 /* Resources/Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Resources/Localizable.xcstrings; sourceTree = "<group>"; };
 		E31292F71CD2B7D16943C25C /* PicImpact.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PicImpact.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -45,6 +47,7 @@
 			children = (
 				D1850B4A18E13A8A2C9E9140 /* AppEnvironment.swift */,
 				FD627A9AAD76FB3A8A6D7DDB /* PicImpactApp.swift */,
+				D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */,
 				FE719673B9C90C989A3C89E0 /* Resources/Localizable.xcstrings */,
 			);
 			path = PicImpact;
@@ -125,6 +128,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0B41E8445712D1BAB920ACE7 /* Resources/Assets.xcassets in Resources */,
 				BA8E772C6ADFB26A720EA0B8 /* Resources/Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

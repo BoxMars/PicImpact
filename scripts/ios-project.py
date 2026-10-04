@@ -30,8 +30,12 @@ def uid(*parts: str) -> str:
 
 def main() -> None:
     swift_sources = sorted(p.name for p in APP_DIR.glob("*.swift"))
+    # 资源包含普通文件，也包含 .xcassets 这类**目录**（AppIcon 就在里面，
+    # 原来的 p.is_file() 会把目录整个漏掉）。
     resources = sorted(
-        str(p.relative_to(APP_DIR)) for p in (APP_DIR / "Resources").glob("*") if p.is_file()
+        str(p.relative_to(APP_DIR))
+        for p in (APP_DIR / "Resources").glob("*")
+        if p.is_file() or p.suffix == ".xcassets"
     )
 
     project_id = uid("project", PROJECT_NAME)
@@ -78,6 +82,16 @@ def main() -> None:
     )
 
     # ---------------- PBXFileReference ----------------
+    def file_type(rel: str) -> str:
+        """按后缀决定 Xcode 的文件类型 —— 类型错了 actool 不会处理资源目录。"""
+        if rel.endswith(".xcassets"):
+            return "folder.assetcatalog"
+        if rel.endswith(".xcstrings"):
+            return "text.json.xcstrings"
+        if rel.endswith(".json"):
+            return "text.json"
+        return "file"
+
     file_reference_lines = []
     for name in swift_sources:
         file_reference_lines.append(
@@ -86,7 +100,7 @@ def main() -> None:
         )
     for rel in resources:
         file_reference_lines.append(
-            f"\t\t{file_refs[rel]} /* {rel} */ = {{isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; "
+            f"\t\t{file_refs[rel]} /* {rel} */ = {{isa = PBXFileReference; lastKnownFileType = {file_type(rel)}; "
             f"path = {rel}; sourceTree = \"<group>\"; }};"
         )
     file_reference_lines.append(
