@@ -78,7 +78,9 @@ public struct GalleryCell: View {
                 }
             }
         }
-        .buttonStyle(IslandPressStyle())
+        // 用不带阴影的按压样式：卡片的厚度由 IslandCard 自己提供，
+        // 再叠一层 IslandPressStyle 会让硬阴影被画两次（顶边出现第二条边框）
+        .buttonStyle(IslandCardPressStyle())
         .frame(width: columnWidth)
         .onPreferenceChange(InfoBlockHeightKey.self) { height in
             onInfoHeightChange(height)

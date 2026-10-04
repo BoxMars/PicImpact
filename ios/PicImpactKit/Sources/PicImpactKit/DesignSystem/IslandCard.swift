@@ -67,19 +67,52 @@ public struct IslandCard<Content: View>: View {
         content
             .background(fill)
             .clipShape(shape)
-            .overlay {
-                shape.strokeBorder(borderColor, lineWidth: borderWidth)
-            }
             // 先硬后柔：硬阴影是"厚度"，必须保持实心（radius 0）
             .shadow(color: hardShadowColor, radius: 0, x: 0, y: hardShadowOffsetY)
             .shadow(color: softShadowColor, radius: softShadowRadius, x: 0, y: softShadowOffsetY)
+            // ⚠️ 描边必须放在阴影**之后**。
+            // 反过来写（阴影在描边之后）会在描边内侧挤出一条阴影色的线：
+            // 阴影作用的对象变成"含描边的合成视图"，其顶边落在卡片内部，
+            // 于是卡片顶边看起来有两条边框。实测（单变量对照）：
+            //   阴影在描边之后 → y30:#C4B89E y32:内容 y33:#BDAEA0 y35:内容
+            //   阴影在描边之前 → y30:#C4B89E y32:内容            ← 干净
+            .overlay {
+                shape.strokeBorder(borderColor, lineWidth: borderWidth)
+            }
     }
 }
 
-/// ACNH 的按压效果：卡片"压下去"，实心厚度消失。
+/// 卡片类视图的按压样式：**只做位移，不叠加任何阴影**。
+///
+/// 卡片的"厚度"由 `IslandCard` 自己的硬阴影提供，按压时只需把卡片下移一点，
+/// 视觉上就是"按进了纸面"。绝不在这里再加阴影 —— 那正是顶上出现第二条边框的原因。
+///
+/// 关于"1:1"：Web 端卡片只有 `:hover`（桌面）效果（硬阴影转青色 + 上移 2px），
+/// 触屏没有 hover，按压反馈属于设计文档 §7 里"结果一致、实现必然不同"的范畴。
+public struct IslandCardPressStyle: ButtonStyle {
+    private let offset: CGFloat
+
+    public init(offset: CGFloat = 2) {
+        self.offset = offset
+    }
+
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .offset(y: configuration.isPressed ? offset : 0)
+            .animation(.easeInOut(duration: AnimalTokens.motionFast), value: configuration.isPressed)
+    }
+}
+
+/// ACNH 的按压效果：控件"压下去"，实心厚度消失。
 ///
 /// 对应 `animal-island-ui` 的 `box-shadow: 0 3px 0 0 <active>` → 按下时厚度收缩。
-/// 触屏上没有 hover，按压反馈就是这里最主要的状态表达（设计文档 §7）。
+///
+/// ## ⚠️ 只能用在**自身没有硬阴影**的控件上
+/// 它自己会提供那层硬阴影。若套在已经带硬阴影的视图上（例如 `IslandCard`），
+/// 阴影会被画两次：外层这层作用的对象是"已带阴影的整张卡"，于是它会把卡片上方那圈
+/// **柔阴影也当成剪影**、整体下移 3px 画成实心 `#BDAEA0` ——
+/// 结果就是卡片顶边出现第二条"边框"（实测：顶边 y 上先一条 `#C4B89E`，紧接一条 `#BDAEA0`）。
+/// 卡片类视图请用 `IslandCardPressStyle`。
 public struct IslandPressStyle: ButtonStyle {
     private let cornerRadius: CGFloat
 

@@ -182,6 +182,51 @@ struct IslandCardTests {
         #expect(insideAlpha > 0, "圆角内 6px 应已有内容，实际 \(rounded.describe(Self.cardTop + 6, Self.cardTop + 6))")
     }
 
+    @Test("顶边只有一条边框：描边与内容之间不得夹入阴影色（回归）")
+    func topEdgeHasSingleBorder() throws {
+        // 这条是回归测试。曾经的写法是 `.overlay { strokeBorder }` 在前、`.shadow` 在后，
+        // 结果阴影作用的对象变成"含描边的合成视图"，其顶边落在卡片内部，
+        // 于是在描边内侧挤出一条 `#BDAEA0` —— 看起来卡片顶上就有两条边框。
+        // 实测剖面（错误顺序）：y30:#C4B89E  y32:内容  y33:#BDAEA0  y35:内容
+        //
+        // ⚠️ 判定必须扫满一个**窗口**，不能在遇到第一个内容像素时就 break ——
+        // 那条阴影色恰好出现在内容**之后**一行，提前退出会漏掉它（第一版就是这么漏的）。
+        let content = VStack(spacing: 0) {
+            Color.blue.frame(width: Self.cardWidth, height: Self.cardHeight)
+        }
+        let pixels = try #require(
+            Self.rasterize(IslandCard { content }.padding(Self.pad)),
+            "ImageRenderer 未产出图像"
+        )
+
+        func isBorder(_ p: (r: Int, g: Int, b: Int, a: Int)) -> Bool {
+            abs(p.r - 0xC4) <= 8 && abs(p.g - 0xB8) <= 8 && abs(p.b - 0x9E) <= 8
+        }
+        func isShadow(_ p: (r: Int, g: Int, b: Int, a: Int)) -> Bool {
+            abs(p.r - 0xBD) <= 8 && abs(p.g - 0xAE) <= 8 && abs(p.b - 0xA0) <= 8
+        }
+
+        var borderRows = 0
+        var shadowRows: [Int] = []
+        var contentRows = 0
+        // 顶边往下 15px（5pt）：足以覆盖 2pt 描边 + 阴影偏移 3pt
+        for y in Self.cardTop..<(Self.cardTop + 15) {
+            let p = pixels.at(Self.cardMidX, y)
+            if isBorder(p) { borderRows += 1; continue }
+            if isShadow(p) { shadowRows.append(y); continue }
+            if p.b > 200, p.r < 100 { contentRows += 1 }
+        }
+
+        // 注意 scale：ImageRenderer 默认 scale = 1，所以 2pt 描边在这里只有 2px
+        // （截图里是 3x = 6px）。按 6 去卡会误判。
+        #expect(borderRows >= 2, "顶边描边应约 2pt，实际 \(borderRows) px")
+        #expect(contentRows > 0, "描边之后应能看到内容")
+        #expect(
+            shadowRows.isEmpty,
+            "描边与内容之间出现了阴影色（行 \(shadowRows)）—— 卡片顶边会看起来有两条边框"
+        )
+    }
+
     @Test("几何：渲染宽度等于卡片宽度加内边距（描边含在内，对应 CSS border-box）")
     func renderedSizeMatchesBorderBox() throws {
         let pixels = try #require(Self.rasterize(Self.card()))
