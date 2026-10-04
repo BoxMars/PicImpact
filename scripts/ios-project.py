@@ -105,7 +105,7 @@ def main() -> None:
         )
     file_reference_lines.append(
         f"\t\t{product_ref_id} /* {PROJECT_NAME}.app */ = {{isa = PBXFileReference; explicitFileType = "
-        f"wrapper.application; includeInIndex = 0; path = {PROJECT_NAME}.app; sourceTree = BUILT_PRODUCTS_DIR; }};"
+        f'wrapper.application; includeInIndex = 0; path = "大福映画.app"; sourceTree = BUILT_PRODUCTS_DIR; }};'
     )
 
     pbxproj = f"""// !$*UTF8*$!
@@ -311,7 +311,7 @@ def main() -> None:
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.boxz.felina;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "大福映画";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -339,7 +339,7 @@ def main() -> None:
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.boxz.felina;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "大福映画";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

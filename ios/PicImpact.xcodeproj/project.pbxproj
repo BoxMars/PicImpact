@@ -19,7 +19,7 @@
 		FD627A9AAD76FB3A8A6D7DDB /* PicImpactApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PicImpactApp.swift; sourceTree = "<group>"; };
 		D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 		FE719673B9C90C989A3C89E0 /* Resources/Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Resources/Localizable.xcstrings; sourceTree = "<group>"; };
-		E31292F71CD2B7D16943C25C /* PicImpact.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PicImpact.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E31292F71CD2B7D16943C25C /* PicImpact.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "大福映画.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -213,7 +213,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.boxz.felina;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "大福映画";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -241,7 +241,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.boxz.felina;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "大福映画";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

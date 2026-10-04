@@ -1223,3 +1223,30 @@ head 提前关闭管道会让脚本以 SIGPIPE(141) 退出、掩盖本意的退�
 
 **顺带又踩了一次**：测试里字符串中用了未转义的双引号，Swift 编译不过 ——
 这已是本项目第二次犯（前一次在 `cold.swift`）。
+
+
+### 归档显示 PicImpact → 改成大福映画
+
+用户在 Organizer 的 Archives 里看到名字是 **PicImpact**（原开源项目名），要求改成大福映画。
+
+**Organizer 显示的是 `CFBundleName`**，而它默认取 `PRODUCT_NAME`（= `$(TARGET_NAME)` = "PicImpact"）。
+（`CFBundleDisplayName` 早就是大福映画，但那个键不决定归档列表的名字。）
+
+**踩了两个坑**：
+1. 先试 `INFOPLIST_KEY_CFBundleName = "大福映画"` —— **无效**，这个键不在
+   `INFOPLIST_KEY_*` 的允许列表里（归档后 CFBundleName 仍是 PicImpact）。实测才发现。
+2. 改 `PRODUCT_NAME` 时，生成脚本里那行 f-string 变成嵌套双引号，**Python 语法错误**，
+   脚本直接跑不起来 —— 而我当时用了 `cmd >/dev/null 2>&1 && echo "✓"`，
+   竟然还是打印了成功（误导）。后来单独跑脚本才看到 SyntaxError。
+
+**最终改法**：`PRODUCT_NAME = "大福映画"`（两处配置）+ PBXFileReference 的产物路径
+`path = "大福映画.app"`（否则工程引用不到产物）；外层字符串改用单引号避免嵌套双引号。
+
+**验证（归档产物实测）**：
+```
+归档内 App         大福映画.app
+CFBundleName       大福映画
+CFBundleDisplayName 大福映画
+CFBundleExecutable  大福映画
+CFBundleIdentifier  dev.boxz.felina
+```

@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "2A131AAE44C299926BFAD955"
-               BuildableName = "PicImpact.app"
+               BuildableName = "&#x5927;&#x798f;&#x6620;&#x753b;.app"
                BlueprintName = "PicImpact"
                ReferencedContainer = "container:PicImpact.xcodeproj">
             </BuildableReference>
@@ -44,7 +44,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "2A131AAE44C299926BFAD955"
-            BuildableName = "PicImpact.app"
+            BuildableName = "&#x5927;&#x798f;&#x6620;&#x753b;.app"
             BlueprintName = "PicImpact"
             ReferencedContainer = "container:PicImpact.xcodeproj">
          </BuildableReference>
@@ -61,7 +61,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "2A131AAE44C299926BFAD955"
-            BuildableName = "PicImpact.app"
+            BuildableName = "&#x5927;&#x798f;&#x6620;&#x753b;.app"
             BlueprintName = "PicImpact"
             ReferencedContainer = "container:PicImpact.xcodeproj">
          </BuildableReference>
