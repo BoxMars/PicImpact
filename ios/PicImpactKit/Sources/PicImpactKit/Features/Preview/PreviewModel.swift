@@ -27,8 +27,11 @@ public final class PreviewModel {
     public private(set) var phase: LoadPhase = .idle
     public private(set) var previewImage: PlatformImage?
     public private(set) var originalImage: PlatformImage?
-    public private(set) var tone: ToneAnalysis?
-    public private(set) var histogram: Histogram?
+    /// 写权限设为 internal：测试需要在不加载真实图片的情况下直接注入，
+    /// 才能栅格化验证明细页的分析分区（否则要么依赖网络，要么测不到）。
+    public internal(set) var tone: ToneAnalysis?
+    /// 同 `tone`，供测试注入
+    public internal(set) var histogram: Histogram?
     public private(set) var isDownloading = false
     public private(set) var downloadError: String?
 

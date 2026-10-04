@@ -228,4 +228,75 @@ struct PreviewInfoSectionsTests {
             "标题(短横 x=\(accent))与卡片内文字(x=\(section))没有左对齐 —— 相差 \(abs(accent - section))px"
         )
     }
+
+    @Test("详情页里的直方图没有边框（在真实组合上检查，回归）")
+    func histogramHasNoBorderInDetailPage() throws {
+        // 为什么在 PreviewContentView 上测而不是只测 HistogramPanel：
+        // 边框可以在**调用点**加（我第一版就是这么加的），只测组件会漏掉。
+        // 这段测的是真实组合。
+        let json = """
+        {"id":"p1","imageName":"IMG_1.jpeg","url":"https://x/o.jpg","previewUrl":"https://x/p.webp",
+         "videoUrl":"","blurhash":"","width":4032,"height":3024,"title":"标题","detail":"",
+         "type":1,"labels":[],"lon":"","lat":"",
+         "exif":{"make":"Apple","model":"iPhone 17","lens_model":"back camera","focal_length":"5.96 mm",
+                 "f_number":"f/1.6","exposure_time":"1/13","exposure_program":"Normal program",
+                 "iso_speed_rating":640,"data_time":"2026:10:02 20:15:12","bits":"8"},
+         "albumLicense":null,"createdAt":null}
+        """
+        let image = try APIDecoding.makeDecoder().decode(ImageDTO.self, from: Data(json.utf8))
+        let model = PreviewModel(image: image, loader: ImageLoader())
+
+        // 先让直方图有数据可画，否则整块不会渲染
+        let bins = (0..<Histogram.binCount).map { _ in 1 }
+        let histogram = Histogram(red: bins, green: bins, blue: bins, luminance: bins)
+        model.histogram = histogram
+
+        let pixels = try #require(IslandCardTests.rasterize(
+            PreviewContentView(model: model, features: .none, onSelectTag: { _ in })
+                .frame(width: 393, height: 1400),
+            scale: 2
+        ))
+
+        // 定位直方图：直方图是**最后一个分区**，所以取最后一处青色分区标题
+        // （"直方图"三个字，#19c8b9）作为锚点。
+        //
+        // 为什么不用直方图自身的深色底定位：柱体会把底色盖住 ——
+        // 实测若把所有箱设成相同值，每根柱都是满高，底色只剩边缘几十个像素，
+        // 按底色找会完全找不到（第一版就是这么失败的）。
+        var lastTealRow = -1
+        for y in 0..<pixels.height {
+            for x in 0..<pixels.width where pixels.matches(x, y, 0x19C8B9, tolerance: 10) {
+                lastTealRow = y
+                break
+            }
+        }
+        let anchor = try #require(lastTealRow > 0 ? lastTealRow : nil, "没找到分区标题")
+
+        // 面板高度 120pt、上下各 8pt 内边距，2x 下约 272px；
+        // 再往下就是卡片自己的 16pt 底部内边距与外框（约 +292），故取到 +275 为止。
+        let y0 = anchor + 20
+        let y1 = min(pixels.height - 1, anchor + 275)
+
+        // 面板范围里不该出现描边。
+        //
+        // ⚠️ 必须同时查两种颜色：描边常常带透明度。实测我原来那层用
+        // `cardBorder.opacity(0.5)` 画，渲染出来是 **#DAD0BB**（与 #c4b89e 相差很远），
+        // 只按 #c4b89e 精确比色**抓不到它** —— 我第一版测试就是这样漏掉的。
+        // 所以实心与半透明混合两种都查。
+        let inset = 80
+        var border = 0
+        for y in y0...y1 {
+            for x in inset..<(pixels.width - inset) {
+                if pixels.matches(x, y, 0xC4B89E, tolerance: 4)
+                    || pixels.matches(x, y, 0xDAD0BB, tolerance: 4) {
+                    border += 1
+                }
+            }
+        }
+
+        #expect(
+            border == 0,
+            "详情页的直方图不该有边框，实测在 y=\(y0)...\(y1) 命中 \(border) px 的 #c4b89e"
+        )
+    }
 }

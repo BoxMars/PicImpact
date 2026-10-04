@@ -145,16 +145,7 @@ struct PreviewContentView: View {
                 if let histogram = model.histogram {
                     IslandDashedDivider()
                     sectionBlock("Exif.histogram") {
-                        // 直方图再嵌一层浅色面板，让它从纸色底上"浮"出来
-                        HistogramView(histogram: histogram)
-                            .frame(height: 120)
-                            .padding(8)
-                            .background(AnimalTokens.bgSecondary)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .circular))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 12, style: .circular)
-                                    .strokeBorder(AnimalSignatures.cardBorder.opacity(0.5), lineWidth: 1)
-                            }
+                        HistogramPanel(histogram: histogram)
                     }
                 }
             }
@@ -194,5 +185,21 @@ struct PreviewContentView: View {
                 }
             }
         }
+    }
+}
+/// 直方图面板：浅色底 + 圆角，**不加边框**（按用户要求）。
+///
+/// 单独抽成视图是为了能在测试里直接栅格化 —— 否则"没有边框"这件事只能靠肉眼，
+/// 而这次改动的全部内容恰恰就是去掉一层边框。
+struct HistogramPanel: View {
+    let histogram: Histogram
+
+    var body: some View {
+        HistogramView(histogram: histogram)
+            .frame(height: 120)
+            .padding(8)
+            // 保留浅色底（它是让直方图从纸色上"浮"出来的依据），只去掉描边
+            .background(AnimalTokens.bgSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .circular))
     }
 }

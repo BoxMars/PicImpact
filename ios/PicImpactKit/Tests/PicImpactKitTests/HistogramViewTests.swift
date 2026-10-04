@@ -129,4 +129,24 @@ struct HistogramViewTests {
         let histogram = Histogram(red: red, green: green, blue: Self.emptyBins(), luminance: Self.emptyBins())
         #expect(histogram.maxValue == 1000, "应取四通道全局最大值，实际 \(histogram.maxValue)")
     }
+
+    @Test("直方图面板没有边框（按用户要求，回归）")
+    func panelHasNoBorder() throws {
+        // 面板曾经带一层 1px 的 #c4b89e 描边。
+        // HistogramView 自身只画白色半透明网格与彩色柱，调色板里没有任何接近 #c4b89e 的颜色
+        // （背景 #1C1C1E、网格白色 4%、柱体红/绿/蓝），所以在没有外框时该颜色不应出现。
+        let pixels = try #require(IslandCardTests.rasterize(
+            HistogramPanel(histogram: Self.singleRedBarHistogram())
+                .padding(8)
+                .background(AnimalSignatures.cardPaper),
+            scale: 2
+        ))
+        var border = 0
+        for y in 0..<pixels.height {
+            for x in 0..<pixels.width where pixels.matches(x, y, 0xC4B89E, tolerance: 3) {
+                border += 1
+            }
+        }
+        #expect(border == 0, "直方图面板不该有描边，实测 \(border) px 命中 #c4b89e")
+    }
 }
