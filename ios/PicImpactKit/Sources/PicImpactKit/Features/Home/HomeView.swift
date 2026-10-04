@@ -25,6 +25,8 @@ public struct HomeView: View {
     /// 头部（缎带标题所在的那块）是否还在画面里。
     /// 滑出画面后右下角出现"回到顶部"，否则用户只能一路滑回去。
     @State private var isHeaderVisible = true
+    /// 用来在"重新进入应用"时立即查询更新
+    @Environment(\.scenePhase) private var scenePhase
 
     private let loader: ImageLoader
     private let showDownload: Bool
@@ -55,11 +57,11 @@ public struct HomeView: View {
     /// 实测值到达后会立刻替换 —— 兜底只影响首帧，不会长期偏离。
     private static let estimatedInfoHeight: CGFloat = 150
 
-    /// 主动查询间隔。
+    /// 主动查询间隔（用户定为 1 分钟）。
     ///
-    /// ⚠️ 服务端 `/images` 实测要 1.5–3.4s，所以 5 秒轮询在慢网下几乎等于持续请求。
-    /// 用户明确要求 5 秒；若要放宽，只改这一个常量即可。
-    static let updatePollInterval: Duration = .seconds(5)
+    /// 另外**每次重新进入应用都会立即查询一次**（见下面的 scenePhase 处理），
+    /// 所以这个间隔只影响"一直停留在应用里"的情况。
+    static let updatePollInterval: Duration = .seconds(60)
 
     /// "回到顶部"滚动锚点的 id
     private static let topAnchorID = "home-top"
@@ -139,6 +141,13 @@ public struct HomeView: View {
             })
             .refreshable { await store.refresh() }
             .task { await store.loadFirstPageIfNeeded() }
+            // 每次重新进入应用立即查询一次更新 —— 无论是从后台返回，还是被杀掉后重新启动
+            // （冷启动那条路径由上面的 loadFirstPageIfNeeded 负责：先出缓存、再后台校验）。
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active {
+                    Task { await store.pollForUpdates() }
+                }
+            }
             // 每 5 秒主动查询网站是否有更新（用户要求）。
             // 只在页面存在期间运行；App 切到后台时 iOS 会挂起进程，轮询自然暂停。
             .task {
