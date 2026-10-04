@@ -26,6 +26,8 @@ public struct HomeView: View {
     private let loader: ImageLoader
     private let showDownload: Bool
     private let downloader: DownloadService?
+    private let headerTitle: String
+    private let headerSubtitle: String
     private let onSelect: (ImageDTO) -> Void
 
     public init(
@@ -33,12 +35,16 @@ public struct HomeView: View {
         loader: ImageLoader,
         showDownload: Bool = false,
         downloader: DownloadService? = nil,
+        headerTitle: String = "大福映画 Felina Gallery",
+        headerSubtitle: String = GalleryHeader.defaultSubtitle,
         onSelect: @escaping (ImageDTO) -> Void = { _ in }
     ) {
         _store = State(initialValue: store)
         self.loader = loader
         self.showDownload = showDownload
         self.downloader = downloader
+        self.headerTitle = headerTitle
+        self.headerSubtitle = headerSubtitle
         self.onSelect = onSelect
     }
 
@@ -58,6 +64,14 @@ public struct HomeView: View {
             let layout = makeLayout(metrics: metrics)
 
             ScrollView {
+              VStack(spacing: 0) {
+                // 头部全宽（与 Web 一致：header 与 Divider 都在网格容器之外）
+                GalleryHeader(
+                    title: headerTitle,
+                    subtitle: headerSubtitle,
+                    photoCount: store.images.count
+                )
+
                 ZStack(alignment: .topLeading) {
                     Color.clear.frame(height: layout.contentHeight)
 
@@ -78,14 +92,20 @@ public struct HomeView: View {
                             .padding(.top, 80)
                     }
 
+                    // 只在**首次加载**时给内联指示器。
+                    // 下拉刷新有自己的 .refreshing 状态，系统已经显示了指示器，
+                    // 这里再画一个就会出现两个刷新图标。
                     if store.phase == .loadingFirstPage {
                         ProgressView().frame(width: contentWidth, height: 160)
                     }
                 }
                 .frame(width: contentWidth, alignment: .topLeading)
                 .padding(.horizontal, padding)
-                .padding(.vertical, AnimalTokens.spacingLG)
+                // Web 的网格容器是 padding-top/bottom: 16
+                .padding(.top, AnimalTokens.spacingLG)
+                .padding(.bottom, AnimalTokens.spacingLG)
                 .frame(maxWidth: .infinity, alignment: .center)
+              }
             }
             .background(AnimalTokens.bg)
             .refreshable { await store.refresh() }

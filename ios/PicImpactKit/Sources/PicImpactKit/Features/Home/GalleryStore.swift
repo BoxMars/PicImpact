@@ -11,7 +11,13 @@ public final class GalleryStore {
 
     public enum Phase: Equatable, Sendable {
         case idle
+        /// 首次加载（列表还是空的，需要占位指示器）
         case loadingFirstPage
+        /// 下拉刷新。
+        ///
+        /// **必须与 `loadingFirstPage` 分开**：下拉刷新时系统已经显示了自己的指示器
+        /// （`.refreshable`），若这里也当成首次加载，界面会出现两个刷新图标。
+        case refreshing
         case loadingNextPage
         case loaded
         case failed(String)
@@ -66,13 +72,14 @@ public final class GalleryStore {
         await load(page: currentPage + 1, replacing: false)
     }
 
-    /// 下拉刷新：清空重来
+    /// 下拉刷新：重新拉第一页。
+    ///
+    /// **不清空现有列表**：清空会让整屏内容先消失再出现（跳变），
+    /// 而新数据到达后整体替换即可，视觉上更稳。
     public func refresh() async {
         guard !isLoading else { return }
-        images = []
-        currentPage = 0
         hasMore = true
-        await load(page: 1, replacing: true)
+        await load(page: 1, replacing: true, isRefresh: true)
     }
 
     /// 失败后重试（失败时不在 phase 里保留 page 进度，重试当前目标页）
@@ -85,9 +92,13 @@ public final class GalleryStore {
         }
     }
 
-    private func load(page: Int, replacing: Bool) async {
+    private func load(page: Int, replacing: Bool, isRefresh: Bool = false) async {
         isLoading = true
-        phase = (page == 1 && replacing) ? .loadingFirstPage : .loadingNextPage
+        if isRefresh {
+            phase = .refreshing
+        } else {
+            phase = (page == 1 && replacing) ? .loadingFirstPage : .loadingNextPage
+        }
 
         do {
             let result = try await dataSource.images(

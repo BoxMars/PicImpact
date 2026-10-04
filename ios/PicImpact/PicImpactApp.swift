@@ -32,10 +32,12 @@ struct RootView: View {
                 loader: environment.loader,
                 showDownload: environment.features.download,
                 downloader: environment.downloader,
+                // 标题与副标题现在显示在页面内的缎带上（与 Web 一致），导航栏不再重复
+                headerTitle: environment.siteTitle,
                 onSelect: { previewTarget = $0 }
             )
-            .navigationTitle(environment.siteTitle)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $previewTarget) { image in
                 PreviewView(
                     model: PreviewModel(

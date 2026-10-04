@@ -90,6 +90,51 @@ struct AnimalIconTests {
         #expect(abs(absolute.height - relative.height) < 0.001)
     }
 
+    // MARK: - 解析器的健壮性
+
+    /// 这一组是回归测试。曾经的实现会在遇到"消费不了的字符"时
+    /// **不推进索引**，外层 while 就永远空转 —— 波浪素材正好触发了它。
+    /// 表现是 `ImageRenderer` 永远不返回：不报错、不崩溃，只是挂住，
+    /// 而且因为测试并行执行，很难看出是哪一个测试挂的。
+    @Test("异常路径数据必然终止（曾经在波浪素材上死循环）")
+    func parserAlwaysTerminates() {
+        let adversarial = [
+            "M0 0 L",            // 命令后缺参数
+            "M",                 // 只有命令
+            "Z Z Z",             // 只有闭合
+            "M0 0 \t L 1 1",     // 制表符分隔（原来漏掉了这种空白）
+            "M0 0 \r L 1 1",     // 回车分隔
+            "M0 0 X 5 5 L 1 1",  // 不认识的命令
+            "M0 0 L 1 1 !!! ",   // 垃圾字符
+            "M0 0 L 1e 1",       // 残缺的指数
+            "!!!!!",             // 全是垃圾
+            "",                  // 空串
+        ]
+        for d in adversarial {
+            // 只要返回就说明没空转；形状对不对是次要的
+            _ = SVGIcon.path(from: d)
+        }
+    }
+
+    @Test("波浪素材能解析出形状（就是它触发了上面的死循环）")
+    func waveAssetParses() throws {
+        let icon = try #require(
+            AnimalIconCache.shared.icon(named: "wave-yellow"),
+            "波浪素材解析失败"
+        )
+        #expect(icon.viewBox.width == 375)
+        #expect(icon.viewBox.height == 10)
+        #expect(icon.shapes.count >= 1, "波浪路径没解析出形状")
+    }
+
+    @Test("无约束尺寸下不崩也不空转（此时选择不画，由调用方给有限尺寸）")
+    func unboundedCanvasIsSafe() {
+        // 不给任何尺寸约束：SVGAsset 内部会命中守卫直接返回
+        let renderer = ImageRenderer(content: SVGAsset("wave-yellow"))
+        renderer.scale = 1
+        _ = renderer.cgImage
+    }
+
     // MARK: - 渲染（这才是"图标会不会显示"的证据）
 
     /// 注意**不加 padding**：加了之后 16pt 与 64pt 的画布里留白占比不同

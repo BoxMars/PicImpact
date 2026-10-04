@@ -54,7 +54,7 @@ public enum SVGIcon {
 
         func nextNumber() -> CGFloat? {
             // 跳过分隔符
-            while index < data.endIndex, data[index] == " " || data[index] == "," || data[index] == "\n" {
+            while index < data.endIndex, data[index] == "," || data[index].isWhitespace {
                 index = data.index(after: index)
             }
             guard index < data.endIndex else { return nil }
@@ -79,12 +79,20 @@ public enum SVGIcon {
         }
 
         func skipSeparators() {
-            while index < data.endIndex, data[index] == " " || data[index] == "," || data[index] == "\n" {
+            // 用 isWhitespace 而不是手写枚举：原来只处理了空格/逗号/\n，
+            // 遇到 \t 或 \r 就停住，导致下面的 nextNumber() 无法消费字符。
+            while index < data.endIndex, data[index] == "," || data[index].isWhitespace {
                 index = data.index(after: index)
             }
         }
 
         while index < data.endIndex {
+            // 每轮记录起点，循环末尾若未前进就强制前进一个字符。
+            // 这是**终止性保证**：任何无法识别的字符都不会让解析器空转
+            // （曾经在波浪 SVG 上无限循环 —— 表现为 ImageRenderer 永远不返回，
+            //  而编译器与测试都不报错，极难定位）。
+            let iterationStart = index
+
             skipSeparators()
             guard index < data.endIndex else { break }
 
@@ -145,6 +153,10 @@ public enum SVGIcon {
                 break
             }
             hasPendingCommand = true
+
+            if index == iterationStart {
+                index = data.index(after: index)
+            }
         }
 
         return path

@@ -75,34 +75,8 @@ public struct AnimalIcon: View {
     }
 
     public var body: some View {
-        Canvas { context, canvasSize in
-            guard let icon = AnimalIconCache.shared.icon(named: name.rawValue),
-                  icon.viewBox.width > 0, icon.viewBox.height > 0 else { return }
-
-            // 对应 CSS 的 `background-size: contain` + `background-position: center`：
-            // 等比缩放到方形框内并居中
-            let scale = min(
-                canvasSize.width / icon.viewBox.width,
-                canvasSize.height / icon.viewBox.height
-            )
-            let offsetX = (canvasSize.width - icon.viewBox.width * scale) / 2
-                - icon.viewBox.minX * scale
-            let offsetY = (canvasSize.height - icon.viewBox.height * scale) / 2
-                - icon.viewBox.minY * scale
-
-            context.translateBy(x: offsetX, y: offsetY)
-            context.scaleBy(x: scale, y: scale)
-
-            for shape in icon.shapes {
-                // evenodd 必须传：图标上的镂空全靠它，否则会被实心填掉
-                context.fill(
-                    shape.path,
-                    with: .color(shape.color),
-                    style: FillStyle(eoFill: shape.evenOdd)
-                )
-            }
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        // 复用通用 SVG 资源视图：缩放/居中/evenodd 的逻辑只写一份
+        SVGAsset(name.rawValue)
+            .frame(width: size, height: size)
     }
 }

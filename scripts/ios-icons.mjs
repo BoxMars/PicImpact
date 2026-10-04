@@ -25,6 +25,15 @@ const ICONS_DIR = 'ios/PicImpactKit/Sources/PicImpactKit/Resources/Icons'
  * Web 卡片实际用到的图标（见 components/gallery/simple/gallery-image.tsx）。
  * 只取需要的 —— 不把整个图标库搬进 App。
  */
+/**
+ * 装饰图形（同样属于展示效果，需与 Web 一致）。
+ * wave-yellow 是 simple 画廊头部下方的波浪分隔线（`<Divider type="wave-yellow">`），
+ * 它自带 fill="#f1e26f"，由本包的 SVG 渲染器直接画出来。
+ */
+const DECORATIONS = {
+  'wave-yellow': '头部下方的波浪分隔线',
+}
+
 const ICONS = {
   'icon-camera': 'EXIF · 相机（make + model）',
   'icon-variant': 'EXIF · 光圈',
@@ -34,6 +43,7 @@ const ICONS = {
   'icon-diy': '操作 · 复制图片链接',
   'icon-helicopter': '操作 · 复制分享直链',
   'icon-shopping': '操作 · 下载原图',
+  'icon-design': '详情页 · 镜头（lens_model）',
 }
 
 const checkMode = process.argv.includes('--check')
@@ -49,7 +59,7 @@ function findUpstream(name) {
 const results = []
 let mismatches = 0
 
-for (const [name, purpose] of Object.entries(ICONS)) {
+for (const [name, purpose] of Object.entries({ ...ICONS, ...DECORATIONS })) {
   const source = findUpstream(name)
   const svg = readFileSync(source, 'utf8')
   const svgPath = join(ICONS_DIR, `${name}.svg`)
@@ -80,9 +90,12 @@ if (checkMode) {
     console.error(`\n  ${mismatches} 个图标与上游不一致`)
     process.exit(1)
   }
-  console.log(`\n  ✓ ${Object.keys(ICONS).length} 个图标与上游一致`)
+  const total = Object.keys(ICONS).length + Object.keys(DECORATIONS).length
+  console.log(`\n  ✓ ${total} 个素材与上游一致`)
 } else {
   console.log(`已写入 ${ICONS_DIR}`)
   console.log(results.join('\n'))
-  console.log(`\n  ${Object.keys(ICONS).length} 个图标（彩色原素材，不可当 template 染色）`)
+  const total = Object.keys(ICONS).length + Object.keys(DECORATIONS).length
+  console.log(`\n  ${Object.keys(ICONS).length} 个图标 + ${Object.keys(DECORATIONS).length} 个装饰图形`)
+  console.log('  均为彩色原素材，不可当 template 染色')
 }

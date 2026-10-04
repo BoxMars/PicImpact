@@ -44,11 +44,24 @@ struct IslandCardTests {
         }
     }
 
+    /// 栅格化的尺寸上限。
+    ///
+    /// 存在的理由：视图若在某个维度上布局无界（例如忘了给高度约束），
+    /// `ImageRenderer` 会产出一张极大的图，后续的逐像素断言会跑几分钟甚至吃爆内存 ——
+    /// 表现为「测试挂住」而不是「测试失败」，非常难查。加上这个守卫后，
+    /// 这类问题会立刻以「渲染尺寸异常」的形式失败。
+    static let maxRasterDimension = 3000
+
     static func rasterize(_ view: some View, scale: CGFloat = 1) -> Pixels? {
         let renderer = ImageRenderer(content: view)
         renderer.scale = scale
         renderer.isOpaque = false
         guard let cgImage = renderer.cgImage else { return nil }
+        guard cgImage.width > 0, cgImage.height > 0,
+              cgImage.width <= maxRasterDimension, cgImage.height <= maxRasterDimension else {
+            Issue.record("渲染尺寸异常：\(cgImage.width)×\(cgImage.height)（上限 \(maxRasterDimension)）—— 视图在某维度上布局无界？")
+            return nil
+        }
 
         let width = cgImage.width
         let height = cgImage.height
