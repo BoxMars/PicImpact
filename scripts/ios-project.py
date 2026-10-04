@@ -13,11 +13,18 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 IOS = ROOT / "ios"
 PROJECT_NAME = "FelinaGallery"
+
+# 开发者团队 ID **不写死在仓库里**（仓库是公开的）。
+# 需要签名/归档时用环境变量注入，例如：
+#   DEVELOPMENT_TEAM=XXXXXXXXXX python3 scripts/ios-project.py
+# 不注入则为空，你在 Xcode 里手动选一次团队即可。
+DEVELOPMENT_TEAM = os.environ.get("DEVELOPMENT_TEAM", "")
 APP_DIR = IOS / PROJECT_NAME
 PACKAGE_RELATIVE = "PicImpactKit"  # 相对于工程文件所在目录
 
@@ -296,7 +303,7 @@ def main() -> None:
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = VX3SCAKB5K;
+				DEVELOPMENT_TEAM = "{DEVELOPMENT_TEAM}";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "大福映画";
@@ -326,7 +333,7 @@ def main() -> None:
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = VX3SCAKB5K;
+				DEVELOPMENT_TEAM = "{DEVELOPMENT_TEAM}";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "大福映画";
