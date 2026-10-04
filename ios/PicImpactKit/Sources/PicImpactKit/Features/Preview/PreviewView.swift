@@ -72,7 +72,8 @@ public struct PreviewView: View {
         .modifier(ScrollOffsetReporter { offset in
             scrollOffset = offset
         })
-        .background(AnimalTokens.bg)
+        // 图片滚到最上面钉住时不要从状态栏里透出来
+        .islandPageBackground()
         // 顶部用自绘的 ACNH 控件（返回 / 分享），不再用系统导航栏。
         // 加平台判断是因为 `.navigationBar` 这个 placement 在 macOS 上不存在，
         // 而本包同时要给 macOS 的单元测试编译。

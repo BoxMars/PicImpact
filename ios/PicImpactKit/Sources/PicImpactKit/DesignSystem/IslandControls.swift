@@ -178,3 +178,29 @@ struct Chevron: Shape {
         return path
     }
 }
+
+extension View {
+    /// 页面底色 + **盖住顶部安全区（状态栏）**。
+    ///
+    /// ## 为什么需要
+    /// 这些页面隐藏了系统导航栏（为了用自绘的 ACNH 顶栏），而 `ScrollView` 的内容
+    /// 会**溢出到安全区**（SwiftUI 的固有行为：内容可以滚进状态栏，但贴在它上面的
+    /// overlay / background 不会）。于是图片会从状态栏底下透出来，
+    /// 时间与电量压在照片上根本看不清。
+    ///
+    /// ## ⚠️ 必须先 `.clipped()`
+    /// 只加一层 `.background(...ignoresSafeArea())` 是**没用的** ——
+    /// 溢出的内容会把那层背景挡住。实测（状态栏区域里页面底色的占比）：
+    /// ```
+    /// 不加处理                0%（全是照片）
+    /// 只加忽略安全区的背景      0%（被溢出的内容挡住）
+    /// 先 clipped 再加背景      100%（#F8F8F0 + 灵动岛，照片不再透出）
+    /// ```
+    func islandPageBackground(_ color: Color? = nil) -> some View {
+        self
+            // 先把溢出到安全区的滚动内容裁掉
+            .clipped()
+            // 底色铺满整屏，含状态栏那一条
+            .background((color ?? AnimalTokens.bg).ignoresSafeArea(edges: .top))
+    }
+}

@@ -111,7 +111,8 @@ public struct HomeView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
               }
             }
-            .background(AnimalTokens.bg)
+            // 内容不要从状态栏底下透出来（实验用的滚动锚点已移除）
+            .islandPageBackground()
             .refreshable { await store.refresh() }
             .task { await store.loadFirstPageIfNeeded() }
         }
