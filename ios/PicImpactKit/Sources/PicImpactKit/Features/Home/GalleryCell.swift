@@ -90,7 +90,12 @@ public struct GalleryCell: View {
     // MARK: - 图片区
 
     private var imageArea: some View {
-        CachedAsyncImage(url: image.displayURL, loader: loader, contentMode: .fill)
+        CachedAsyncImage(
+                    url: image.displayURL,
+                    loader: loader,
+                    contentMode: .fill,
+                    thumbHash: image.blurhash
+                )
             .frame(width: columnWidth, height: imageHeight)
             // 图片四角都圆：上方两角由 IslandCard 的裁剪给出，下方两角在这里给。
             // 半径 16 取自 Web 的 `border-radius: 16px 16px 0 0`（卡片本身是 18，
