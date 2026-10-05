@@ -49,19 +49,28 @@ public struct PreviewView: View {
         var imageFraction: CGFloat
     }
 
-    /// - **设备方向与照片方向一致**（且屏幕够宽）→ 左右并排 + 信息双栏
-    /// - 否则 → 上下排 + 信息单栏
-    /// - 并排时图片只占 1/3 宽，把地方让给双栏信息；上下排时比例不生效（图片整宽）
+    /// **两个维度是分开的**（这一点我一开始搞混过，被用户纠正）：
+    ///
+    /// - **结构**：设备与照片方向**一致**时左右并排（用户："竖屏+竖屏照片是双排"），
+    ///   不一致时上下排。
+    /// - **信息栏**：设备与照片方向**不一致**时双栏（用户："竖屏+竖屏照片是单栏信息"），
+    ///   一致时单栏。
+    ///
+    /// 合起来：
+    ///   竖屏+竖图 → 并排、单栏      竖屏+横图 → 上下排、双栏
+    ///   横屏+横图 → 并排、单栏      横屏+竖图 → 上下排、双栏
+    ///
+    /// 窄屏（iPhone 竖屏）放不下并排，也放不下两栏，所以两者都退化为上下排 + 单栏。
     static func layoutMode(size: CGSize, photoAspectRatio: CGFloat) -> DetailLayoutMode {
         let isDevicePortrait = size.height > size.width
         let isPhotoPortrait = photoAspectRatio < 1
         let matched = isDevicePortrait == isPhotoPortrait
-        // 窄屏（iPhone 竖屏）放不下并排的两栏，一律上下排
         let roomy = size.width >= wideBreakpoint
         return DetailLayoutMode(
             stacked: !(matched && roomy),
-            twoColumn: matched && roomy,
-            imageFraction: matched ? 1.0 / 3.0 : 2.0 / 3.0
+            twoColumn: !matched && roomy,
+            // 并排那一档信息是单栏，所以图片按原来占 2/3（上下排时该值不生效）
+            imageFraction: 2.0 / 3.0
         )
     }
 
@@ -159,15 +168,15 @@ public struct PreviewView: View {
 
     public var body: some View {
         GeometryReader { proxy in
-            // 用户定义的规则（**设备方向与照片方向一致 → 左右并排 + 信息双栏**）：
+            // 用户定义的规则 —— **结构**与**信息栏**是两个独立维度：
             //
-            //  竖屏 + 竖屏照片 → 左右并排（图片 1/3）、信息双栏
-            //  竖屏 + 横屏照片 → 上下排、信息单栏
-            //  横屏 + 横屏照片 → 左右并排（图片 1/3）、信息双栏
-            //  横屏 + 竖屏照片 → 上下排、信息单栏
+            //  竖屏 + 竖屏照片 → 左右并排、信息单栏
+            //  竖屏 + 横屏照片 → 上下排、信息双栏
+            //  横屏 + 横屏照片 → 左右并排、信息单栏
+            //  横屏 + 竖屏照片 → 上下排、信息双栏
             //
-            // 即：方向一致才并排（图与信息左右并立），不一致就上下排。
-            // 窄屏放不下两栏，所以两种"双栏/并排"都要求宽度 >= 断点。
+            //  结构：方向一致 → 并排；不一致 → 上下排
+            //  信息：方向一致 → 单栏；不一致 → 双栏
             let mode = Self.layoutMode(size: proxy.size, photoAspectRatio: model.image.aspectRatio)
             if mode.stacked {
                 stackedLayout(twoColumn: mode.twoColumn)
