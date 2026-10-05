@@ -134,9 +134,9 @@ public struct PreviewView: View {
                     PreviewImageView(model: model)
                         // 与右栏信息保持一致：**都上对齐**（原来用 .center，图片在自己的高框里垂直居中，
                         // 而信息栏从顶部开始 —— 看起来一边居中一边上对齐，用户反馈过）
-                        .frame(maxWidth: imageWidth, maxHeight: .infinity, alignment: .top)
+                        .frame(maxWidth: imageWidth, maxHeight: .infinity, alignment: .center)
                 }
-                .frame(width: imageWidth, height: maxHeight, alignment: .top)
+                .frame(width: imageWidth, height: maxHeight, alignment: .center)
 
                 // 右：只有信息（1/3），独立滚动
                 ScrollView {
@@ -147,6 +147,7 @@ public struct PreviewView: View {
                         twoColumn: twoColumn
                     )
                     .frame(width: infoWidth, alignment: .leading)
+                    .frame(minHeight: maxHeight, alignment: .center)
                     .padding(.vertical, 4)
                 }
                 .frame(width: infoWidth, height: maxHeight)
