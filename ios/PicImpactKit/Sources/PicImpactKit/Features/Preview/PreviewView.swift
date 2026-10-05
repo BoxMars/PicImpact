@@ -124,22 +124,19 @@ public struct PreviewView: View {
                 .padding(.horizontal, inset)
                 .padding(.vertical, 8)
 
-            HStack(alignment: .top, spacing: gap) {
-                // 左：**标题在图片上方**（用户明确要求放上面）+ 图片（2/3）。
-                // 图片用 maxHeight: .infinity 吃掉标题之外的剩余高度，
-                // 自身 aspectRatio(.fit) 保证不被拉伸。
-                VStack(alignment: .leading, spacing: 12) {
-                    PreviewTitleBlock(model: model, inset: 32)
+            // 标题放在并排区**之上**，而不是塞进左栏里。
+            //
+            // 原因（用户："信息应该和照片对齐"）：标题若在左栏内，照片会被标题压低一个标题的高度，
+            // 而右栏信息从整行顶部开始 —— 两边就差一个标题的高度，看着没对齐。
+            // 标题上提之后，左右两栏顶部齐平：照片顶 = 信息顶。
+            PreviewTitleBlock(model: model, inset: 32)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 12)
 
-                    PreviewImageView(model: model)
-                        // 与右栏信息保持一致：**都上对齐**（原来用 .center，图片在自己的高框里垂直居中，
-                        // 而信息栏从顶部开始 —— 看起来一边居中一边上对齐，用户反馈过）
-                        // 只限宽、不限高：让图片按自身比例定高。
-                        // 一旦在这里给高度上限（无论 .infinity 还是 maxHeight），图片都能占满整栏，
-                        // 加上标题就超过栏高 —— 左栏没有余量，外层的 .center 就永远看不到效果（用户反馈过两次）。
-                        .frame(maxWidth: imageWidth, alignment: .center)
-                }
-                .frame(width: imageWidth, height: maxHeight, alignment: .center)
+            HStack(alignment: .top, spacing: gap) {
+                // 左：只有图片。**上对齐**，顶部与右栏信息齐平。
+                PreviewImageView(model: model)
+                    .frame(width: imageWidth, height: maxHeight, alignment: .top)
 
                 // 右：只有信息（1/3），独立滚动
                 ScrollView {
