@@ -86,9 +86,6 @@ public struct PreviewInfoSections: View {
         if let tone {
             out.append(Item(id: "tone", titleKey: "Exif.toneAnalysis", kind: .tone(tone)))
         }
-        if let histogram {
-            out.append(Item(id: "histogram", titleKey: "Exif.histogram", kind: .histogram(histogram)))
-        }
         return out
     }
 
@@ -105,6 +102,21 @@ public struct PreviewInfoSections: View {
     }
 
     public var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            columns
+            // 直方图**整宽单独一行**（用户要求）—— 它也参与分栏的话，
+            // 上面那条亮蓝色虚线只会跨半栏，与卡片其它分隔线对不齐。
+            if let histogram {
+                IslandDashedDivider()
+                section("Exif.histogram") {
+                    HistogramPanel(histogram: histogram)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var columns: some View {
         if twoColumn {
             // 按**连续**顺序对半分（前半在左、后半在右），而不是奇偶项交替。
             //
