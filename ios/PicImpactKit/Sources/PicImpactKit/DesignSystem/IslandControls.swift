@@ -262,27 +262,62 @@ import UIKit
 /// 结果导航栈会卡住（页面滑到一半回不来）—— 这是这个 hack 常见的坑。
 struct InteractivePopGestureEnabler: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
-        let controller = UIViewController()
-        controller.view.backgroundColor = .clear
-        // 必须等视图进入层级后再取 navigationController，否则拿到的是 nil
-        DispatchQueue.main.async {
-            guard let navigation = controller.navigationController else { return }
-            navigation.interactivePopGestureRecognizer?.isEnabled = true
-            navigation.interactivePopGestureRecognizer?.delegate = context.coordinator
-        }
-        return controller
+        EnablerController(coordinator: context.coordinator)
     }
 
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        // 每次更新也重试一次：详情页是**被 push 进来的**，viewDidAppear 时机之外
+        // 还可能因为导航层级变化而丢 delegate。
+        (uiViewController as? EnablerController)?.attach()
+    }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
+    /// 用一个真正的子控制器，在 `viewDidAppear` 里接管手势 ——
+    /// 比原来"DispatchQueue.main.async 一次性尝试"可靠：那一次很可能早于视图进入导航层级，
+    /// 于是 navigationController 还是 nil，delegate 根本没设上。
+    final class EnablerController: UIViewController {
+        private weak var coordinator: Coordinator?
+        init(coordinator: Coordinator) {
+            self.coordinator = coordinator
+            super.init(nibName: nil, bundle: nil)
+            view.backgroundColor = .clear
+            view.isUserInteractionEnabled = false
+        }
+        @available(*, unavailable)
+        required init?(coder: NSCoder) { fatalError("不支持") }
+
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            attach()
+        }
+
+        func attach() {
+            guard let navigation = navigationController,
+                  let gesture = navigation.interactivePopGestureRecognizer,
+                  let coordinator else { return }
+            gesture.isEnabled = true
+            gesture.delegate = coordinator
+            // 把导航控制器交给 coordinator —— 不要在手势回调里 cast gesture.view
+            coordinator.navigation = navigation
+        }
+    }
+
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        /// 由 EnablerController 在拿到导航控制器后写入。
+        ///
+        /// ⚠️ 不要在 `gestureRecognizerShouldBegin` 里用
+        /// `gestureRecognizer.view as? UINavigationController` 来判断：
+        /// **那个 view 不保证是导航控制器**，cast 失败就会 return false，
+        /// 结果是手势永远无法开始 —— 这正是"详情页不能右滑返回"的成因（用户反馈过两次）。
+        weak var navigation: UINavigationController?
+
         func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-            guard let navigation = gestureRecognizer.view as? UINavigationController else { return false }
-            // 根页面上不开始手势，避免导航栈被卡住
+            // 拿不到导航控制器时不拦（交给系统判断），拿得到就只在非根页面放行
+            guard let navigation else { return true }
             return navigation.viewControllers.count > 1
         }
     }
 }
+
 #endif
