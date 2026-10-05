@@ -375,21 +375,14 @@ struct PreviewInfoPanel: View {
     private var infoPanel: some View {
         IslandCard {
             VStack(alignment: .leading, spacing: 14) {
-                PreviewInfoSections(data: model.infoData, twoColumn: twoColumn)
-
-                if let tone = model.tone {
-                    IslandDashedDivider()
-                    sectionBlock("Exif.toneAnalysis") {
-                        ToneAnalysisView(analysis: tone)
-                    }
-                }
-
-                if let histogram = model.histogram {
-                    IslandDashedDivider()
-                    sectionBlock("Exif.histogram") {
-                        HistogramPanel(histogram: histogram)
-                    }
-                }
+                // 影调分析与直方图一并交给 PreviewInfoSections ——
+                // 这样它们会跟信息分区一起参与分栏，不再各自整宽独占一行。
+                PreviewInfoSections(
+                    data: model.infoData,
+                    twoColumn: twoColumn,
+                    tone: model.tone,
+                    histogram: model.histogram
+                )
             }
             .padding(16)
         }

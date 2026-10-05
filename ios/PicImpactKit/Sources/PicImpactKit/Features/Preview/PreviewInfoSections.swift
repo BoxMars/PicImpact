@@ -31,19 +31,35 @@ public struct PreviewInfoData: Equatable, Sendable {
 /// 分区之间用青色虚线（`IslandDashedDivider`），对应 Web 的 `<Divider type="dashed-teal">`。
 public struct PreviewInfoSections: View {
     private let data: PreviewInfoData
-    /// 双栏：设备方向与照片方向**不一致**时（用户定义的"新结构"）用两栏排布分区。
+    /// 双栏：设备方向与照片方向**不一致**时用两栏排布。
     private let twoColumn: Bool
+    /// 影调分析与直方图也参与分栏（否则它们会整宽独占一行）。
+    private let tone: ToneAnalysis?
+    private let histogram: Histogram?
 
-    public init(data: PreviewInfoData, twoColumn: Bool = false) {
+    public init(
+        data: PreviewInfoData,
+        twoColumn: Bool = false,
+        tone: ToneAnalysis? = nil,
+        histogram: Histogram? = nil
+    ) {
         self.data = data
         self.twoColumn = twoColumn
+        self.tone = tone
+        self.histogram = histogram
     }
 
-    /// 一个可排布的分区。
+    /// 一个可排布的分区。除了"标签—值"行，还可能是图表（影调分析 / 直方图）。
     private struct Item: Identifiable {
+        enum Kind {
+            case rows([PreviewModel.InfoRow])
+            case tone(ToneAnalysis)
+            case histogram(Histogram)
+        }
+
         let id: String
         let titleKey: String
-        let rows: [PreviewModel.InfoRow]
+        let kind: Kind
     }
 
     /// 目前要展示的分区（顺序与 Web 一致）。
@@ -51,12 +67,41 @@ public struct PreviewInfoSections: View {
     /// 改写成列表是为了能按宽度**分到两栏** —— 之前是一串内联 if，没法切。
     private var items: [Item] {
         var out: [Item] = []
-        if !data.basicInfo.isEmpty { out.append(Item(id: "basic", titleKey: "Exif.basicInfo", rows: data.basicInfo)) }
-        if !data.captureParams.isEmpty { out.append(Item(id: "params", titleKey: "Exif.captureParams", rows: data.captureParams)) }
-        if !data.device.isEmpty { out.append(Item(id: "device", titleKey: "Exif.deviceInfo", rows: data.device)) }
-        if !data.captureMode.isEmpty { out.append(Item(id: "mode", titleKey: "Exif.captureMode", rows: data.captureMode)) }
-        if !data.technical.isEmpty { out.append(Item(id: "tech", titleKey: "Exif.technicalParams", rows: data.technical)) }
+        if !data.basicInfo.isEmpty {
+            out.append(Item(id: "basic", titleKey: "Exif.basicInfo", kind: .rows(data.basicInfo)))
+        }
+        if !data.captureParams.isEmpty {
+            out.append(Item(id: "params", titleKey: "Exif.captureParams", kind: .rows(data.captureParams)))
+        }
+        if !data.device.isEmpty {
+            out.append(Item(id: "device", titleKey: "Exif.deviceInfo", kind: .rows(data.device)))
+        }
+        if !data.captureMode.isEmpty {
+            out.append(Item(id: "mode", titleKey: "Exif.captureMode", kind: .rows(data.captureMode)))
+        }
+        if !data.technical.isEmpty {
+            out.append(Item(id: "tech", titleKey: "Exif.technicalParams", kind: .rows(data.technical)))
+        }
+        // 图表排在信息分区之后（与 Web 顺序一致），并且**参与同一套分栏**
+        if let tone {
+            out.append(Item(id: "tone", titleKey: "Exif.toneAnalysis", kind: .tone(tone)))
+        }
+        if let histogram {
+            out.append(Item(id: "histogram", titleKey: "Exif.histogram", kind: .histogram(histogram)))
+        }
         return out
+    }
+
+    @ViewBuilder
+    private func content(of item: Item) -> some View {
+        switch item.kind {
+        case .rows(let rows):
+            self.rows(rows)
+        case .tone(let tone):
+            ToneAnalysisView(analysis: tone)
+        case .histogram(let histogram):
+            HistogramPanel(histogram: histogram)
+        }
     }
 
     public var body: some View {
@@ -85,7 +130,7 @@ public struct PreviewInfoSections: View {
                     divider
                 }
                 section(item.titleKey) {
-                    rows(item.rows)
+                    content(of: item)
                 }
             }
         }
