@@ -144,7 +144,10 @@ let narrow = !roomy                                   // 窄屏放不下并排
                         // 现在居中由外层 VStack 负责，所以这里加高度上限不会影响居中。
 // 高度上限必须是**确定值**：写 .infinity 等于没有上限，图片会按自身比例
                         // 长出去（竖图 700+pt），矮屏直接被切 —— 用户反馈"展示不全、没有适当缩小"。
-                        .frame(maxWidth: imageWidth, maxHeight: maxHeight, alignment: .top)
+// 高度上限取**所在行的实际高度**（.infinity = 填满可用空间）。
+                        // 不能写成 0.9 屏高：那一栏实际可用高度是「屏高 - 顶栏 - 标题」，
+                        // 比 0.9 屏高更小，于是上限形同虚设、照片底部被切（用户反馈 iPad 横屏+竖图）。
+                        .frame(maxWidth: imageWidth, maxHeight: .infinity, alignment: .top)
 
                     ScrollView {
                         PreviewInfoPanel(
@@ -156,7 +159,7 @@ let narrow = !roomy                                   // 窄屏放不下并排
                         .frame(width: infoWidth, alignment: .leading)
                         .padding(.vertical, 4)
                     }
-                    .frame(width: infoWidth, height: maxHeight)
+                    .frame(maxWidth: infoWidth, maxHeight: .infinity)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
