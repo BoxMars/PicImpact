@@ -125,7 +125,11 @@ public struct PreviewView: View {
 
     public var body: some View {
         GeometryReader { proxy in
-            if proxy.size.width >= Self.wideBreakpoint {
+            // 左右分栏**只在横屏**用：
+            // 竖屏的 iPad（1024×1366）宽度虽然过 640，但上下排更合适 ——
+            // 用户明确要求"iPad 竖屏情况下，详情页图片和信息上下"。
+            let isLandscape = proxy.size.width > proxy.size.height
+            if proxy.size.width >= Self.wideBreakpoint, isLandscape {
                 wideLayout(size: proxy.size)
             } else {
                 stackedLayout
