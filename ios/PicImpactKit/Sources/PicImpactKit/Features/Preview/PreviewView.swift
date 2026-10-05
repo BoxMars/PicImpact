@@ -138,16 +138,14 @@ let narrow = !roomy                                   // 窄屏放不下并排
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 HStack(alignment: .top, spacing: gap) {
-                    PreviewImageView(model: model)
-// 限宽也限高：只限宽的话，在矮屏（iPhone 横屏高仅 ~400pt）图片按宽度
-                        // 算出的高度会超出栏高而被裁掉 —— 用户反馈"图片展示不全"。
-                        // 现在居中由外层 VStack 负责，所以这里加高度上限不会影响居中。
-// 高度上限必须是**确定值**：写 .infinity 等于没有上限，图片会按自身比例
-                        // 长出去（竖图 700+pt），矮屏直接被切 —— 用户反馈"展示不全、没有适当缩小"。
-// 高度上限取**所在行的实际高度**（.infinity = 填满可用空间）。
-                        // 不能写成 0.9 屏高：那一栏实际可用高度是「屏高 - 顶栏 - 标题」，
-                        // 比 0.9 屏高更小，于是上限形同虚设、照片底部被切（用户反馈 iPad 横屏+竖图）。
-                        .frame(maxWidth: imageWidth, maxHeight: .infinity, alignment: .top)
+                    // ⚠️ maxHeight 的 frame **不约束**子视图尺寸，只负责摆放：图片按传入的更大提案定尺寸，
+                    // 再被顶到顶部，底部就溢出到屏幕外（用户："下面少了一部分"）。所以调上限数值没用。
+                    // 用 GeometryReader 拿到这一栏的**真实**尺寸，让图片精确贴合。
+                    GeometryReader { proxy in
+                        PreviewImageView(model: model)
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                    }
+                    .frame(maxWidth: imageWidth, maxHeight: .infinity)
 
                     ScrollView {
                         PreviewInfoPanel(
