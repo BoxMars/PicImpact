@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import shutil
 import subprocess
 import sys
 import time
@@ -35,7 +36,7 @@ UA = "FelinaGallery-SeedBuilder/1.0"
 
 def curl_bytes(url: str) -> bytes:
     out = subprocess.run(
-        ["curl", "-sS", "--max-time", "120", "-A", UA, url],
+        ["curl", "-sS", "--connect-timeout", "5", "--max-time", "20", "-A", UA, url],
         capture_output=True,
     )
     if out.returncode != 0 or not out.stdout:
@@ -49,7 +50,7 @@ def curl_json(url: str) -> dict:
 
 def curl_to_file(url: str, dest: pathlib.Path) -> int:
     out = subprocess.run(
-        ["curl", "-sS", "--max-time", "120", "-A", UA, "-o", str(dest), "-w", "%{http_code}", url],
+        ["curl", "-sS", "--connect-timeout", "5", "--max-time", "30", "-A", UA, "-o", str(dest), "-w", "%{http_code}", url],
         capture_output=True, text=True,
     )
     code = out.stdout.strip()
@@ -107,6 +108,86 @@ def build() -> None:
     print(f"  ✓ 预览图 {len(manifest)} 张，合计 {total_bytes / 1024 / 1024:.2f} MB")
 
 
+def signature(seed: dict) -> list:
+    """种子的"内容指纹"：只取图片列表的 (id, previewUrl)。
+
+    刻意**不含** config：配置里可能有随时间变化的东西，一变动就会导致整包重下。
+    """
+    out = []
+    for body in seed.get("pages", []):
+        for item in body.get("data", {}).get("list", []):
+            out.append((item.get("id"), item.get("previewUrl")))
+    return out
+
+
+def update() -> None:
+    """构建时用的**增量**模式：先只抓元数据比对，没变就立刻退出。
+
+    这是给"每次构建都跑"用的：常见情况（内容没变）只花 1–2 秒，
+    **一张图都不下载**；只有真的有新照片时才重新抓，并打印进度，
+    这样在 Xcode 的构建日志里能看见它在做什么，而不是像卡住。
+    """
+    seed_path = SEED / "seed.json"
+    local = json.loads(seed_path.read_text()) if seed_path.exists() else None
+
+    print("  检查种子是否有更新…")
+    pages, page = [], 1
+    while True:
+        body = curl_json(f"{BASE}/images?page={page}")
+        pages.append(body)
+        data = body.get("data", {})
+        total = data.get("pageTotal", 1)
+        if not data.get("hasMore") or page >= total:
+            break
+        page += 1
+    remote = {"pages": pages}
+
+    items = [i for b in pages for i in (b.get("data", {}).get("list") or [])]
+    if local is not None and signature(local) == signature(remote):
+        print(f"  ✓ 种子已是最新（{len(items)} 张），跳过下载")
+        return
+
+    if local is None:
+        print(f"  本地还没有种子，下载 {len(items)} 张预览图…")
+    else:
+        print(f"  内容有变化，重新下载 {len(items)} 张预览图…")
+
+    config = curl_json(f"{BASE}/config")
+    # ⚠️ 先下到**临时目录**，全部成功后再替换。
+    # 不能边下边删：构建在下载中途被中断（网络慢、用户取消、Xcode 停掉）时，
+    # 会把仓库里已有的图删掉一半，留下一个残种 —— 这个坑今天亲身踩过。
+    staging = SEED / "images.staging"
+    if staging.exists():
+        shutil.rmtree(staging)
+    staging.mkdir(parents=True, exist_ok=True)
+    manifest, total_bytes = {}, 0
+    for i, item in enumerate(items):
+        url = item.get("previewUrl")
+        if not url:
+            continue
+        name = f"{i:02d}.webp"
+        size = curl_to_file(url, staging / name)
+        manifest[url] = name
+        total_bytes += size
+        print(f"    [{i + 1:2d}/{len(items)}] {size / 1024:5.0f} KB  {name}")
+
+    # 全部拿到手，才动真格
+    if IMAGES.exists():
+        shutil.rmtree(IMAGES)
+    staging.rename(IMAGES)
+
+    seed = {
+        "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "source": BASE,
+        "config": config,
+        "pages": pages,
+        "imageFiles": manifest,
+    }
+    SEED.mkdir(parents=True, exist_ok=True)
+    seed_path.write_text(json.dumps(seed, ensure_ascii=False, indent=2))
+    print(f"  ✓ 种子已更新：{len(manifest)} 张，{total_bytes / 1024 / 1024:.2f} MB")
+
+
 def check() -> int:
     seed_path = SEED / "seed.json"
     if not seed_path.exists():
@@ -139,4 +220,7 @@ def check() -> int:
 if __name__ == "__main__":
     if "--check" in sys.argv:
         sys.exit(check())
-    build()
+    if "--force" in sys.argv:
+        build()          # 全量重抓（想强制刷新时用）
+    else:
+        update()         # 默认增量：没变就跳过

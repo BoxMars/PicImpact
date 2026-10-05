@@ -266,7 +266,7 @@ def main() -> None:
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd $SRCROOT/.. && python3 scripts/ios-seed.py > /tmp/felina-seed.log 2>&1 || echo warning: seed refresh failed, using committed seed";
+			shellScript = "cd $SRCROOT/.. && if ! python3 scripts/ios-seed.py; then echo warning: seed refresh failed, using committed seed; fi";
 		}};
 /* End PBXShellScriptBuildPhase section */
 
