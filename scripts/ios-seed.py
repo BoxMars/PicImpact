@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""打包种子（seed）：把站点当前的**全部 JSON 元数据**与**首页照片的预览图**抓下来，
+"""打包种子（seed）：把站点当前的**全部 JSON 元数据**与**全部照片的预览图**抓下来，
 放进 App 资源里，这样用户**第一次启动、还没联网**就能看到内容。
 
 用法：
@@ -8,7 +8,7 @@
 
 产物：
     ios/FelinaGallery/Resources/Seed/seed.json     站点配置 + 全部页的 JSON + 图片清单
-    ios/FelinaGallery/Resources/Seed/images/*.webp 首页那 24 张预览图
+    ios/FelinaGallery/Resources/Seed/images/*.webp 全部 56 张预览图
 
 设计要点：
   * **只抓预览图，不抓原图**。原图平均 3.4 MB/张，首页 24 张就 83 MB，
@@ -73,13 +73,16 @@ def build() -> None:
             break
         page += 1
 
-    first = (pages[0].get("data", {}).get("list") or [])
+    # 用户选择：**全部**预览图（不只是首页）—— 这样整个画廊首次启动就能看到
+    items = []
+    for body in pages:
+        items.extend(body.get("data", {}).get("list") or [])
     IMAGES.mkdir(parents=True, exist_ok=True)
     for old in IMAGES.glob("*.webp"):
         old.unlink()
     manifest, total_bytes = {}, 0
-    print(f"  下载首页 {len(first)} 张预览图…")
-    for i, item in enumerate(first):
+    print(f"  下载全部 {len(items)} 张预览图…")
+    for i, item in enumerate(items):
         url = item.get("previewUrl")
         if not url:
             continue
@@ -87,7 +90,7 @@ def build() -> None:
         size = curl_to_file(url, IMAGES / name)
         manifest[url] = name
         total_bytes += size
-        print(f"    [{i + 1:2d}/{len(first)}] {size / 1024:5.0f} KB  {name}")
+        print(f"    [{i + 1:2d}/{len(items)}] {size / 1024:5.0f} KB  {name}")
 
     seed = {
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -112,13 +115,15 @@ def check() -> int:
     seed = json.loads(seed_path.read_text())
     manifest = seed.get("imageFiles", {})
     pages = seed.get("pages", [])
-    first = (pages[0].get("data", {}).get("list") or []) if pages else []
+    items = []
+    for body in pages:
+        items.extend(body.get("data", {}).get("list") or [])
     missing = [u for u in manifest if not (IMAGES / manifest[u]).exists()]
     problems = []
     if not pages:
         problems.append("pages 为空")
-    if len(manifest) != len(first):
-        problems.append(f"清单 {len(manifest)} 条 ≠ 首页 {len(first)} 张")
+    if len(manifest) != len(items):
+        problems.append(f"清单 {len(manifest)} 条 ≠ 全部 {len(items)} 张")
     if missing:
         problems.append(f"{len(missing)} 个清单文件不存在")
     total = sum((IMAGES / f).stat().st_size for f in manifest.values() if (IMAGES / f).exists())
