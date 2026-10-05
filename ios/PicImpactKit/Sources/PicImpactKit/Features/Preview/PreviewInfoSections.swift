@@ -61,9 +61,15 @@ public struct PreviewInfoSections: View {
 
     public var body: some View {
         if twoColumn {
+            // 按**连续**顺序对半分（前半在左、后半在右），而不是奇偶项交替。
+            //
+            // 原来按奇偶分（左：基本信息/设备信息/技术参数，右：拍摄参数/拍摄模式），
+            // 读起来是断的 —— 用户反馈"信息栏也弄反了"。连续分栏后，
+            // 从上到下・先左后右的顺序与单栏时一致。
+            let half = (items.count + 1) / 2
             HStack(alignment: .top, spacing: 24) {
-                column(Array(items.enumerated().filter { $0.offset % 2 == 0 }.map(\.element)))
-                column(Array(items.enumerated().filter { $0.offset % 2 == 1 }.map(\.element)))
+                column(Array(items.prefix(half)))
+                column(Array(items.dropFirst(half)))
             }
         } else {
             column(items)
