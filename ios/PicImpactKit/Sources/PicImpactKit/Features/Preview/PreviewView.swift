@@ -69,16 +69,20 @@ public struct PreviewView: View {
         let isPhotoPortrait = photoAspectRatio < 1
         let matched = isDevicePortrait == isPhotoPortrait
         let roomy = size.width >= wideBreakpoint
+        // 窄屏（iPhone 竖屏）放不下并排，必须退化；结构上只有「竖屏+横图」上下排
+let narrow = !roomy                                   // 窄屏放不下并排
+        let portraitPhotoStacked = isDevicePortrait && !isPhotoPortrait   // 竖屏 + 横图
+        let stacked = narrow || portraitPhotoStacked
         return DetailLayoutMode(
             // 只有「竖屏 + 横图」走上下排（用户逐条确认过），其余组合都并排：
-            //   竖屏+竖图 → 并排（单栏）    横屏+横图 → 并排（单栏）
-            //   横屏+竖图 → 并排（双栏）    竖屏+横图 → 上下排（双栏）
+            //   竖屏+竖图 → 并排、信息单栏        横屏+横图 → 并排、信息单栏
+            //   横屏+竖图 → 并排、信息单栏        竖屏+横图 → 上下排、信息双栏（唯一分两列）
             // 窄屏（iPhone 竖屏）放不下并排，必须退化
-            stacked: !roomy || (isDevicePortrait && !isPhotoPortrait),
+            stacked: stacked,
             // 信息双栏 = 设备与照片方向**不一致**
-            twoColumn: !matched && roomy,
+            twoColumn: !matched && portraitPhotoStacked && roomy,
             // 信息要双栏时，图片让到 1/3 把宽度让给信息；单栏时按原来占 2/3
-            imageFraction: (!matched && roomy) ? 1.0 / 3.0 : 2.0 / 3.0
+            imageFraction: 2.0 / 3.0
         )
     }
 

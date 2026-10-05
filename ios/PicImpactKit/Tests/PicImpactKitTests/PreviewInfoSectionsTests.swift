@@ -480,7 +480,8 @@ struct PreviewAnalysisTimingTests {
 
 /// 详情页布局规则（用户定义，已逐条更正到最终版）：
 /// **结构**：只有「竖屏 + 横图」上下排，其余都左右并排。
-/// **信息栏**：方向一致 → 单栏，不一致 → 双栏。两者是独立维度。
+/// **信息栏**：只有上下排那一档分两列，并排时一律单栏。
+/// ⚠️ 用户说的「双栏」指并排结构，不是信息分两列。
 @Suite("详情页布局决策")
 struct DetailLayoutModeTests {
     private let portraitDevice = CGSize(width: 1024, height: 1366)   // iPad 竖屏
@@ -511,12 +512,12 @@ struct DetailLayoutModeTests {
         #expect(abs(m.imageFraction - 2.0 / 3.0) < 0.001)
     }
 
-    @Test("横屏设备 + 竖屏照片：并排、信息双栏、图片让到 1/3")
+    @Test("横屏设备 + 竖屏照片：并排、信息单栏（用户口径：双栏指并排结构）")
     func landscapeWithPortraitPhoto() {
         let m = PreviewView.layoutMode(size: landscapeDevice, photoAspectRatio: portraitPhoto)
-        #expect(m.stacked == false, "用户要求：横屏+竖图也用并排结构")
-        #expect(m.twoColumn, "方向不一致时信息双栏")
-        #expect(abs(m.imageFraction - 1.0 / 3.0) < 0.001, "双栏时图片让位")
+        #expect(m.stacked == false, "横屏+竖图用并排结构")
+        #expect(m.twoColumn == false, "并排时信息一律单栏")
+        #expect(abs(m.imageFraction - 2.0 / 3.0) < 0.001)
     }
 
     @Test("iPhone 竖屏：窄屏既放不下并排也放不下两栏，一律上下排 + 单栏")
