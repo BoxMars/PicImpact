@@ -528,3 +528,39 @@ struct DetailLayoutModeTests {
         #expect(b.twoColumn == false, "窄屏双栏会挤成一团")
     }
 }
+
+/// 方案 C：信息栏顶部偏移的计算。
+///
+/// 左栏（标题+照片）垂直居中 → 顶部在 (栏高 - 标题 - 照片)/2；照片顶 = 该值 + 标题高。
+/// 信息栏要从照片顶开始，才叫"信息与照片对齐"。
+@Suite("详情页信息栏顶部偏移（方案 C）")
+struct InfoTopInsetTests {
+    @Test("竖图：居中偏移 + 标题高")
+    func portraitPhoto() {
+        // 栏高 900，图片宽 400，3:4 竖图 → 照片高 533.3；标题 60
+        // 居中偏移 = (900 - 60 - 533.3)/2 = 153.3；偏移 = 153.3 + 60 = 213.3
+        let inset = PreviewView.infoTopInset(columnHeight: 900, imageWidth: 400, aspectRatio: 0.75, titleHeight: 60)
+        #expect(abs(inset - 213.33) < 0.5, "实际 \(inset)")
+    }
+
+    @Test("横图：照片更矮，居中偏移更大")
+    func landscapePhoto() {
+        // 照片高 = 400/(4/3) = 300；偏移 = (900 - 60 - 300)/2 = 270；再加标题 60 = 330
+        let inset = PreviewView.infoTopInset(columnHeight: 900, imageWidth: 400, aspectRatio: 4.0 / 3.0, titleHeight: 60)
+        #expect(abs(inset - 330) < 0.5, "实际 \(inset)")
+    }
+
+    @Test("内容比栏还高时退化为 0（不推出一堆空白）")
+    func tallerThanColumn() {
+        // 标题 100 + 照片 1000 > 栏高 900 → 居中偏移为负 → 返回 0
+        let inset = PreviewView.infoTopInset(columnHeight: 900, imageWidth: 500, aspectRatio: 0.5, titleHeight: 100)
+        #expect(inset == 0, "实际 \(inset)")
+    }
+
+    @Test("脏数据不产生非法值")
+    func degenerateInputs() {
+        #expect(PreviewView.infoTopInset(columnHeight: 0, imageWidth: 400, aspectRatio: 0.75, titleHeight: 60) == 0)
+        #expect(PreviewView.infoTopInset(columnHeight: 900, imageWidth: 0, aspectRatio: 0.75, titleHeight: 60) == 0)
+        #expect(PreviewView.infoTopInset(columnHeight: 900, imageWidth: 400, aspectRatio: 0, titleHeight: 60) == 0)
+    }
+}

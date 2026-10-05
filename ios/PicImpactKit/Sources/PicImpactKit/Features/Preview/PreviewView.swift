@@ -23,6 +23,9 @@ public struct PreviewView: View {
     /// 滚动位移，用来把图片从"内缩"过渡到"通栏"
     @State private var scrollOffset: CGFloat = 0
 
+    /// 并排模式下标题的**实测**高度 —— 信息栏靠它算出与照片顶对齐所需的顶部偏移（方案 C）。
+    @State private var titleHeight: CGFloat = 0
+
     /// 走完这段位移，图片就完全通栏。
     /// 顶栏高 32 + 上 12 + 下 12 = 56，留一点余量取 60。
     private static let expansionDistance: CGFloat = 60
@@ -111,6 +114,24 @@ public struct PreviewView: View {
     ///
     /// 这样横屏照片不会被拉满整屏（也就不会"太宽显示不了"）：
     /// 图片宽度从整屏降到 2/3，高度再被 90vh 限制。
+    /// 方案 C 的顶部偏移：让信息栏第一行与照片顶部落在同一条水平线上。
+    ///
+    /// 左栏（标题+照片）整块垂直居中 → 顶部在 `(columnHeight - 标题高 - 照片高) / 2`；
+    /// 照片顶 = 该值 + 标题高。信息栏就从这里开始，所以返回这个和。
+    /// 内容比栏还高（居中偏移为负）时返回 0，退化为从顶部开始，避免推出大量空白。
+    static func infoTopInset(
+        columnHeight: CGFloat,
+        imageWidth: CGFloat,
+        aspectRatio: CGFloat,
+        titleHeight: CGFloat
+    ) -> CGFloat {
+        guard aspectRatio > 0, columnHeight > 0, imageWidth > 0 else { return 0 }
+        let photoHeight = imageWidth / aspectRatio
+        let centering = (columnHeight - titleHeight - photoHeight) / 2
+        guard centering > 0 else { return 0 }
+        return centering + titleHeight
+    }
+
     private func wideLayout(size: CGSize, twoColumn: Bool, imageFraction: CGFloat) -> some View {
         let inset: CGFloat = 8              // Web: p-2
         let gap: CGFloat = 16               // Web: gap-4
@@ -130,6 +151,12 @@ public struct PreviewView: View {
                 // 自身 aspectRatio(.fit) 保证不被拉伸。
                 VStack(alignment: .leading, spacing: 12) {
                     PreviewTitleBlock(model: model, inset: 32)
+                        // 量出标题高度，供右栏计算对齐偏移（标题可能一行也可能两行，不能写死）
+                        .background {
+                            GeometryReader { proxy in
+                                Color.clear.preference(key: TitleHeightKey.self, value: proxy.size.height)
+                            }
+                        }
 
                     PreviewImageView(model: model)
                         // 与右栏信息保持一致：**都上对齐**（原来用 .center，图片在自己的高框里垂直居中，
@@ -140,9 +167,17 @@ public struct PreviewView: View {
                         .frame(maxWidth: imageWidth, alignment: .center)
                 }
                 .frame(width: imageWidth, height: maxHeight, alignment: .center)
+                .onPreferenceChange(TitleHeightKey.self) { height in
+                    if abs(height - titleHeight) > 0.5 { titleHeight = height }
+                }
 
                 // 右：只有信息（1/3），独立滚动
                 ScrollView {
+                    VStack(spacing: 0) {
+                        // 方案 C：整体下移，使**信息首行与照片顶对齐**。
+                        // 左栏（标题+照片）垂直居中，顶部在 (maxHeight - 标题 - 照片)/2；
+                        // 照片顶 = 该偏移 + 标题高；信息落到同一个 y 才叫对齐。
+                        Color.clear.frame(height: Self.infoTopInset(columnHeight: maxHeight, imageWidth: imageWidth, aspectRatio: model.image.aspectRatio, titleHeight: titleHeight))
                     PreviewInfoPanel(
                         model: model,
                         features: features,
@@ -153,6 +188,7 @@ public struct PreviewView: View {
                     .frame(minHeight: maxHeight, alignment: .center)
                     .padding(.vertical, 4)
                 }
+                    }
                 .frame(width: infoWidth, height: maxHeight)
             }
             .padding(.horizontal, inset)
@@ -440,5 +476,13 @@ struct HistogramPanel: View {
     var body: some View {
         HistogramView(histogram: histogram)
             .frame(height: 120)
+    }
+}
+
+/// 并排模式下量标题高度用（方案 C 需要这个数值来对齐信息栏）。
+struct TitleHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
