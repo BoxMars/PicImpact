@@ -24,7 +24,17 @@ PROJECT_NAME = "FelinaGallery"
 # 需要签名/归档时用环境变量注入，例如：
 #   DEVELOPMENT_TEAM=XXXXXXXXXX python3 scripts/ios-project.py
 # 不注入则为空，你在 Xcode 里手动选一次团队即可。
-DEVELOPMENT_TEAM = os.environ.get("DEVELOPMENT_TEAM", "")
+# 团队 ID 的取值顺序：环境变量 → 本地文件 ios/DEVELOPMENT_TEAM → 空。
+#
+# 为什么要有本地文件这一层：工程是**生成**的，每次重新生成都会重写 pbxproj，
+# 于是你在 Xcode 的 Signing & Capabilities 里选好的账号会被抹掉，
+# 每次 build 都要重选一次。把团队 ID 放进这个**不入库**的文件（.gitignore 已忽略）
+# 后，重新生成也会带上它，而它永远不会被推到远端。
+DEVELOPMENT_TEAM = os.environ.get("DEVELOPMENT_TEAM", "").strip()
+if not DEVELOPMENT_TEAM:
+    _team_file = pathlib.Path(__file__).resolve().parent.parent / "ios" / "DEVELOPMENT_TEAM"
+    if _team_file.exists():
+        DEVELOPMENT_TEAM = _team_file.read_text().strip()
 APP_DIR = IOS / PROJECT_NAME
 PACKAGE_RELATIVE = "PicImpactKit"  # 相对于工程文件所在目录
 
