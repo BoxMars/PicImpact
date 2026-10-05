@@ -134,10 +134,10 @@ public struct PreviewView: View {
                     PreviewImageView(model: model)
                         // 与右栏信息保持一致：**都上对齐**（原来用 .center，图片在自己的高框里垂直居中，
                         // 而信息栏从顶部开始 —— 看起来一边居中一边上对齐，用户反馈过）
-                        // 高度上限用外层给的值，而**不是** .infinity：
-                        // 用 .infinity 时这个 frame 会撑满整栏，左栏就没有余量可居中了 ——
-                        // 表现成"标题贴顶、图片在下方余量里居中"（用户问过"为什么标题没有跟着一块"）。
-                        .frame(maxWidth: imageWidth, maxHeight: maxHeight, alignment: .center)
+                        // 只限宽、不限高：让图片按自身比例定高。
+                        // 一旦在这里给高度上限（无论 .infinity 还是 maxHeight），图片都能占满整栏，
+                        // 加上标题就超过栏高 —— 左栏没有余量，外层的 .center 就永远看不到效果（用户反馈过两次）。
+                        .frame(maxWidth: imageWidth, alignment: .center)
                 }
                 .frame(width: imageWidth, height: maxHeight, alignment: .center)
 
