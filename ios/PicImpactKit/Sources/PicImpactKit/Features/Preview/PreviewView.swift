@@ -41,12 +41,33 @@ public struct PreviewView: View {
         self.onSelectTag = onSelectTag
     }
 
+    /// 详情页的布局决策。抽成纯函数是为了**能测** —— 这条规则来自用户：
+    /// "设备方向与照片方向一致 → 原本结构；不一致 → 新结构（信息双栏）"。
+    struct DetailLayoutMode: Equatable {
+        var stacked: Bool
+        var twoColumn: Bool
+        var imageFraction: CGFloat
+    }
+
+    /// - 竖屏设备（或横屏但很窄）→ 上下排；否则左右分栏
+    /// - 照片方向与设备方向**不一致**时信息双栏，且竖图只占 1/3 宽（把地方让给信息）
+    static func layoutMode(size: CGSize, photoAspectRatio: CGFloat) -> DetailLayoutMode {
+        let isDevicePortrait = size.height > size.width
+        let isPhotoPortrait = photoAspectRatio < 1
+        let matched = isDevicePortrait == isPhotoPortrait
+        return DetailLayoutMode(
+            stacked: isDevicePortrait || size.width < wideBreakpoint,
+            twoColumn: !matched,
+            imageFraction: isPhotoPortrait ? 1.0 / 3.0 : 2.0 / 3.0
+        )
+    }
+
     /// 宽屏断点：对齐 Web 的 `sm:`（640px）。
     /// 达到后详情页从"上下堆叠"改成"左右分栏"（Web 的 `sm:grid-cols-3`）。
     private static let wideBreakpoint: CGFloat = 640
 
     /// 窄屏（iPhone 竖屏）：保持原有行为 —— 顶栏滚走、图片展开通栏、图片+标题钉住。
-    private var stackedLayout: some View {
+    private func stackedLayout(twoColumn: Bool) -> some View {
         ScrollView {
             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
                 // 顶栏在滚动内容里：往上滑就跟着滚走（用户要求"看不到"）
@@ -56,7 +77,12 @@ public struct PreviewView: View {
                     .padding(.bottom, 12)
 
                 Section {
-                    PreviewInfoPanel(model: model, features: features, onSelectTag: onSelectTag)
+                    PreviewInfoPanel(
+                        model: model,
+                        features: features,
+                        onSelectTag: onSelectTag,
+                        twoColumn: twoColumn
+                    )
                 } header: {
                     // 图片 + 标题：滚到顶后钉住
                     PreviewPinnedHeader(model: model, expansion: expansion)
@@ -73,12 +99,12 @@ public struct PreviewView: View {
     ///
     /// 这样横屏照片不会被拉满整屏（也就不会"太宽显示不了"）：
     /// 图片宽度从整屏降到 2/3，高度再被 90vh 限制。
-    private func wideLayout(size: CGSize) -> some View {
+    private func wideLayout(size: CGSize, twoColumn: Bool, imageFraction: CGFloat) -> some View {
         let inset: CGFloat = 8              // Web: p-2
         let gap: CGFloat = 16               // Web: gap-4
         let maxHeight = size.height * 0.9   // Web: max-h-[90vh]
         let available = max(0, size.width - inset * 2 - gap)
-        let imageWidth = available * 2 / 3
+        let imageWidth = available * imageFraction
         let infoWidth = available - imageWidth
 
         return VStack(spacing: 0) {
@@ -100,9 +126,14 @@ public struct PreviewView: View {
 
                 // 右：只有信息（1/3），独立滚动
                 ScrollView {
-                    PreviewInfoPanel(model: model, features: features, onSelectTag: onSelectTag)
-                        .frame(width: infoWidth, alignment: .leading)
-                        .padding(.vertical, 4)
+                    PreviewInfoPanel(
+                        model: model,
+                        features: features,
+                        onSelectTag: onSelectTag,
+                        twoColumn: twoColumn
+                    )
+                    .frame(width: infoWidth, alignment: .leading)
+                    .padding(.vertical, 4)
                 }
                 .frame(width: infoWidth, height: maxHeight)
             }
@@ -125,14 +156,23 @@ public struct PreviewView: View {
 
     public var body: some View {
         GeometryReader { proxy in
-            // 左右分栏**只在横屏**用：
-            // 竖屏的 iPad（1024×1366）宽度虽然过 640，但上下排更合适 ——
-            // 用户明确要求"iPad 竖屏情况下，详情页图片和信息上下"。
-            let isLandscape = proxy.size.width > proxy.size.height
-            if proxy.size.width >= Self.wideBreakpoint, isLandscape {
-                wideLayout(size: proxy.size)
+            // 用户定义的规则：**设备方向与照片方向一致 → 原本结构；不一致 → 新结构**。
+            //
+            //  竖屏 + 竖屏照片 → 上下排、信息单栏（原本）
+            //  竖屏 + 横屏照片 → 上下排、信息**双栏**（新）
+            //  横屏 + 横屏照片 → 左右分栏（图片 2/3）、信息单栏（原本）
+            //  横屏 + 竖屏照片 → 左右分栏（图片 1/3，因为竖图不需要那么宽）、信息**双栏**（新）
+            //
+            // 竖屏的 iPad（1024×1366）宽度虽过断点，仍走上下排 —— 用户要求"iPad 竖屏图片和信息上下"。
+            let mode = Self.layoutMode(size: proxy.size, photoAspectRatio: model.image.aspectRatio)
+            if mode.stacked {
+                stackedLayout(twoColumn: mode.twoColumn)
             } else {
-                stackedLayout
+                wideLayout(
+                    size: proxy.size,
+                    twoColumn: mode.twoColumn,
+                    imageFraction: mode.imageFraction
+                )
             }
         }
         .contentMargins(.bottom, 0, for: .scrollContent)
@@ -300,6 +340,8 @@ struct PreviewInfoPanel: View {
     let model: PreviewModel
     let features: SiteConfigDTO.Features
     let onSelectTag: (String) -> Void
+    /// 信息分区是否双栏（"新结构"下为 true）
+    var twoColumn: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -320,7 +362,7 @@ struct PreviewInfoPanel: View {
     private var infoPanel: some View {
         IslandCard {
             VStack(alignment: .leading, spacing: 14) {
-                PreviewInfoSections(data: model.infoData)
+                PreviewInfoSections(data: model.infoData, twoColumn: twoColumn)
 
                 if let tone = model.tone {
                     IslandDashedDivider()

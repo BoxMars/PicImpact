@@ -31,45 +31,55 @@ public struct PreviewInfoData: Equatable, Sendable {
 /// 分区之间用青色虚线（`IslandDashedDivider`），对应 Web 的 `<Divider type="dashed-teal">`。
 public struct PreviewInfoSections: View {
     private let data: PreviewInfoData
+    /// 双栏：设备方向与照片方向**不一致**时（用户定义的"新结构"）用两栏排布分区。
+    private let twoColumn: Bool
 
-    public init(data: PreviewInfoData) {
+    public init(data: PreviewInfoData, twoColumn: Bool = false) {
         self.data = data
+        self.twoColumn = twoColumn
+    }
+
+    /// 一个可排布的分区。
+    private struct Item: Identifiable {
+        let id: String
+        let titleKey: String
+        let rows: [PreviewModel.InfoRow]
+    }
+
+    /// 目前要展示的分区（顺序与 Web 一致）。
+    ///
+    /// 改写成列表是为了能按宽度**分到两栏** —— 之前是一串内联 if，没法切。
+    private var items: [Item] {
+        var out: [Item] = []
+        if !data.basicInfo.isEmpty { out.append(Item(id: "basic", titleKey: "Exif.basicInfo", rows: data.basicInfo)) }
+        if !data.captureParams.isEmpty { out.append(Item(id: "params", titleKey: "Exif.captureParams", rows: data.captureParams)) }
+        if !data.device.isEmpty { out.append(Item(id: "device", titleKey: "Exif.deviceInfo", rows: data.device)) }
+        if !data.captureMode.isEmpty { out.append(Item(id: "mode", titleKey: "Exif.captureMode", rows: data.captureMode)) }
+        if !data.technical.isEmpty { out.append(Item(id: "tech", titleKey: "Exif.technicalParams", rows: data.technical)) }
+        return out
     }
 
     public var body: some View {
+        if twoColumn {
+            HStack(alignment: .top, spacing: 24) {
+                column(Array(items.enumerated().filter { $0.offset % 2 == 0 }.map(\.element)))
+                column(Array(items.enumerated().filter { $0.offset % 2 == 1 }.map(\.element)))
+            }
+        } else {
+            column(items)
+        }
+    }
+
+    @ViewBuilder
+    private func column(_ list: [Item]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            if !data.basicInfo.isEmpty {
-                section("Exif.basicInfo") {
-                    rows(data.basicInfo)
+            ForEach(list) { item in
+                // 每栏内，除第一项外都在前面加分隔线（与单栏版本的观感一致）
+                if item.id != list.first?.id {
+                    divider
                 }
-            }
-
-            if !data.captureParams.isEmpty {
-                divider
-                section("Exif.captureParams") {
-                    // 按用户要求与其他分区一致：标签—值行，不带图标、不做两列
-                    rows(data.captureParams)
-                }
-            }
-
-            if !data.device.isEmpty {
-                divider
-                section("Exif.deviceInfo") {
-                    rows(data.device)
-                }
-            }
-
-            if !data.captureMode.isEmpty {
-                divider
-                section("Exif.captureMode") {
-                    rows(data.captureMode)
-                }
-            }
-
-            if !data.technical.isEmpty {
-                divider
-                section("Exif.technicalParams") {
-                    rows(data.technical)
+                section(item.titleKey) {
+                    rows(item.rows)
                 }
             }
         }

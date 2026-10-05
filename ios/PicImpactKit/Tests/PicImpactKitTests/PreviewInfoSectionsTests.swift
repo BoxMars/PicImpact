@@ -477,3 +477,50 @@ struct PreviewAnalysisTimingTests {
         #expect(model.histogram != nil, "只给缩略图也应算出直方图")
     }
 }
+
+/// 详情页布局规则（用户定义）：
+/// 设备方向与照片方向**一致** → 原本结构；**不一致** → 新结构（信息双栏）。
+@Suite("详情页布局决策")
+struct DetailLayoutModeTests {
+    private let portraitDevice = CGSize(width: 1024, height: 1366)   // iPad 竖屏
+    private let landscapeDevice = CGSize(width: 1366, height: 1024)  // iPad 横屏
+    private let phonePortrait = CGSize(width: 402, height: 874)
+    private let landscapePhoto: CGFloat = 4.0 / 3.0
+    private let portraitPhoto: CGFloat = 3.0 / 4.0
+
+    @Test("竖屏设备 + 竖屏照片 = 原本结构：上下排、单栏")
+    func portraitMatchesPortrait() {
+        let m = PreviewView.layoutMode(size: portraitDevice, photoAspectRatio: portraitPhoto)
+        #expect(m.stacked)
+        #expect(m.twoColumn == false, "方向一致时应保持单栏")
+    }
+
+    @Test("竖屏设备 + 横屏照片 = 新结构：上下排、信息双栏")
+    func portraitWithLandscapePhoto() {
+        let m = PreviewView.layoutMode(size: portraitDevice, photoAspectRatio: landscapePhoto)
+        #expect(m.stacked, "竖屏仍是上下排")
+        #expect(m.twoColumn, "方向不一致时信息应双栏")
+    }
+
+    @Test("横屏设备 + 横屏照片 = 原本结构：左右分栏、单栏、图片占 2/3")
+    func landscapeMatchesLandscape() {
+        let m = PreviewView.layoutMode(size: landscapeDevice, photoAspectRatio: landscapePhoto)
+        #expect(m.stacked == false)
+        #expect(m.twoColumn == false)
+        #expect(abs(m.imageFraction - 2.0 / 3.0) < 0.001)
+    }
+
+    @Test("横屏设备 + 竖屏照片 = 新结构：左右分栏、信息双栏、图片只占 1/3")
+    func landscapeWithPortraitPhoto() {
+        let m = PreviewView.layoutMode(size: landscapeDevice, photoAspectRatio: portraitPhoto)
+        #expect(m.stacked == false)
+        #expect(m.twoColumn)
+        #expect(abs(m.imageFraction - 1.0 / 3.0) < 0.001, "竖图应把宽度让给信息")
+    }
+
+    @Test("iPhone 竖屏：始终上下排，按照片方向决定栏数")
+    func phonePortraitCases() {
+        #expect(PreviewView.layoutMode(size: phonePortrait, photoAspectRatio: portraitPhoto).twoColumn == false)
+        #expect(PreviewView.layoutMode(size: phonePortrait, photoAspectRatio: landscapePhoto).twoColumn)
+    }
+}
