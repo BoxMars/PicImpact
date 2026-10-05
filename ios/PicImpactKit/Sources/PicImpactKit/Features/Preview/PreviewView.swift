@@ -145,52 +145,33 @@ public struct PreviewView: View {
                 .padding(.horizontal, inset)
                 .padding(.vertical, 8)
 
-            HStack(alignment: .top, spacing: gap) {
-                // 左：**标题在图片上方**（用户明确要求放上面）+ 图片（2/3）。
-                // 图片用 maxHeight: .infinity 吃掉标题之外的剩余高度，
-                // 自身 aspectRatio(.fit) 保证不被拉伸。
-                VStack(alignment: .leading, spacing: 12) {
-                    PreviewTitleBlock(model: model, inset: 32)
-                        // 量出标题高度，供右栏计算对齐偏移（标题可能一行也可能两行，不能写死）
-                        .background {
-                            GeometryReader { proxy in
-                                Color.clear.preference(key: TitleHeightKey.self, value: proxy.size.height)
-                            }
-                        }
+            // 结构（用户给的，简单且自洽）：
+            //   标题独占一行 → 图片与信息一行 → 两者放进同一个 VStack **整体居中**。
+            // 这样同时满足两件事，而且不需要任何测量或偏移计算：
+            //   居中 → 由外层 VStack 负责
+            //   对齐 → 由 HStack(alignment: .top) 天然保证（图片与信息是同一行的兄弟）
+            VStack(spacing: 12) {
+                PreviewTitleBlock(model: model, inset: 32)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
+                HStack(alignment: .top, spacing: gap) {
                     PreviewImageView(model: model)
-                        // 与右栏信息保持一致：**都上对齐**（原来用 .center，图片在自己的高框里垂直居中，
-                        // 而信息栏从顶部开始 —— 看起来一边居中一边上对齐，用户反馈过）
-                        // 只限宽、不限高：让图片按自身比例定高。
-                        // 一旦在这里给高度上限（无论 .infinity 还是 maxHeight），图片都能占满整栏，
-                        // 加上标题就超过栏高 —— 左栏没有余量，外层的 .center 就永远看不到效果（用户反馈过两次）。
-                        .frame(maxWidth: imageWidth, alignment: .center)
-                }
-                .frame(width: imageWidth, height: maxHeight, alignment: .center)
-                .onPreferenceChange(TitleHeightKey.self) { height in
-                    if abs(height - titleHeight) > 0.5 { titleHeight = height }
-                }
+                        .frame(width: imageWidth, alignment: .top)
 
-                // 右：只有信息（1/3），独立滚动
-                ScrollView {
-                    VStack(spacing: 0) {
-                        // 方案 C：整体下移，使**信息首行与照片顶对齐**。
-                        // 左栏（标题+照片）垂直居中，顶部在 (maxHeight - 标题 - 照片)/2；
-                        // 照片顶 = 该偏移 + 标题高；信息落到同一个 y 才叫对齐。
-                        Color.clear.frame(height: Self.infoTopInset(columnHeight: maxHeight, imageWidth: imageWidth, aspectRatio: model.image.aspectRatio, titleHeight: titleHeight))
-                    PreviewInfoPanel(
-                        model: model,
-                        features: features,
-                        onSelectTag: onSelectTag,
-                        twoColumn: twoColumn
-                    )
-                    .frame(width: infoWidth, alignment: .leading)
-                    .frame(minHeight: maxHeight, alignment: .center)
-                    .padding(.vertical, 4)
-                }
+                    ScrollView {
+                        PreviewInfoPanel(
+                            model: model,
+                            features: features,
+                            onSelectTag: onSelectTag,
+                            twoColumn: twoColumn
+                        )
+                        .frame(width: infoWidth, alignment: .leading)
+                        .padding(.vertical, 4)
                     }
-                .frame(width: infoWidth, height: maxHeight)
+                    .frame(width: infoWidth, height: maxHeight)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             .padding(.horizontal, inset)
 
             Spacer(minLength: 0)
