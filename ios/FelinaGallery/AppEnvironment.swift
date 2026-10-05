@@ -20,7 +20,10 @@ final class AppEnvironment {
 
     init() {
         let client = APIClient()
-        let loader = ImageLoader()
+        // 图片缓存显式建出来并交给 loader：打包种子的预览图要灌进**同一个**缓存，
+        // 否则灌进去的和读的不是一份（ImageLoader 默认会自建一个）。
+        let imageCache = ImageCache()
+        let loader = ImageLoader(cache: imageCache)
         self.client = client
         self.loader = loader
         self.downloader = DefaultDownloadService(loader: loader)
@@ -28,7 +31,8 @@ final class AppEnvironment {
         self.gallery = GalleryStore(
             dataSource: client,
             album: nil,
-            cache: FirstPageCache(key: "first-page")
+            cache: FirstPageCache(key: "first-page"),
+            imageCache: imageCache
         )
     }
 

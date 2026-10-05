@@ -36,6 +36,9 @@ public final class GalleryStore {
     private let dataSource: GalleryDataSource
     /// 首屏磁盘缓存，用来"先出缓存、再后台校验"。为 nil 时行为与以前完全一致。
     private let cache: FirstPageCache?
+    /// 图片缓存。传进来是为了**安装打包种子**（把包内的预览图灌进缓存）。
+    /// 为 nil 时跳过安装，行为与以前完全一致。
+    private let imageCache: ImageCache?
     private var currentPage = 0
     /// 防止同一时刻发起多次加载（滚动时最容易触发）
     private var isLoading = false
@@ -53,12 +56,14 @@ public final class GalleryStore {
         dataSource: GalleryDataSource,
         album: String? = nil,
         tag: String? = nil,
-        cache: FirstPageCache? = nil
+        cache: FirstPageCache? = nil,
+        imageCache: ImageCache? = nil
     ) {
         self.dataSource = dataSource
         self.album = album
         self.tag = tag
         self.cache = cache
+        self.imageCache = imageCache
     }
 
     /// 首屏前几张要最高下载优先级（对应 Web 的 fetchPriority=high）。
@@ -81,6 +86,16 @@ public final class GalleryStore {
     ///    （不切回加载态、失败也不覆盖现有内容）
     public func loadFirstPageIfNeeded() async {
         guard currentPage == 0, !isLoading else { return }
+
+        // 打包种子：把包内的元数据与预览图灌进缓存（版本未变时几乎零开销）。
+        //
+        // ⚠️ **必须在这里**（读缓存之前）。App 侧的 `.task { bootstrap() }` 与
+        // HomeView 的 `.task { loadFirstPageIfNeeded() }` 是**并发**的，把安装放在
+        // bootstrap 里无法保证顺序 —— 首次启动会抢跑成网络加载（线上首次约 4 秒），
+        // 种子就只对第二次启动有用了，等于白做。
+        if let imageCache {
+            await SeedInstaller.installIfNeeded(cache: imageCache, metadata: cache)
+        }
 
         if images.isEmpty, let cache, let cached = await cache.load(), !cached.list.isEmpty {
             images = cached.list
