@@ -70,10 +70,15 @@ public struct PreviewView: View {
         let matched = isDevicePortrait == isPhotoPortrait
         let roomy = size.width >= wideBreakpoint
         return DetailLayoutMode(
-            stacked: !(matched && roomy),
+            // 只有「竖屏 + 横图」走上下排（用户逐条确认过），其余组合都并排：
+            //   竖屏+竖图 → 并排（单栏）    横屏+横图 → 并排（单栏）
+            //   横屏+竖图 → 并排（双栏）    竖屏+横图 → 上下排（双栏）
+            // 窄屏（iPhone 竖屏）放不下并排，必须退化
+            stacked: !roomy || (isDevicePortrait && !isPhotoPortrait),
+            // 信息双栏 = 设备与照片方向**不一致**
             twoColumn: !matched && roomy,
-            // 并排那一档信息是单栏，所以图片按原来占 2/3（上下排时该值不生效）
-            imageFraction: 2.0 / 3.0
+            // 信息要双栏时，图片让到 1/3 把宽度让给信息；单栏时按原来占 2/3
+            imageFraction: (!matched && roomy) ? 1.0 / 3.0 : 2.0 / 3.0
         )
     }
 
@@ -191,14 +196,14 @@ public struct PreviewView: View {
 
     public var body: some View {
         GeometryReader { proxy in
-            // 用户定义的规则 —— **结构**与**信息栏**是两个独立维度：
+            // 用户定义的规则（逐条确认后的最终版）—— 结构、信息栏是两个独立维度：
             //
             //  竖屏 + 竖屏照片 → 左右并排、信息单栏
             //  竖屏 + 横屏照片 → 上下排、信息双栏
             //  横屏 + 横屏照片 → 左右并排、信息单栏
-            //  横屏 + 竖屏照片 → 上下排、信息双栏
+            //  横屏 + 竖屏照片 → 左右并排、信息双栏   ← 用户："横屏+竖屏照片也是双栏"
             //
-            //  结构：方向一致 → 并排；不一致 → 上下排
+            //  结构：只有「竖屏 + 横图」上下排，其余都并排
             //  信息：方向一致 → 单栏；不一致 → 双栏
             let mode = Self.layoutMode(size: proxy.size, photoAspectRatio: model.image.aspectRatio)
             if mode.stacked {
