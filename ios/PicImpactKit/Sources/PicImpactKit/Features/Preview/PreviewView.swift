@@ -165,7 +165,10 @@ let narrow = !roomy                                   // 窄屏放不下并排
 
                 HStack(alignment: .top, spacing: gap) {
                     PreviewImageView(model: model)
-                        .frame(width: imageWidth, alignment: .top)
+// 限宽也限高：只限宽的话，在矮屏（iPhone 横屏高仅 ~400pt）图片按宽度
+                        // 算出的高度会超出栏高而被裁掉 —— 用户反馈"图片展示不全"。
+                        // 现在居中由外层 VStack 负责，所以这里加高度上限不会影响居中。
+                        .frame(maxWidth: imageWidth, maxHeight: .infinity, alignment: .top)
 
                     ScrollView {
                         PreviewInfoPanel(
@@ -177,7 +180,7 @@ let narrow = !roomy                                   // 窄屏放不下并排
                         .frame(width: infoWidth, alignment: .leading)
                         .padding(.vertical, 4)
                     }
-                    .frame(width: infoWidth, height: maxHeight)
+                    .frame(maxWidth: infoWidth, maxHeight: .infinity)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)

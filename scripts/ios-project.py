@@ -313,7 +313,9 @@ def main() -> None:
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存照片到你的相册";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				// iPhone **只支持竖屏**（用户要求）。竖屏专用布局已足够；放开横屏会引入
+				// 高仅 ~400pt 的并排挤压布局。iPad 仍四个方向（见下方 _iPad 变体）。
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait";
 				// iPad 必须支持全部四个方向，否则 App Store 校验报
 				// "Invalid bundle ... to support iPad multitasking"。
 				// 用 _iPad 变体单独设置（生成 Info.plist 里的 UISupportedInterfaceOrientations~ipad），
@@ -348,7 +350,9 @@ def main() -> None:
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存照片到你的相册";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				// iPhone **只支持竖屏**（用户要求）。竖屏专用布局已足够；放开横屏会引入
+				// 高仅 ~400pt 的并排挤压布局。iPad 仍四个方向（见下方 _iPad 变体）。
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait";
 				// iPad 必须支持全部四个方向，否则 App Store 校验报
 				// "Invalid bundle ... to support iPad multitasking"。
 				// 用 _iPad 变体单独设置（生成 Info.plist 里的 UISupportedInterfaceOrientations~ipad），
