@@ -49,16 +49,18 @@ public struct PreviewView: View {
         var imageFraction: CGFloat
     }
 
-    /// - 竖屏设备（或横屏但很窄）→ 上下排；否则左右分栏
-    /// - **设备方向与照片方向一致时信息双栏**（反之为单栏）
-    /// - 双栏时图片只占 1/3 宽，把地方让给信息；单栏时图片占 2/3
+    /// - **设备方向与照片方向一致**（且屏幕够宽）→ 左右并排 + 信息双栏
+    /// - 否则 → 上下排 + 信息单栏
+    /// - 并排时图片只占 1/3 宽，把地方让给双栏信息；上下排时比例不生效（图片整宽）
     static func layoutMode(size: CGSize, photoAspectRatio: CGFloat) -> DetailLayoutMode {
         let isDevicePortrait = size.height > size.width
         let isPhotoPortrait = photoAspectRatio < 1
         let matched = isDevicePortrait == isPhotoPortrait
+        // 窄屏（iPhone 竖屏）放不下并排的两栏，一律上下排
+        let roomy = size.width >= wideBreakpoint
         return DetailLayoutMode(
-            stacked: isDevicePortrait || size.width < wideBreakpoint,
-            twoColumn: matched,
+            stacked: !(matched && roomy),
+            twoColumn: matched && roomy,
             imageFraction: matched ? 1.0 / 3.0 : 2.0 / 3.0
         )
     }
@@ -157,14 +159,15 @@ public struct PreviewView: View {
 
     public var body: some View {
         GeometryReader { proxy in
-            // 用户定义的规则（**设备方向与照片方向一致 → 信息双栏**，反之为单栏）：
+            // 用户定义的规则（**设备方向与照片方向一致 → 左右并排 + 信息双栏**）：
             //
-            //  竖屏 + 竖屏照片 → 上下排、信息**双栏**
+            //  竖屏 + 竖屏照片 → 左右并排（图片 1/3）、信息双栏
             //  竖屏 + 横屏照片 → 上下排、信息单栏
-            //  横屏 + 横屏照片 → 左右分栏（图片 1/3，让位给双栏信息）
-            //  横屏 + 竖屏照片 → 左右分栏（图片 2/3）、信息单栏
+            //  横屏 + 横屏照片 → 左右并排（图片 1/3）、信息双栏
+            //  横屏 + 竖屏照片 → 上下排、信息单栏
             //
-            // 竖屏的 iPad（1024×1366）宽度虽过断点，仍走上下排 —— 用户要求"iPad 竖屏图片和信息上下"。
+            // 即：方向一致才并排（图与信息左右并立），不一致就上下排。
+            // 窄屏放不下两栏，所以两种"双栏/并排"都要求宽度 >= 断点。
             let mode = Self.layoutMode(size: proxy.size, photoAspectRatio: model.image.aspectRatio)
             if mode.stacked {
                 stackedLayout(twoColumn: mode.twoColumn)

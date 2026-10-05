@@ -478,8 +478,8 @@ struct PreviewAnalysisTimingTests {
     }
 }
 
-/// 详情页布局规则（用户定义，已按用户更正过一次极性）：
-/// **设备方向与照片方向一致 → 信息双栏**；不一致 → 单栏。
+/// 详情页布局规则（用户定义，已按用户更正过两次）：
+/// **设备方向与照片方向一致 → 左右并排 + 信息双栏**；不一致 → 上下排 + 单栏。
 @Suite("详情页布局决策")
 struct DetailLayoutModeTests {
     private let portraitDevice = CGSize(width: 1024, height: 1366)   // iPad 竖屏
@@ -488,22 +488,22 @@ struct DetailLayoutModeTests {
     private let landscapePhoto: CGFloat = 4.0 / 3.0
     private let portraitPhoto: CGFloat = 3.0 / 4.0
 
-    @Test("竖屏设备 + 竖屏照片：上下排、信息双栏")
+    @Test("竖屏设备 + 竖屏照片：左右并排、信息双栏、图片占 1/3")
     func portraitMatchesPortrait() {
         let m = PreviewView.layoutMode(size: portraitDevice, photoAspectRatio: portraitPhoto)
-        #expect(m.stacked)
-        #expect(m.twoColumn, "方向一致时信息应双栏")
+        #expect(m.stacked == false, "方向一致时应左右并排，而不是上下排")
+        #expect(m.twoColumn, "并排时信息双栏")
         #expect(abs(m.imageFraction - 1.0 / 3.0) < 0.001, "双栏时图片让到 1/3")
     }
 
     @Test("竖屏设备 + 横屏照片：上下排、信息单栏")
     func portraitWithLandscapePhoto() {
         let m = PreviewView.layoutMode(size: portraitDevice, photoAspectRatio: landscapePhoto)
-        #expect(m.stacked, "竖屏仍是上下排")
-        #expect(m.twoColumn == false, "方向不一致时应单栏")
+        #expect(m.stacked, "方向不一致时上下排")
+        #expect(m.twoColumn == false, "上下排时信息单栏")
     }
 
-    @Test("横屏设备 + 横屏照片：左右分栏、信息双栏、图片占 1/3")
+    @Test("横屏设备 + 横屏照片：左右并排、信息双栏、图片占 1/3")
     func landscapeMatchesLandscape() {
         let m = PreviewView.layoutMode(size: landscapeDevice, photoAspectRatio: landscapePhoto)
         #expect(m.stacked == false)
@@ -511,17 +511,20 @@ struct DetailLayoutModeTests {
         #expect(abs(m.imageFraction - 1.0 / 3.0) < 0.001)
     }
 
-    @Test("横屏设备 + 竖屏照片：左右分栏、信息单栏、图片占 2/3")
+    @Test("横屏设备 + 竖屏照片：上下排、信息单栏")
     func landscapeWithPortraitPhoto() {
         let m = PreviewView.layoutMode(size: landscapeDevice, photoAspectRatio: portraitPhoto)
-        #expect(m.stacked == false)
+        #expect(m.stacked, "方向不一致时上下排")
         #expect(m.twoColumn == false)
-        #expect(abs(m.imageFraction - 2.0 / 3.0) < 0.001)
     }
 
-    @Test("iPhone 竖屏：始终上下排，按照片方向决定栏数")
+    @Test("iPhone 竖屏：屏幕放不下并排，一律上下排且单栏")
     func phonePortraitCases() {
-        #expect(PreviewView.layoutMode(size: phonePortrait, photoAspectRatio: portraitPhoto).twoColumn)
-        #expect(PreviewView.layoutMode(size: phonePortrait, photoAspectRatio: landscapePhoto).twoColumn == false)
+        let a = PreviewView.layoutMode(size: phonePortrait, photoAspectRatio: portraitPhoto)
+        #expect(a.stacked)
+        #expect(a.twoColumn == false, "窄屏的双栏会挤成一团，所以即使方向一致也不双栏")
+        let b = PreviewView.layoutMode(size: phonePortrait, photoAspectRatio: landscapePhoto)
+        #expect(b.stacked)
+        #expect(b.twoColumn == false)
     }
 }
