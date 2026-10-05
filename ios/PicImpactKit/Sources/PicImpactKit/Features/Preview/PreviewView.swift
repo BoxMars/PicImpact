@@ -132,7 +132,9 @@ public struct PreviewView: View {
                     PreviewTitleBlock(model: model, inset: 32)
 
                     PreviewImageView(model: model)
-                        .frame(maxWidth: imageWidth, maxHeight: .infinity, alignment: .center)
+                        // 与右栏信息保持一致：**都上对齐**（原来用 .center，图片在自己的高框里垂直居中，
+                        // 而信息栏从顶部开始 —— 看起来一边居中一边上对齐，用户反馈过）
+                        .frame(maxWidth: imageWidth, maxHeight: .infinity, alignment: .top)
                 }
                 .frame(width: imageWidth, height: maxHeight, alignment: .top)
 
