@@ -51,8 +51,14 @@ public struct CachedAsyncImage: View {
             if let image {
                 #if canImport(UIKit)
                 Image(uiImage: image).resizable().aspectRatio(contentMode: contentMode)
+                    // ⚠️ SwiftUI 默认只显示 SDR；不显式开启的话，带 HDR 增益图的照片会被压平
+                    // （用户反馈"没有显示 HDR 原图"。服务端原图实测带 HDR 增益图，放开这一层即可）
+                    .allowedDynamicRange(.high)
                 #elseif canImport(AppKit)
                 Image(nsImage: image).resizable().aspectRatio(contentMode: contentMode)
+                    // ⚠️ SwiftUI 默认只显示 SDR；不显式开启的话，带 HDR 增益图的照片会被压平
+                    // （用户反馈"没有显示 HDR 原图"。服务端原图实测带 HDR 增益图，放开这一层即可）
+                    .allowedDynamicRange(.high)
                 #endif
             } else if didFail {
                 // 失败时不显示错误文案（画廊里会很吵），只留占位
