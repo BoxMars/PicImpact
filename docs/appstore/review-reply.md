@@ -199,4 +199,3 @@ family, not an app for a business, an organisation or its employees.
 
 粘去哪里：App Store Connect 的回复框，以及「App 审核信息 → Notes」字段（Apple 要求两处都写）。
 
-关于「双栏」这类说法：本文件里没有需要你判断的术语，照抄即可。
