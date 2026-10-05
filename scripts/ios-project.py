@@ -39,10 +39,12 @@ def main() -> None:
     swift_sources = sorted(p.name for p in APP_DIR.glob("*.swift"))
     # 资源包含普通文件，也包含 .xcassets 这类**目录**（AppIcon 就在里面，
     # 原来的 p.is_file() 会把目录整个漏掉）。
+    # `Seed` 是打包种子（scripts/ios-seed.py 生成：全部 JSON + 全部预览图），
+    # 以 **folder reference** 收进来，整个目录树原样拷进 App。
     resources = sorted(
         str(p.relative_to(APP_DIR))
         for p in (APP_DIR / "Resources").glob("*")
-        if p.is_file() or p.suffix == ".xcassets"
+        if p.is_file() or p.suffix == ".xcassets" or p.name == "Seed"
     )
 
     project_id = uid("project", PROJECT_NAME)
@@ -51,6 +53,9 @@ def main() -> None:
     main_group_id = uid("group", "main")
     app_group_id = uid("group", "app")
     products_group_id = uid("group", "products")
+    # 生成打包种子的脚本 phase：放在 Resources **之前**，这样它刷新出来的
+    # seed.json / 预览图会被随后的 Resources phase 拷进包里。
+    seed_phase_id = uid("phase", "seed")
     sources_phase_id = uid("phase", "sources")
     resources_phase_id = uid("phase", "resources")
     frameworks_phase_id = uid("phase", "frameworks")
@@ -91,6 +96,8 @@ def main() -> None:
     # ---------------- PBXFileReference ----------------
     def file_type(rel: str) -> str:
         """按后缀决定 Xcode 的文件类型 —— 类型错了 actool 不会处理资源目录。"""
+        if rel == "Seed":
+            return "folder"          # 目录引用：整棵树原样拷进包
         if rel.endswith(".xcassets"):
             return "folder.assetcatalog"
         if rel.endswith(".xcstrings"):
@@ -175,6 +182,7 @@ def main() -> None:
 			isa = PBXNativeTarget;
 			buildConfigurationList = {config_list_target_id} /* Build configuration list for PBXNativeTarget "{PROJECT_NAME}" */;
 			buildPhases = (
+				{seed_phase_id} /* 生成打包种子 */,
 				{sources_phase_id} /* Sources */,
 				{frameworks_phase_id} /* Frameworks */,
 				{resources_phase_id} /* Resources */,
@@ -229,6 +237,28 @@ def main() -> None:
 			);
 		}};
 /* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		{seed_phase_id} /* 生成打包种子 */ = {{
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "生成打包种子";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd $SRCROOT/.. && python3 scripts/ios-seed.py > /tmp/felina-seed.log 2>&1 || echo warning: seed refresh failed, using committed seed";
+		}};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXResourcesBuildPhase section */
 		{resources_phase_id} /* Resources */ = {{

@@ -11,6 +11,7 @@
 		B559DA1591FD181A13506091 /* PicImpactApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD627A9AAD76FB3A8A6D7DDB /* PicImpactApp.swift */; };
 		0B41E8445712D1BAB920ACE7 /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */; };
 		BA8E772C6ADFB26A720EA0B8 /* Resources/Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FE719673B9C90C989A3C89E0 /* Resources/Localizable.xcstrings */; };
+		E22CDBD0B3D8E47D08679F18 /* Resources/Seed in Resources */ = {isa = PBXBuildFile; fileRef = 115ECE3A0688453D9B11077F /* Resources/Seed */; };
 		80E258D80648DD2F5BC60B41 /* PicImpactKit in Frameworks */ = {isa = PBXBuildFile; productRef = 20E0B2E074C6CDBFC1E20429 /* PicImpactKit */; };
 /* End PBXBuildFile section */
 
@@ -19,6 +20,7 @@
 		FD627A9AAD76FB3A8A6D7DDB /* PicImpactApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PicImpactApp.swift; sourceTree = "<group>"; };
 		D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 		FE719673B9C90C989A3C89E0 /* Resources/Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Resources/Localizable.xcstrings; sourceTree = "<group>"; };
+		115ECE3A0688453D9B11077F /* Resources/Seed */ = {isa = PBXFileReference; lastKnownFileType = file; path = Resources/Seed; sourceTree = "<group>"; };
 		F5F19BC1874D3D5D6F6DCC09 /* FelinaGallery.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "大福映画.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -49,6 +51,7 @@
 				FD627A9AAD76FB3A8A6D7DDB /* PicImpactApp.swift */,
 				D73C08992EB6D3A9B787C2D6 /* Resources/Assets.xcassets */,
 				FE719673B9C90C989A3C89E0 /* Resources/Localizable.xcstrings */,
+				115ECE3A0688453D9B11077F /* Resources/Seed */,
 			);
 			path = "FelinaGallery";
 			sourceTree = "<group>";
@@ -68,6 +71,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = A886B50DF087AEF7B87CDC65 /* Build configuration list for PBXNativeTarget "FelinaGallery" */;
 			buildPhases = (
+				F25D2C42347EF81BF70C4E85 /* 生成打包种子 */,
 				C2511B36F0F0E810A9E46328 /* Sources */,
 				019BAB185F97B56993A7087D /* Frameworks */,
 				C2112B99FC6905E49DE55430 /* Resources */,
@@ -123,6 +127,28 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		F25D2C42347EF81BF70C4E85 /* 生成打包种子 */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "生成打包种子";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd $SRCROOT/.. && python3 scripts/ios-seed.py > /tmp/felina-seed.log 2>&1 || echo warning: seed refresh failed, using committed seed";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXResourcesBuildPhase section */
 		C2112B99FC6905E49DE55430 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
@@ -130,6 +156,7 @@
 			files = (
 				0B41E8445712D1BAB920ACE7 /* Resources/Assets.xcassets in Resources */,
 				BA8E772C6ADFB26A720EA0B8 /* Resources/Localizable.xcstrings in Resources */,
+				E22CDBD0B3D8E47D08679F18 /* Resources/Seed in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
