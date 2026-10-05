@@ -23,9 +23,6 @@ public struct PreviewView: View {
     /// 滚动位移，用来把图片从"内缩"过渡到"通栏"
     @State private var scrollOffset: CGFloat = 0
 
-    /// 并排模式下标题的**实测**高度 —— 信息栏靠它算出与照片顶对齐所需的顶部偏移（方案 C）。
-    @State private var titleHeight: CGFloat = 0
-
     /// 走完这段位移，图片就完全通栏。
     /// 顶栏高 32 + 上 12 + 下 12 = 56，留一点余量取 60。
     private static let expansionDistance: CGFloat = 60
@@ -116,29 +113,6 @@ let narrow = !roomy                                   // 窄屏放不下并排
         .modifier(ScrollOffsetReporter { offset in
             scrollOffset = offset
         })
-    }
-
-    /// 宽屏（iPad / iPhone 横屏）：照 Web 的 `sm:grid sm:grid-cols-3` ——
-    /// 图片占 2/3 放左边并居中、高度上限 90vh；标题与信息占 1/3 放右边、独立滚动。
-    ///
-    /// 这样横屏照片不会被拉满整屏（也就不会"太宽显示不了"）：
-    /// 图片宽度从整屏降到 2/3，高度再被 90vh 限制。
-    /// 方案 C 的顶部偏移：让信息栏第一行与照片顶部落在同一条水平线上。
-    ///
-    /// 左栏（标题+照片）整块垂直居中 → 顶部在 `(columnHeight - 标题高 - 照片高) / 2`；
-    /// 照片顶 = 该值 + 标题高。信息栏就从这里开始，所以返回这个和。
-    /// 内容比栏还高（居中偏移为负）时返回 0，退化为从顶部开始，避免推出大量空白。
-    static func infoTopInset(
-        columnHeight: CGFloat,
-        imageWidth: CGFloat,
-        aspectRatio: CGFloat,
-        titleHeight: CGFloat
-    ) -> CGFloat {
-        guard aspectRatio > 0, columnHeight > 0, imageWidth > 0 else { return 0 }
-        let photoHeight = imageWidth / aspectRatio
-        let centering = (columnHeight - titleHeight - photoHeight) / 2
-        guard centering > 0 else { return 0 }
-        return centering + titleHeight
     }
 
     private func wideLayout(size: CGSize, twoColumn: Bool, imageFraction: CGFloat) -> some View {
@@ -471,13 +445,5 @@ struct HistogramPanel: View {
     var body: some View {
         HistogramView(histogram: histogram)
             .frame(height: 120)
-    }
-}
-
-/// 并排模式下量标题高度用（方案 C 需要这个数值来对齐信息栏）。
-struct TitleHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
