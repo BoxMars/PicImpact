@@ -136,3 +136,23 @@ album at felina.boxz.dev (photos of a cat named "Daifuku" and his family).
 ## 附：长度校验
 
 由 `scripts/check-appstore-metadata.py` 校验，上限来自 App Store Connect：
+
+---
+
+## 10. 审核信息 Notes（2.1 补充信息）
+
+> 首次提交被 **Guideline 2.1 – Information Needed** 驳回（原因：开发者账号审核历史有限，
+> 属于新账号的常规补充要求，**不是 App 有问题**）。
+>
+> 完整答复见 [`review-reply.md`](./review-reply.md)，**可直接粘贴**。Apple 要求同时写进
+> 这里的 Notes 字段，便于后续提交复用。
+
+要点速览：
+
+1. **屏幕录制（真机）** —— 录制脚本见 review-reply.md 第 1 节，约 60–90 秒
+2. **用途与用户** —— 个人相册的原生客户端；只读、无账号、无用户投稿；端上图像分析
+3. **设置与访问** —— 无需配置/登录/凭据；启动即见内容（本地预置，离线可见）
+4. **外部服务** —— 仅两个自有域名：Vercel + Cloudflare（站点/API/图片）、Supabase（API 背后的库，
+   App 不直连）；无统计/广告/认证/支付/AI 服务；无内购
+5. **地区差异** —— 无；各地区功能与内容完全一致
+6. **受监管行业 / 第三方素材** —— 均不适用；全部照片版权归开发者本人
