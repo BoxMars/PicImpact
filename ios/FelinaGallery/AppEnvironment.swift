@@ -53,8 +53,8 @@ final class AppEnvironment {
         // 只在 DEBUG 构建里存在的测试钩子：把会话或故障注入进去（见文件末尾的说明）
         AppEnvironment.applyTestHooks(auth: auth)
         let adminImages = AdminImageClient()
-        let adminAPI: any AdminImageAPI = TestHooks.failRegisterStep
-            ? FailingRegisterAdminAPI(base: adminImages)
+        let adminAPI: any AdminImageAPI = (TestHooks.failRegisterStep || TestHooks.failListWith401)
+            ? FailingRegisterAdminAPI(base: adminImages, listReturns401: TestHooks.failListWith401)
             : adminImages
         #else
         let adminImages = AdminImageClient()
@@ -96,6 +96,66 @@ final class AppEnvironment {
             }
         )
     }
+
+    #if DEBUG
+    /// 临时：真机诊断（`-FelinaDiagnose 1`）。把"会话有没有落盘、请求带了什么、服务端返回几"打成日志，
+    /// 用 `xcrun devicectl device process launch --console` 直接看。**不打印任何凭证原文。**
+    func runDiagnoseIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-FelinaDiagnose") else { return }
+        Task { await Self.diagnose(auth: auth, siteOrigin: APIClient.siteOrigin()) }
+    }
+
+    static func diagnose(auth: AuthStore, siteOrigin: URL) async {
+        APILog.credentials("=== diagnose start ===")
+
+        // 1) 会话：Keychain 里到底有没有、能不能读出来
+        let stored = await KeychainStore().data(for: AuthStore.defaultStorageKey)
+        APILog.credentials("diagnose keychain.hasSession=\(stored != nil) bytes=\(stored?.count ?? 0)")
+        if let stored, let cookies = try? SessionCookies.decoded(from: stored) {
+            let names = cookies.cookies.map(\.name).joined(separator: ",")
+            let expired = cookies.cookies.map { $0.isExpired(at: Date()) ? "1" : "0" }.joined()
+            APILog.credentials("diagnose session.cookies=\(cookies.cookies.count) names=\(names) expiredFlags=\(expired)")
+        }
+        let header = auth.sessionCookieHeader
+        APILog.credentials("diagnose session.headerPresent=\(header != nil)")
+
+        // 2) Keychain 写：真机上"卡住"是否发生在这里（量耗时）
+        let probeKey = "diagnose-probe"
+        let probe = Data("probe".utf8)
+        let writeStart = Date()
+        let wrote = await KeychainStore().set(probe, for: probeKey)
+        let writeMS = Date().timeIntervalSince(writeStart) * 1000
+        let readBack = await KeychainStore().data(for: probeKey)
+        APILog.credentials(
+            "diagnose keychain.write ok=\(wrote) readback=\(readBack == probe) ms=\(String(format: "%.1f", writeMS))"
+        )
+        _ = await KeychainStore().remove(probeKey)
+
+        // 3) 接口：不带会话 / 带会话 各是什么状态码
+        let base = siteOrigin.absoluteString
+        let publicList = await Self.probe("GET", "\(base)/api/public/v1/images?page=1", cookie: nil)
+        let adminAnon = await Self.probe("GET", "\(base)/api/v1/admin/images?page=1&pageSize=1", cookie: nil)
+        let adminAuth = await Self.probe("GET", "\(base)/api/v1/admin/images?page=1&pageSize=1", cookie: header)
+        APILog.credentials("diagnose public.list(no cookie)=\(publicList) admin.list(no cookie)=\(adminAnon) admin.list(with cookie)=\(adminAuth)")
+        APILog.credentials("=== diagnose end ===")
+    }
+
+    static func probe(_ method: String, _ urlString: String, cookie: String?) async -> Int {
+        guard let url = URL(string: urlString) else { return -1 }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 15
+        if let cookie { request.setValue(cookie, forHTTPHeaderField: "Cookie") }
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            return (response as? HTTPURLResponse)?.statusCode ?? -1
+        } catch {
+            APILog.transportError(method, urlString, error.localizedDescription)
+            return -1
+        }
+    }
+    #endif
 
     /// 能力开关。未加载到配置时一律为 false —— 宁可少显示，也不要显示了却点不动。
     var features: SiteConfigDTO.Features {
@@ -141,7 +201,7 @@ final class AppEnvironment {
             NSLog("[FelinaTest] 注入的会话 cookie 解析失败，忽略")
             return
         }
-        _ = KeychainStore().set(encoded, for: AuthStore.defaultStorageKey)
+        Task { _ = await KeychainStore().set(encoded, for: AuthStore.defaultStorageKey) }
         NSLog("[FelinaTest] 已注入测试会话（cookie 名 \(cookie.name)）")
     }
     #endif
@@ -154,12 +214,19 @@ private enum TestHooks {
     static var failRegisterStep: Bool {
         ProcessInfo.processInfo.arguments.contains("-FelinaTestFailRegister")
     }
+
+    /// `-FelinaTestFailList401`：让管理列表返回 401，用来验证"会话失效必须可见"
+    static var failListWith401: Bool {
+        ProcessInfo.processInfo.arguments.contains("-FelinaTestFailList401")
+    }
 }
 
 /// 把"登记"这一步打断的装饰器。其余步骤（签发、直传 R2）**照常真实执行** ——
 /// 这正是孤儿对象产生的真实路径：对象已经在桶里，只是没进库。
 private struct FailingRegisterAdminAPI: AdminImageAPI {
     let base: AdminImageAPI
+    /// 让列表请求返回 401（验证"失败可见"）
+    var listReturns401 = false
 
     func signUpload(filename: String, contentType: String, albumValue: String, size: Int, cookie: String) async throws -> SignedUpload {
         try await base.signUpload(filename: filename, contentType: contentType, albumValue: albumValue, size: size, cookie: cookie)
@@ -170,7 +237,10 @@ private struct FailingRegisterAdminAPI: AdminImageAPI {
     }
 
     func listImages(page: Int, pageSize: Int, album: String?, cookie: String) async throws -> AdminImagePage {
-        try await base.listImages(page: page, pageSize: pageSize, album: album, cookie: cookie)
+        if listReturns401 {
+            throw APIError.http(status: 401, code: nil, message: "authentication failed")
+        }
+        return try await base.listImages(page: page, pageSize: pageSize, album: album, cookie: cookie)
     }
 
     func deleteImage(id: String, cookie: String) async throws {

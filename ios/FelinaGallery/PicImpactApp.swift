@@ -13,6 +13,11 @@ struct PicImpactApp: App {
         WindowGroup {
             RootView(environment: environment)
                 .task { await environment.bootstrap() }
+                .onAppear {
+                    #if DEBUG
+                    environment.runDiagnoseIfRequested()
+                    #endif
+                }
                 // 恢复登录态与拉配置互不依赖，所以分成两个 task 并行，不用互相等
                 .task { await environment.auth.restoreSession() }
         }

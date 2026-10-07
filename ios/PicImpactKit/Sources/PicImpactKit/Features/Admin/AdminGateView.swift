@@ -44,6 +44,7 @@ public struct AdminGateView: View {
                     uploads: uploads,
                     loader: loader,
                     isBusy: store.isWorking,
+                    storageWarning: store.storageWarning,
                     onSignOut: {
                         // 登出是异步的（要告诉服务端吊销会话），但界面不该等它 ——
                         // 本地凭证在 signOut 里立刻清掉，然后由我们收起 sheet。

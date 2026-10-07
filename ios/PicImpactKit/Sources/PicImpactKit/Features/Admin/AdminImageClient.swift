@@ -399,16 +399,24 @@ public struct AdminImageClient: AdminImageAPI {
 
     @discardableResult
     private func performRaw(_ request: URLRequest) async throws -> Data {
+        let method = request.httpMethod ?? "GET"
+        let url = request.url?.absoluteString ?? "(nil)"
+        // 只记"有没有带 cookie"，绝不记 cookie 的值（见 APILog 的说明）
+        let attached = !(request.value(forHTTPHeaderField: "Cookie") ?? "").isEmpty
+
         let data: Data
         let response: URLResponse
         do {
             (data, response) = try await configuration.session.data(for: request)
         } catch {
+            APILog.transportError(method, url, error.localizedDescription)
             throw APIError.transport(error.localizedDescription)
         }
         guard let http = response as? HTTPURLResponse else {
+            APILog.transportError(method, url, "响应不是 HTTP 响应")
             throw APIError.transport("响应不是 HTTP 响应")
         }
+        APILog.request(method, url, status: http.statusCode, attachedSession: attached)
         guard (200..<300).contains(http.statusCode) else {
             throw Self.apiError(status: http.statusCode, body: data)
         }

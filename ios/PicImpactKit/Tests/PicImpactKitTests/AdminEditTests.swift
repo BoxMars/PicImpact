@@ -186,6 +186,27 @@ struct AdminImageListEditingTests {
         #expect(store.images[0].title == "旧标题", "失败时不能改本地数据")
     }
 
+    @Test("列表 401：必须说是「会话失效」，不能只是空列表")
+    func unauthorizedSurfacesAsSessionExpiry() async {
+        struct UnauthorizedAPI: AdminImageAPI {
+            func signUpload(filename: String, contentType: String, albumValue: String, size: Int, cookie: String) async throws -> SignedUpload { throw APIError.transport("x") }
+            func registerImage(_ input: AdminRegisterInput, cookie: String) async throws -> RegisteredImage { throw APIError.transport("x") }
+            func listImages(page: Int, pageSize: Int, album: String?, cookie: String) async throws -> AdminImagePage {
+                throw APIError.http(status: 401, code: nil, message: "authentication failed")
+            }
+            func deleteImage(id: String, cookie: String) async throws {}
+            func updateImage(_ update: AdminImageUpdate, cookie: String) async throws {}
+            func updateImageShow(id: String, show: Int, cookie: String) async throws {}
+            func updateImageAlbum(imageId: String, albumId: String, cookie: String) async throws {}
+        }
+        let store = AdminImageListStore(api: UnauthorizedAPI(), albumSource: StubAlbumSource(), cookie: { "session=stale" })
+        await store.loadFirstPage()
+
+        #expect(store.images.isEmpty)
+        #expect(store.sessionExpired, "401 必须被识别出来，界面才能给出重新登录入口")
+        #expect(store.errorMessage == "登录状态已失效，请重新登录", "不能只说「没有图片」：\(store.errorMessage ?? "-")")
+    }
+
     @Test("列表里没有这一条：说清楚原因，不能静默失败")
     func missingItemExplainsItself() async {
         let api = FakeAdminAPI(listResult: makePage())

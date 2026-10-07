@@ -20,6 +20,8 @@ public struct AdminHomeView: View {
     private let uploads: UploadCoordinator
     private let loader: ImageLoader
     private let isBusy: Bool
+    /// 凭证持久化失败时的告警（本次会话可用，重启后要重新登录）
+    private let storageWarning: String?
     private let onSignOut: () -> Void
     private let onClose: () -> Void
     /// 图库变了（上传成功 / 删除）之后通知外面刷新公开画廊
@@ -31,6 +33,7 @@ public struct AdminHomeView: View {
         uploads: UploadCoordinator,
         loader: ImageLoader,
         isBusy: Bool = false,
+        storageWarning: String? = nil,
         onSignOut: @escaping () -> Void,
         onClose: @escaping () -> Void,
         onLibraryChanged: @escaping () async -> Void = {}
@@ -40,6 +43,7 @@ public struct AdminHomeView: View {
         self.uploads = uploads
         self.loader = loader
         self.isBusy = isBusy
+        self.storageWarning = storageWarning
         self.onSignOut = onSignOut
         self.onClose = onClose
         self.onLibraryChanged = onLibraryChanged
@@ -53,6 +57,7 @@ public struct AdminHomeView: View {
                 uploads: uploads,
                 loader: loader,
                 isBusy: isBusy,
+                storageWarning: storageWarning,
                 onSignOut: onSignOut,
                 onClose: onClose,
                 onLibraryChanged: onLibraryChanged
@@ -77,6 +82,8 @@ struct AdminHomeContent: View {
     let uploads: UploadCoordinator
     let loader: ImageLoader
     let isBusy: Bool
+    /// 凭证持久化失败时的告警（本次会话可用，重启后要重新登录）
+    let storageWarning: String?
     let onSignOut: () -> Void
     let onClose: () -> Void
     let onLibraryChanged: () async -> Void
@@ -178,6 +185,18 @@ struct AdminHomeContent: View {
                     Text(errorMessage)
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(AnimalTokens.error)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if images.sessionExpired {
+                        // 会话失效必须有出口：否则用户只会看到"没有图片"，不知道该怎么办
+                        IslandActionButton("重新登录", tone: .danger, isEnabled: !isBusy, action: onSignOut)
+                            .accessibilityIdentifier("admin-relogin")
+                    }
+                }
+
+                if let warning = storageWarning {
+                    Text(warning)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(AnimalTokens.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -304,6 +323,19 @@ struct AdminHomeContent: View {
                     Text("加载中…")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(AnimalTokens.textSecondary)
+                } else if images.images.isEmpty, let errorMessage = images.errorMessage {
+                    // 之前这里无论什么原因都只说"这个相册还没有图片" —— 真机上会话失效时
+                    // 用户看到的就是这一句，完全查不出问题。现在把真正的原因放在这里。
+                    VStack(alignment: .leading, spacing: AnimalTokens.spacingSM) {
+                        Text(errorMessage)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(AnimalTokens.error)
+                            .fixedSize(horizontal: false, vertical: true)
+                        IslandActionButton("重试", isEnabled: !images.isLoading) {
+                            Task { await images.loadFirstPage() }
+                        }
+                        .accessibilityIdentifier("admin-list-retry")
+                    }
                 } else if images.images.isEmpty {
                     Text("这个相册还没有图片")
                         .font(.system(size: 13, weight: .medium))

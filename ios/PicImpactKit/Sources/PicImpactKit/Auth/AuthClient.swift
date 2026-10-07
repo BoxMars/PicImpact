@@ -213,6 +213,11 @@ public struct AuthClient: AuthAPI {
         let configuration = URLSessionConfiguration.default
         configuration.httpCookieStorage = nil
         configuration.httpShouldSetCookies = false
+        // 登录这类交互请求不能让用户等 60 秒（URLSession 默认值）：
+        // 真机上"点登录一直转圈"就是这种体验。25 秒足够慢网络完成一次 POST，
+        // 超时后会变成一条可见的错误，用户可以直接重试。
+        configuration.timeoutIntervalForRequest = 25
+        configuration.timeoutIntervalForResource = 60
         return URLSession(configuration: configuration)
     }
 

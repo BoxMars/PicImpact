@@ -145,7 +145,11 @@ public struct APIClient: Sendable {
         do {
             (data, response) = try await configuration.session.data(for: request)
         } catch {
+            APILog.transportError("GET", url.absoluteString, error.localizedDescription)
             throw APIError.transport(error.localizedDescription)
+        }
+        if let http = response as? HTTPURLResponse {
+            APILog.request("GET", url.absoluteString, status: http.statusCode, attachedSession: false)
         }
 
         guard let http = response as? HTTPURLResponse else {

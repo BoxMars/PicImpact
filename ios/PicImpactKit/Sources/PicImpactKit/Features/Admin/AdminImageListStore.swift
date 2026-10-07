@@ -34,6 +34,9 @@ public final class AdminImageListStore {
     private let api: any AdminImageAPI
     private let albumSource: any AlbumListProviding
     private let cookie: @MainActor () -> String?
+    /// 最近一次列表请求是否因**会话失效（401）**失败。
+    /// 界面据此把"空列表"换成"会话已失效，请重新登录"并提供重新登录入口。
+    public private(set) var sessionExpired = false
     private let pageSize: Int
     private var page = 1
 
@@ -108,8 +111,14 @@ public final class AdminImageListStore {
             hasMore = result.hasMore
             images = replacing ? result.items : images + result.items
             errorMessage = nil
+            sessionExpired = false
         } catch {
-            errorMessage = UploadCoordinator.failureMessage(error)
+            // 401 是最需要说清楚的一种：它意味着"登录在这台机器上没生效"。
+            // 只说"没有图片"会把用户引向完全错误的方向（以为是相册里真没图）。
+            sessionExpired = Self.isUnauthorized(error)
+            errorMessage = sessionExpired
+                ? "登录状态已失效，请重新登录"
+                : UploadCoordinator.failureMessage(error)
         }
     }
 
@@ -130,6 +139,11 @@ public final class AdminImageListStore {
         } catch {
             errorMessage = UploadCoordinator.failureMessage(error)
         }
+    }
+
+    private static func isUnauthorized(_ error: Error) -> Bool {
+        if case let APIError.http(status, _, _) = error { return status == 401 }
+        return false
     }
 
     /// 把列表剩余页全部拉下来（判重要拿"服务端已有的全部照片"来比）。

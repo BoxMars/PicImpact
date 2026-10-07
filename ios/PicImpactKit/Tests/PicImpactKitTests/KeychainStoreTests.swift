@@ -18,50 +18,50 @@ struct KeychainStoreTests {
     }
 
     @Test("写入 → 读出 → 覆盖 → 删除")
-    func roundTrip() {
+    func roundTrip() async {
         let store = makeStore()
         let key = "session-cookies"
 
-        #expect(store.data(for: key) == nil, "新 service 里不该有数据")
+        #expect(await store.data(for: key) == nil, "新 service 里不该有数据")
 
-        #expect(store.set(Data("v1".utf8), for: key))
-        #expect(store.data(for: key) == Data("v1".utf8))
+        #expect(await store.set(Data("v1".utf8), for: key))
+        #expect(await store.data(for: key) == Data("v1".utf8))
 
         // 覆盖走的是 SecItemUpdate 分支 —— 它和首次写入（SecItemAdd）是两条不同的代码路径
-        #expect(store.set(Data("v2".utf8), for: key))
-        #expect(store.data(for: key) == Data("v2".utf8))
+        #expect(await store.set(Data("v2".utf8), for: key))
+        #expect(await store.data(for: key) == Data("v2".utf8))
 
-        #expect(store.remove(key))
-        #expect(store.data(for: key) == nil)
+        #expect(await store.remove(key))
+        #expect(await store.data(for: key) == nil)
     }
 
     @Test("删除是幂等的：删不存在的键也算成功")
-    func removeIsIdempotent() {
+    func removeIsIdempotent() async {
         let store = makeStore()
-        #expect(store.remove("never-written"))
-        #expect(store.remove("never-written"))
+        #expect(await store.remove("never-written"))
+        #expect(await store.remove("never-written"))
     }
 
     @Test("不同的 key 互不覆盖")
-    func keysAreIsolated() {
+    func keysAreIsolated() async {
         let store = makeStore()
-        #expect(store.set(Data("a".utf8), for: "k1"))
-        #expect(store.set(Data("b".utf8), for: "k2"))
-        #expect(store.data(for: "k1") == Data("a".utf8))
-        #expect(store.data(for: "k2") == Data("b".utf8))
-        #expect(store.remove("k1"))
-        #expect(store.data(for: "k2") == Data("b".utf8), "删掉 k1 不该动到 k2")
+        #expect(await store.set(Data("a".utf8), for: "k1"))
+        #expect(await store.set(Data("b".utf8), for: "k2"))
+        #expect(await store.data(for: "k1") == Data("a".utf8))
+        #expect(await store.data(for: "k2") == Data("b".utf8))
+        #expect(await store.remove("k1"))
+        #expect(await store.data(for: "k2") == Data("b".utf8), "删掉 k1 不该动到 k2")
     }
 
     @Test("会话 JSON 存得进、取得出（真正会被写进钥匙串的那份数据）")
-    func storesSessionCookiesJSON() throws {
+    func storesSessionCookiesJSON() async throws {
         let store = makeStore()
         let cookies = SessionCookies(cookies: [
             AuthCookie(name: "better-auth.session_token", value: "abc", domain: "felina.boxz.dev", isSecure: true),
         ])
 
-        #expect(store.set(try cookies.encoded(), for: AuthStore.defaultStorageKey))
-        let data = try #require(store.data(for: AuthStore.defaultStorageKey))
+        #expect(await store.set(try cookies.encoded(), for: AuthStore.defaultStorageKey))
+        let data = try #require(await store.data(for: AuthStore.defaultStorageKey))
         let restored = try SessionCookies.decoded(from: data)
 
         #expect(restored == cookies)
@@ -69,13 +69,13 @@ struct KeychainStoreTests {
     }
 
     @Test("内存实现与真实实现语义一致（供 AuthStore 测试注入）")
-    func inMemoryMatchesContract() {
+    func inMemoryMatchesContract() async {
         let store = InMemoryKeychain()
-        #expect(store.data(for: "k") == nil)
-        #expect(store.set(Data("v".utf8), for: "k"))
-        #expect(store.data(for: "k") == Data("v".utf8))
-        #expect(store.remove("k"))
-        #expect(store.data(for: "k") == nil)
-        #expect(store.remove("k"), "删除同样应当是幂等的")
+        #expect(await store.data(for: "k") == nil)
+        #expect(await store.set(Data("v".utf8), for: "k"))
+        #expect(await store.data(for: "k") == Data("v".utf8))
+        #expect(await store.remove("k"))
+        #expect(await store.data(for: "k") == nil)
+        #expect(await store.remove("k"), "删除同样应当是幂等的")
     }
 }
