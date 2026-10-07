@@ -120,7 +120,7 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
 
 ### Phase 0 —— 可行性 spike（不碰主站）
 目标：在**不影响线上**的前提下，回答 1.2 里的四个问题。
-- [ ] P0-1 核实 Workers 免费/付费 CPU 上限与计费；确认 10ms 是否够 SSR
+- [x] P0-1 核实 Workers 免费/付费 CPU 上限与计费 —— **已完成**（见 1.2：免费 10ms 不够 SSR，付费 5 分钟）
 - [ ] P0-2 在付费账号上跑一个 `@opennextjs/cloudflare` 最小 Next 应用，**带一个 catch-all 路由**
       验证 issue #942 是否已修（若未修，找出绕过方式：路由改写 / 降级 better-auth handler）
 - [ ] P0-3 最小 Prisma + D1 例程（一张表、一次读一次写），确认 `@prisma/adapter-d1` 可用
