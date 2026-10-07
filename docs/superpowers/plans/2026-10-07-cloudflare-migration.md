@@ -39,8 +39,15 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
 
 - **Prisma 有官方 D1 适配器**：Cloudflare 官方教程《Query D1 using Prisma ORM》
   https://developers.cloudflare.com/d1/tutorials/d1-and-prisma-orm/
-  npm 包 `@prisma/adapter-d1` 存在（socket.dev 显示有 7.8.0-dev.x 版本）。
+  npm 包 `@prisma/adapter-d1` **确实存在**（直接查 npm registry 核实，不依赖二手描述）：
+  包名 `@prisma/adapter-d1`，最新 `7.10.0`，稳定版里有 `6.19.3` 这一档；
+  依赖为 `ky` / `@cloudflare/workers-types` / `@prisma/driver-adapter-utils`（与 Workers 定位一致）。
   → 数据库层不必换 ORM，但 schema 要按 SQLite 改写（见 1.3）。
+
+  ⚠️ **版本缺口（需要升级 Prisma）**：本项目用的是 **Prisma 6.4.1**，而 registry 上稳定版里能看到的最早
+  6.x 适配器是 **6.19.3** → 现在的 6.4.1 很可能**早于适配器引入**。所以 P0-3 不只是"跑个例程"，
+  还包含一次 **Prisma 升级**（先升到适配器支持的 6.x，或直接上 7.x），升级本身要单独验证
+  （Prisma 大版本升级可能带 schema/客户端 API 变化，本项目 `server/db/**` 用量不小）。
 - **Next.js on Workers 有官方路径**：`@opennextjs/cloudflare`
   https://developers.cloudflare.com/workers/framework-guides/web-apps/opennext/
 - **已知 bug 直接命中本项目**：opennextjs-cloudflare issue #942
@@ -124,6 +131,7 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
 - [ ] P0-2 在付费账号上跑一个 `@opennextjs/cloudflare` 最小 Next 应用，**带一个 catch-all 路由**
       验证 issue #942 是否已修（若未修，找出绕过方式：路由改写 / 降级 better-auth handler）
 - [ ] P0-3 最小 Prisma + D1 例程（一张表、一次读一次写），确认 `@prisma/adapter-d1` 可用
+      —— 注意：本项目 Prisma 为 6.4.1，而适配器稳定版最早可见 6.19.3，**需要先做一次 Prisma 升级**并单独验证
 - [ ] P0-4 Images binding 缩放一张真图，确认能替代 sharp 的预览图管线，并查清计费
 - [x] P0-5 两个账号的域名/Worker 归属验证 —— **已完成**（见 1.2 结论：Custom Domain 必须与 zone 同账号，
       所以升级持有域名的账号；付费账号不参与）
