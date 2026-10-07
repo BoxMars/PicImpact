@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { Hono } from 'hono'
+import { requireSession } from '~/hono/require-session'
 import { HTTPException } from 'hono/http-exception'
 import { openListUpload } from '~/server/lib/file-upload'
 import { fetchConfigsByKeys } from '~/server/db/query/configs'
@@ -11,6 +12,9 @@ import { generatePresignedUrl } from '~/server/lib/s3api'
 import { buildUploadKey } from '~/server/lib/upload-key'
 
 const app = new Hono()
+
+// 真正的会话校验（proxy.ts 那道门禁只判断 cookie 在不在，不能作为鉴权依据）
+app.use('*', requireSession)
 
 // 生成预签名 URL
 app.post('/presigned-url', async (c) => {

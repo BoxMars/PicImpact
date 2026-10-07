@@ -8,12 +8,16 @@ import {
   updateImageAlbum
 } from '~/server/db/operate/images'
 import { Hono } from 'hono'
+import { requireSession } from '~/hono/require-session'
 import { HTTPException } from 'hono/http-exception'
 import { revalidateTag } from 'next/cache'
 import { IMAGES_TAG } from '~/server/db/query/images'
 import { attachManagedImageMetadata } from '~/server/lib/managed-image'
 
 const app = new Hono()
+
+// 真正的会话校验（proxy.ts 那道门禁只判断 cookie 在不在，不能作为鉴权依据）
+app.use('*', requireSession)
 
 /**
  * 失效图片相关缓存（画廊列表 / 总数）。包 try/catch：失效失败不应让写操作失败。

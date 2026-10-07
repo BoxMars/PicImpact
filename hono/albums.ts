@@ -4,9 +4,13 @@ import { revalidateTag } from 'next/cache'
 import { ALBUMS_TAG } from '~/server/db/query/albums'
 import { deleteAlbum, insertAlbums, updateAlbum, updateAlbumShow } from '~/server/db/operate/albums'
 import { Hono } from 'hono'
+import { requireSession } from '~/hono/require-session'
 import { HTTPException } from 'hono/http-exception'
 
 const app = new Hono()
+
+// 真正的会话校验（proxy.ts 那道门禁只判断 cookie 在不在，不能作为鉴权依据）
+app.use('*', requireSession)
 
 /**
  * 失效相册缓存。包 try/catch：失效失败不应让管理端的写操作失败。

@@ -3,12 +3,16 @@ import 'server-only'
 import { fetchConfigsByKeys } from '~/server/db/query/configs'
 import type { Config } from '~/types'
 import { Hono } from 'hono'
+import { requireSession } from '~/hono/require-session'
 import { HTTPException } from 'hono/http-exception'
 import { updateOpenListConfig, updateCustomInfo, updateR2Config, updateS3Config } from '~/server/db/operate/configs'
 import { revalidateTag } from 'next/cache'
 import { CONFIGS_TAG } from '~/server/db/query/configs'
 
 const app = new Hono()
+
+// 真正的会话校验（proxy.ts 那道门禁只判断 cookie 在不在，不能作为鉴权依据）
+app.use('*', requireSession)
 
 /**
  * 失效配置缓存。包 try/catch：缓存失效失败不应让管理端的保存操作失败

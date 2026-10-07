@@ -12,6 +12,7 @@ import {
   type AdminImageSummary,
 } from '~/server/lib/admin-api'
 import { buildUploadKey, extensionOf, isKeyWithinFolder, isSafeAlbumValue, isUrlUnderPrefix } from '~/server/lib/upload-key'
+import { createRequireSession } from '~/hono/require-session'
 
 /**
  * 管理端 API 的路由**工厂**（`/api/v1/admin/*`）。
@@ -101,12 +102,9 @@ export function createAdminApi(deps: AdminApiDeps): Hono {
     return c.json({ code: 500, message: 'internal error' }, 500)
   })
 
-  /** 每个端点开头都调用它：本批次唯一新增的写入口，不能只靠 proxy 那道"cookie 在不在"的门禁 */
-  async function requireSession(headers: Headers): Promise<AdminSession> {
-    const session = await deps.getSession(headers)
-    if (!session) throw apiError(401, 'authentication failed')
-    return session
-  }
+  // 会话校验用**全站唯一的那份实现**（hono/require-session.ts，与 legacy 写接口共用）。
+  // 这里把 deps 的查询函数传进去，是为了让单测能注入替身而不碰数据库。
+  app.use('*', createRequireSession((headers) => deps.getSession(headers)))
 
   async function readJson(c: { req: { json: () => Promise<unknown> } }): Promise<unknown> {
     try {
@@ -126,8 +124,6 @@ export function createAdminApi(deps: AdminApiDeps): Hono {
   // 1. 预签名上传
   // -------------------------------------------------------------------------
   app.post('/uploads/sign', async (c) => {
-    await requireSession(c.req.raw.headers)
-
     const parsed = signRequestSchema.safeParse(await readJson(c))
     if (!parsed.success) throw apiError(400, 'invalid_request')
     const { filename, contentType, albumValue } = parsed.data
@@ -168,8 +164,6 @@ export function createAdminApi(deps: AdminApiDeps): Hono {
   // 2. 登记元数据
   // -------------------------------------------------------------------------
   app.post('/images', async (c) => {
-    await requireSession(c.req.raw.headers)
-
     const parsed = registerRequestSchema.safeParse(await readJson(c))
     if (!parsed.success) throw apiError(400, 'invalid_request')
     const body = parsed.data
@@ -215,8 +209,6 @@ export function createAdminApi(deps: AdminApiDeps): Hono {
   // 3. 管理列表
   // -------------------------------------------------------------------------
   app.get('/images', async (c) => {
-    await requireSession(c.req.raw.headers)
-
     const parsed = listQuerySchema.safeParse(c.req.query())
     if (!parsed.success) throw apiError(400, 'invalid_request')
     const { page, pageSize, album, show } = parsed.data
@@ -238,8 +230,6 @@ export function createAdminApi(deps: AdminApiDeps): Hono {
   // 4. 软删除
   // -------------------------------------------------------------------------
   app.delete('/images/:id', async (c) => {
-    await requireSession(c.req.raw.headers)
-
     const id = c.req.param('id') ?? ''
     if (!IMAGE_ID_PATTERN.test(id)) throw apiError(400, 'invalid_id')
 

@@ -2,9 +2,13 @@ import 'server-only'
 import { fetchConfigsByKeys } from '~/server/db/query/configs'
 
 import { Hono } from 'hono'
+import { requireSession } from '~/hono/require-session'
 import type { Config } from '~/types'
 
 const app = new Hono()
+
+// 真正的会话校验（proxy.ts 那道门禁只判断 cookie 在不在，不能作为鉴权依据）
+app.use('*', requireSession)
 
 app.get('/info', async (c) => {
   const data = await fetchConfigsByKeys([
