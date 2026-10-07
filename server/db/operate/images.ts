@@ -31,7 +31,13 @@ export async function insertImage(image: ImageType) {
         lat: String(image.lat),
         lon: String(image.lon),
         type: image.type,
-        show: 1,
+        // 新建图片默认**显示**（0 = 显示，1 = 隐藏）。
+        //
+        // 原来只写了 show: 1，而 show_on_mainpage 干脆没写、落到数据库的
+        // @default(1) 上 —— 两个开关默认都是关的，新传的照片在相册与首页都看不到。
+        // 这里两个都显式写成 0：不依赖数据库默认值，也就不用为了改默认值对线上库做迁移。
+        show: 0,
+        show_on_mainpage: 0,
         sort: image.sort,
         del: 0,
       }
