@@ -47,6 +47,77 @@ extension View {
     }
 }
 
+/// ACNH 风格的主操作按钮（登录 / 登出这类会改变全局状态的动作）。
+///
+/// 外观依旧只由 `islandSurface` 决定（阴影在描边之前），按压反馈用
+/// `IslandCardPressStyle`（只位移、不叠加阴影）—— 这两条恰恰是本项目最容易写错、
+/// 也已经写错过多次的地方，所以新控件一律复用既有原语，不自己拼阴影和描边。
+public struct IslandActionButton: View {
+
+    public enum Tone: Sendable {
+        /// 主色 `#19c8b9`：页面里推荐的动作用它
+        case primary
+        /// 错误色 `#e05a5a`：登出这类"会让当前状态消失"的动作
+        case danger
+    }
+
+    private let title: String
+    private let tone: Tone
+    private let isEnabled: Bool
+    private let action: () -> Void
+
+    public init(
+        _ title: String,
+        tone: Tone = .primary,
+        isEnabled: Bool = true,
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.tone = tone
+        self.isEnabled = isEnabled
+        self.action = action
+    }
+
+    public var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 15, weight: .heavy))
+                .tracking(0.04 * 15)
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: AnimalTokens.height) // 40，与 --animal-height-base 一致
+                .islandSurface(
+                    fill: fill,
+                    border: border,
+                    borderWidth: AnimalTokens.borderWidth,
+                    cornerRadius: 16, // --animal-border-radius-sm
+                    shadowColor: border,
+                    shadowOffsetY: 3
+                )
+        }
+        .buttonStyle(IslandCardPressStyle())
+        .disabled(!isEnabled)
+    }
+
+    /// 禁用态用令牌里的禁用底色，而不是给整个按钮降透明度 ——
+    /// 后者会把硬阴影一起变淡，"厚度"就没了，看起来不像被禁用而像被抠掉。
+    private var fill: Color {
+        guard isEnabled else { return AnimalTokens.bgDisabled }
+        switch tone {
+        case .primary: return AnimalTokens.primary
+        case .danger: return AnimalTokens.error
+        }
+    }
+
+    private var border: Color {
+        guard isEnabled else { return AnimalTokens.borderLight }
+        switch tone {
+        case .primary: return AnimalTokens.primaryActive
+        case .danger: return AnimalTokens.errorActive
+        }
+    }
+}
+
 /// ACNH 风格的分享按钮：调**系统分享面板**，分享站点上的对应链接。
 ///
 /// 用 `ShareLink` 而不是自己包 `UIActivityViewController`：

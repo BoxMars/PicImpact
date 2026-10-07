@@ -111,6 +111,8 @@ public enum AnimalTokens {
     public static var success: Color { parseColor("animal-success-color") ?? .clear }
     public static var warning: Color { parseColor("animal-warning-color") ?? .clear }
     public static var error: Color { parseColor("animal-error-color") ?? .clear }
+    /// 错误色的"厚度色"（按下/描边用），与 `primaryActive` 同属组件层签名值
+    public static var errorActive: Color { parseColor("animal-error-color-active") ?? .clear }
 
     /// 主文字色。**注意是深棕 `#794f27`，不是黑。**
     public static var text: Color { parseColor("animal-text-color") ?? .clear }

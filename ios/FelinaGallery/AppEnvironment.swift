@@ -14,6 +14,9 @@ final class AppEnvironment {
     let loader: ImageLoader
     let downloader: DownloadService
     let gallery: GalleryStore
+    /// 登录态。挂在环境上而不是视图里：标题三击、登录 sheet、管理页三处都要读它，
+    /// 放在一处才能保证"凭证"与"界面状态"永远同步。
+    let auth: AuthStore
 
     private(set) var config: SiteConfigDTO?
     private(set) var configError: String?
@@ -34,6 +37,8 @@ final class AppEnvironment {
             cache: FirstPageCache(key: "first-page"),
             imageCache: imageCache
         )
+        // 会话 Cookie 存 Keychain（不能用 UserDefaults：明文、会随备份带走）
+        self.auth = AuthStore(api: AuthClient(), keychain: KeychainStore())
     }
 
     /// 能力开关。未加载到配置时一律为 false —— 宁可少显示，也不要显示了却点不动。

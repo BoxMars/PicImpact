@@ -15,11 +15,19 @@ public struct GalleryHeader: View {
     private let title: String
     private let subtitle: String
     private let photoCount: Int
+    /// 标题被**连续点击三次**时触发。为 nil 表示这个页面不提供后台入口。
+    private let onTitleTripleTap: (() -> Void)?
 
-    public init(title: String, subtitle: String, photoCount: Int) {
+    public init(
+        title: String,
+        subtitle: String,
+        photoCount: Int,
+        onTitleTripleTap: (() -> Void)? = nil
+    ) {
         self.title = title
         self.subtitle = subtitle
         self.photoCount = photoCount
+        self.onTitleTripleTap = onTitleTripleTap
     }
 
     /// 标题兜底值。
@@ -51,6 +59,15 @@ public struct GalleryHeader: View {
                     ribbonRow(fontSize: 16)
                     ribbonRow(fontSize: 14)
                 }
+                // 后台入口：**连续点击标题三次**。
+                //
+                // 为什么不用长按：长按在 ScrollView 里会与滚动竞争（按住稍久就被当成拖拽），
+                // 三击则完全不干扰滚动，且没有其它手势与之冲突（这里没有单击/双击动作）。
+                // contentShape 把命中区域扩到整个标题行 —— 缎带本身是自绘形状，
+                // 不铺一层矩形的话，点在缎带的透明缝隙上是不响应的。
+                .contentShape(Rectangle())
+                .onTapGesture(count: 3) { onTitleTripleTap?() }
+                .accessibilityIdentifier("gallery-title-ribbon")
 
                 // 打字机副标题
                 Typewriter(subtitle, millisecondsPerCharacter: 60) { visible in

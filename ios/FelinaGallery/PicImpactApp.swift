@@ -13,6 +13,8 @@ struct PicImpactApp: App {
         WindowGroup {
             RootView(environment: environment)
                 .task { await environment.bootstrap() }
+                // 恢复登录态与拉配置互不依赖，所以分成两个 task 并行，不用互相等
+                .task { await environment.auth.restoreSession() }
         }
     }
 }
@@ -24,6 +26,11 @@ struct PicImpactApp: App {
 struct RootView: View {
     let environment: AppEnvironment
     @State private var previewTarget: ImageDTO?
+    /// 管理界面（登录 → 占位管理页）是否展示。
+    ///
+    /// 放在视图里而不是 AuthStore 里：它是"这个 sheet 开着没有"的界面状态，
+    /// 与"凭证是否有效"是两件事 —— 会话失效不该自动把 sheet 关掉（用户正在输密码时会被打断）。
+    @State private var showAdmin = false
 
     var body: some View {
         NavigationStack {
@@ -34,6 +41,8 @@ struct RootView: View {
                 downloader: environment.downloader,
                 // 标题与副标题现在显示在页面内的缎带上（与 Web 一致），导航栏不再重复
                 headerTitle: environment.siteTitle,
+                // 后台入口：连续点击标题三次。没有可见按钮是有意为之。
+                onTitleTripleTap: { showAdmin = true },
                 onSelect: { previewTarget = $0 }
             )
             .navigationBarTitleDisplayMode(.inline)
@@ -70,5 +79,9 @@ struct RootView: View {
             }
         }
         .tint(AnimalTokens.primary)
+        .sheet(isPresented: $showAdmin) {
+            // sheet 内部自己决定显示登录表单还是管理页（见 AdminGateView）
+            AdminGateView(store: environment.auth) { showAdmin = false }
+        }
     }
 }

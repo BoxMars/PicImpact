@@ -170,6 +170,42 @@ public struct APIClient: Sendable {
 /// 错误响应里的 `data` 可能是 null
 struct EmptyPayload: Decodable, Sendable {}
 
+extension APIError {
+
+    /// 服务端在错误体里给的**原话**（只有 HTTP 错误才有）。
+    ///
+    /// 与 `errorDescription` 的区别很重要：后者是给日志/排查用的技术描述
+    /// （`服务端返回 401：...（code 200）`），直接放到产品界面上会像调试面板。
+    /// 界面上应该显示的是服务端自己说的那句话，例如 better-auth 在密码错误时的
+    /// `Invalid email or password`。
+    public var serverMessage: String? {
+        if case let .http(_, _, message) = self { return message }
+        return nil
+    }
+}
+
+extension APIClient {
+
+    /// 站点根（`https://felina.boxz.dev`）。
+    ///
+    /// ## 为什么需要它
+    /// 认证接口（`/api/auth/*`，见 `AuthClient`）**不在** `/api/public/v1` 之下，
+    /// 不能拿 `productionBaseURL` 直接拼。但域名只应该有一个来源 ——
+    /// 再写死一份 `https://...` 的话，将来换域名必然漏改一处。
+    ///
+    /// 所以这里从公开 API 的 baseURL **反推**站点根：只取 scheme + host + port，
+    /// 丢掉全部路径。这样无论公开 API 挂在哪一级路径下都能得到正确结果。
+    public static func siteOrigin(from baseURL: URL = APIClient.productionBaseURL) -> URL {
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            return baseURL
+        }
+        components.path = ""
+        components.query = nil
+        components.fragment = nil
+        return components.url ?? baseURL
+    }
+}
+
 enum APIEnvironment {
     static var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"

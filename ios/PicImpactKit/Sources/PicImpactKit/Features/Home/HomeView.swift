@@ -33,6 +33,7 @@ public struct HomeView: View {
     private let downloader: DownloadService?
     private let headerTitle: String
     private let headerSubtitle: String
+    private let onTitleTripleTap: (() -> Void)?
     private let onSelect: (ImageDTO) -> Void
 
     public init(
@@ -42,6 +43,7 @@ public struct HomeView: View {
         downloader: DownloadService? = nil,
         headerTitle: String = GalleryHeader.defaultTitle,
         headerSubtitle: String = GalleryHeader.defaultSubtitle,
+        onTitleTripleTap: (() -> Void)? = nil,
         onSelect: @escaping (ImageDTO) -> Void = { _ in }
     ) {
         _store = State(initialValue: store)
@@ -50,6 +52,7 @@ public struct HomeView: View {
         self.downloader = downloader
         self.headerTitle = headerTitle
         self.headerSubtitle = headerSubtitle
+        self.onTitleTripleTap = onTitleTripleTap
         self.onSelect = onSelect
     }
 
@@ -84,7 +87,8 @@ public struct HomeView: View {
                 GalleryHeader(
                     title: headerTitle,
                     subtitle: headerSubtitle,
-                    photoCount: store.images.count
+                    photoCount: store.images.count,
+                    onTitleTripleTap: onTitleTripleTap
                 )
                 .id(Self.topAnchorID)
 

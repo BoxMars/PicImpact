@@ -19,6 +19,32 @@ public struct IslandSectionTitle: View {
     }
 }
 
+/// 页面级标题：20pt 粗体纸卡文字 + 下方 32×3 的青色短横。
+///
+/// 与 `PreviewTitleBlock` 里的标题是同一套写法（那里内联了同样的字体/颜色/短横），
+/// 提到这里是为了让管理入口的两页不必各抄一遍 —— 标题样式散成多份就会各自漂移。
+public struct IslandPageTitle: View {
+    private let text: String
+
+    public init(_ text: String) {
+        self.text = text
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: AnimalTokens.spacingSM) {
+            Text(text)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(AnimalSignatures.cardText) // #725d42
+                .fixedSize(horizontal: false, vertical: true)
+            // 标题下的青色短横，作为 ACNH 风格的分隔强调
+            RoundedRectangle(cornerRadius: 2, style: .circular)
+                .fill(AnimalTokens.primary) // #19c8b9
+                .frame(width: 32, height: 3)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 /// 标签—值行。对应 Web 的 `Row`：
 /// label `#9f927d` / 500，value `#725d42` / 600，两端对齐。
 public struct IslandRow: View {
