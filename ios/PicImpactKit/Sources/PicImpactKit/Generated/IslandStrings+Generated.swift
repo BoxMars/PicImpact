@@ -84,7 +84,7 @@ extension IslandStrings {
         "Config.force_path_style": "是否强制客户端对桶使用路径式寻址",
         "Config.openListTitle": "Open List 配置",
         "Config.open_list_token": "Open List 令牌",
-        "Config.open_list_url": "Open List 地址，如：https://openlist.besscroft.com",
+        "Config.open_list_url": "Open List 地址，如：https://openlist.example.com",
         "Config.r2Title": "Cloudflare R2 配置",
         "Config.r2_accesskey_id": "Cloudflare AccessKey_ID",
         "Config.r2_accesskey_secret": "Cloudflare AccessKey_Secret",

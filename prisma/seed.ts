@@ -14,7 +14,7 @@ const INITIAL_CONFIGS = [
   { config_key: 's3_cdn_url', config_value: '', detail: 'cdn 地址，如：https://cdn.example.com' },
   { config_key: 's3_direct_download', config_value: 'false', detail: '是否启用 S3 直接下载模式，默认 false。' },
   { config_key: 'open_list_token', config_value: '', detail: 'Open List 令牌' },
-  { config_key: 'open_list_url', config_value: '', detail: 'Open List 地址，如：https://openlist.besscroft.com' },
+  { config_key: 'open_list_url', config_value: '', detail: 'Open List 地址，如：https://openlist.example.com' },
   { config_key: 'secret_key', config_value: 'pic-impact', detail: 'SECRET_KEY' },
   { config_key: 'r2_accesskey_id', config_value: '', detail: 'Cloudflare AccessKey_ID' },
   { config_key: 'r2_accesskey_secret', config_value: '', detail: 'Cloudflare AccessKey_Secret' },
@@ -54,7 +54,7 @@ export async function main() {
       console.error('Database initialization failed, please check your connection information.')
     }
   } catch (e) {
-    console.error('Initialization failed. Please try to troubleshoot the issue first. If you cannot resolve it, please carry the logs and submit feedback at: https://github.com/besscroft/PicImpact/issues.', e)
+    console.error('Initialization failed. Please try to troubleshoot the issue first. If you cannot resolve it, please carry the logs and submit feedback to the project maintainer.', e)
   }
 }
 

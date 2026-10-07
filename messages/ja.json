@@ -307,7 +307,7 @@
     "s3_cdn_url": "CDN アドレス、例：https://cdn.example.com",
     "s3_direct_download": "S3 直接リンクダウンロードモードを有効にするかどうか",
     "open_list_token": "Open List トークン",
-    "open_list_url": "Open List アドレス、例：https://openlist.besscroft.com",
+    "open_list_url": "Open List アドレス、例：https://openlist.example.com",
     "r2_account_id": "Cloudflare ACCOUNT_ID",
     "r2_accesskey_id": "Cloudflare AccessKey_ID",
     "r2_accesskey_secret": "Cloudflare AccessKey_Secret",

@@ -2211,25 +2211,25 @@
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open List 地址，如：https://openlist.besscroft.com"
+            "value": "Open List 地址，如：https://openlist.example.com"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open List URL, e.g., https://openlist.besscroft.com"
+            "value": "Open List URL, e.g., https://openlist.example.com"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open List アドレス、例：https://openlist.besscroft.com"
+            "value": "Open List アドレス、例：https://openlist.example.com"
           }
         },
         "zh-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open List 地址，如：https://openlist.besscroft.com"
+            "value": "Open List 地址，如：https://openlist.example.com"
           }
         }
       }

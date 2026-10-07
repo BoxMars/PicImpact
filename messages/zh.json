@@ -307,7 +307,7 @@
     "s3_cdn_url": "cdn 地址，如：https://cdn.example.com",
     "s3_direct_download": "是否启用 S3 直链下载模式",
     "open_list_token": "Open List 令牌",
-    "open_list_url": "Open List 地址，如：https://openlist.besscroft.com",
+    "open_list_url": "Open List 地址，如：https://openlist.example.com",
     "r2_account_id": "Cloudflare ACCOUNT_ID",
     "r2_accesskey_id": "Cloudflare AccessKey_ID",
     "r2_accesskey_secret": "Cloudflare AccessKey_Secret",

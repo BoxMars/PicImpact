@@ -143,7 +143,7 @@ export default function CardList(props: Readonly<AnalysisDataProps>) {
                 <span className="pr-6">{t('Dashboard.starTip')}</span>
                 <span className="h-px flex-1 bg-black"></span>
               </span>
-            <Link href="https://github.com/besscroft/PicImpact" target="_blank">
+            <Link href="https://github.com/BoxMars/PicImpact" target="_blank">
               <Button className="cursor-pointer" variant="outline">
                 <Star size={20} className="mr-1"/> Star
               </Button>
@@ -152,7 +152,7 @@ export default function CardList(props: Readonly<AnalysisDataProps>) {
               <span className="pr-6">{t('Dashboard.issueTip')}</span>
               <span className="h-px flex-1 bg-black"></span>
               </span>
-            <Link href="https://github.com/besscroft/PicImpact/issues/new" target="_blank">
+            <Link href="https://github.com/BoxMars/PicImpact/issues/new" target="_blank">
               <Button className="cursor-pointer" variant="outline">
                 <MessageSquareHeart size={20} className="mr-1"/>{t('Button.issue')}
               </Button>

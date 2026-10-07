@@ -307,7 +307,7 @@
     "s3_cdn_url": "CDN URL, e.g., https://cdn.example.com",
     "s3_direct_download": "Whether to enable S3 direct link download mode.",
     "open_list_token": "Open List token",
-    "open_list_url": "Open List URL, e.g., https://openlist.besscroft.com",
+    "open_list_url": "Open List URL, e.g., https://openlist.example.com",
     "r2_account_id": "Cloudflare ACCOUNT_ID",
     "r2_accesskey_id": "Cloudflare AccessKey_ID",
     "r2_accesskey_secret": "Cloudflare AccessKey_Secret",
