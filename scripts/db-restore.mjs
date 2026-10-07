@@ -20,7 +20,9 @@ import { PrismaClient } from '@prisma/client'
 import { readdirSync, readFileSync } from 'node:fs'
 
 const db = new PrismaClient()
-const file = process.argv[2] || readdirSync('db-backups').filter(f => f.startsWith('rows-')).sort().pop()
+const dir = 'db-backups'
+const name = process.argv[2] || readdirSync(dir).filter(f => f.startsWith('rows-')).sort().pop()
+const file = name.includes('/') ? name : `${dir}/${name}`   // 修正：默认要带目录
 if (!file) { console.error('找不到 db-backups/rows-*.json'); process.exit(1) }
 const dump = JSON.parse(readFileSync(file, 'utf8'))
 console.log(`  数据源: ${file}`)

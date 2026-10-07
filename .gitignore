@@ -42,3 +42,7 @@ ios/DEVELOPMENT_TEAM
 
 # 数据库导出（含 R2 密钥等敏感配置，绝不入库）
 /db-backups/
+
+# .env 的各种本地变体都含密码，一律忽略；但 .env.example 必须保留
+.env.*
+!.env.example
