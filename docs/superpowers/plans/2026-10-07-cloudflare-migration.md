@@ -329,6 +329,59 @@ SELECT COUNT(DISTINCT image.id) FROM ... ;
 > **强化后的规矩**：验证脚本必须打印「输入量 / 去重量 / 期望量」三个数字并断言**它们之间存在差异**，
 > 而不是只断言两个结果相等 —— 相等可能是双方都为空、或去重根本没发生。
 
+#### 已验证的改写之四：JSON 包含运算符 `@>`（2 处，标签筛选）
+
+新发现的两处（`server/db/query/images.ts:422` 与 `:454`）：
+
+```sql
+image.labels::jsonb @> ${JSON.stringify([tag])}::jsonb
+```
+
+`@>`（JSON 包含）是 **Postgres 专有**，SQLite **没有**对应运算符。SQLite 的标准替代是
+`EXISTS` + `json_each`：
+
+```sql
+EXISTS (
+  SELECT 1 FROM json_each(
+    CASE WHEN json_valid(image.labels)
+         THEN (CASE WHEN json_type(image.labels) = 'array' THEN image.labels ELSE '[]' END)
+         ELSE '[]' END) AS je
+  WHERE je.value = ${tag}
+)
+```
+
+同样用**嵌套 CASE** 而不是 `AND` 串联 —— 理由与标签查询一致：SQLite 的 `json_each` 遇到非法 JSON 直接报错，
+而 `AND` 的求值顺序没有保证。
+
+**验证**（8 行输入：正常标签 / 空数组 / **重复标签** / NULL / 非法 JSON / 对象）：
+
+| 查询 | SQLite 结果 | Python 期望 | 输入/命中/期望 |
+|---|---|---|---|
+| 标签「猫」 | `['a','b','e']` | `['a','b','e']` ✓ | 8 / 3 / 3 |
+| 标签「风景」 | `['b','c']` | `['b','c']` ✓ | 8 / 2 / 2 |
+| 标签「狗」 | `[]` | `[]` ✓ | 8 / 0 / 0 |
+
+* 重复标签（某行 `["猫","猫"]`）只命中**一次** → `EXISTS` 语义正确 ✓
+* 非法 JSON 与对象**既没报错也没命中** → 兜底逻辑正确 ✓
+* 「狗」这个**空结果**是有意义的反例：前两个查询都非空，说明数据造对了、查询也确实在工作，
+  不是"双方都为空"式的假验证 ✓
+
+#### 该类剩余清单（本轮同步盘点）
+
+| 项 | 处数 | 状态 |
+|---|---|---|
+| `TO_TIMESTAMP` | 3 处代码 + 1 处注释 | ✓ 已改写并验证（就是排序常量那一组） |
+| `jsonb_array_elements_text` | 1 | ✓ 已改写并验证 |
+| `jsonb_typeof` | 2（1 代码 + 1 注释） | ✓ 随标签查询一并处理 |
+| `SELECT DISTINCT ON` | 5 | ✓ 已改写并验证 |
+| `@>` 包含运算符 | 2 | ✓ 本轮改写并验证 |
+| `NOW()` | 3 | ⬜ 待处理（SQLite 用 `CURRENT_TIMESTAMP`） |
+| `json_array_elements` | 1 | ⬜ 待确认（与 `jsonb_array_elements_text` 不同名，需看清楚用法） |
+| `COALESCE` | 38 | ✅ **两边通用**，无需改动 |
+
+> 盘点中一个值得记的好消息：38 处 `COALESCE` 全部**跨库通用** —— 原始 SQL 里大部分内容是可直接移植的，
+> 真正需要改的是**少量专有语法**，而不是整段重写。
+
 → 结论：这一段是**有明确工作量的工程**（23 个原始 SQL 调用点 + 54 处标注 + 一套新迁移），
   但边界清楚、可逐项勾选，没有未知黑盒。
 
