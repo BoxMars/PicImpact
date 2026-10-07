@@ -53,17 +53,44 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
   https://developers.cloudflare.com/images/optimization/binding/
   → 可作为 sharp 的替代；**但其计费与免费额度待核实**。
 
-### 1.2 待核实（不凭记忆下结论）
+### 1.2 已确认的关键限制（2026-10-07 读官方 Limits 文档原文）
 
-- [ ] **Workers 免费版 CPU 时间上限**（记忆中是每次调用 10ms，付费 30s）—— 核实方法：读
-      https://developers.cloudflare.com/workers/platform/limits/ 的 CPU time 一节（上次抓取正文被截断），
-      以及 https://developers.cloudflare.com/workers/platform/pricing/
-      这一条**决定整个方案成立与否**：Next.js SSR + Prisma 一次请求大概率超过 10ms。
+来源：https://developers.cloudflare.com/workers/platform/limits/
+（技巧：Cloudflare 文档加 `/index.md` 可拿到干净正文，避免抓取被导航淹没。）
+
+| 限制项 | Workers Free | Workers Paid |
+|---|---|---|
+| **每次 HTTP 请求的 CPU 时间** | **10 ms** | 5 分钟（默认 30 秒） |
+| 请求数 | 10 万/天 | 无限制 |
+| 内存/isolate | 128 MB | 128 MB |
+| 子请求/次 | 50 | 10,000 |
+| Worker 体积（未压缩） | 64 MiB | 64 MiB |
+| 启动时间 | 1 秒 | 1 秒 |
+| 静态资源文件数 | 20,000 | 100,000 |
+
+**结论：免费版放不下这个站** ✓ —— 官方文档在同一页写明：
+
+> Heavier workloads that handle **authentication, server-side rendering**, or parse large payloads
+> typically use **10-20 ms**.
+
+本项目的负载正是「认证（better-auth）+ SSR（Next.js）」→ 落在 10-20 ms，而免费版只有 10 ms。
+按官方错误码，超限会返回 1102「Worker exceeded resource limits」。
+
+**但经济学因此反转**：Workers **付费只要 5 美元/月**，而 Vercel Pro 是 20 美元。
+也就是说「更快 + 更便宜」是成立的，前提是用付费版 Workers。
+
+要留意的两个次生限制：
+- **Worker 启动时间 1 秒**：Prisma Client 在全局作用域初始化是社区公认的坑，要在 spike 里量。
+- **子请求 50/次（免费）**：Workers Static Assets 不算子请求，但 API + D1 调用算；付费版 10,000 无忧。
+
+- [ ] 仍待核实：**D1 的容量/QPS/跨区延迟**（https://developers.cloudflare.com/d1/platform/limits/）
+- [ ] 仍待核实：**Images binding 的计费**（https://developers.cloudflare.com/images/pricing/）
 - [ ] **两个 Cloudflare 账号怎么配合**。已知：`boxz.dev` 在**免费账号**（有免费 Worker），
-      另有**付费账号**但**没有托管 boxz.dev**。要查清：
-      (a) Worker 的 **Custom Domain** 是否必须与 zone 在同一账号；
-      (b) 若必须，是否要把 zone 迁到付费账号（改 NS），或改用 workers.dev 子域 / Cloudflare for SaaS；
-      (c) 付费额度能否覆盖域名在另一账号的场景。
+      另有**付费账号**但**没有托管 boxz.dev**。
+      **初步结论（待文档确认）**：不必动用付费账号 —— **把托管 boxz.dev 的免费账号升级为 Workers Paid（5 美元/月）**
+      即可同时满足「域名已有 + CPU 5 分钟」。这比把 zone 迁到付费账号（改 NS、动 DNS）风险小得多。
+      仍要确认：Worker 的 Custom Domain 是否必须与 zone 同账号（若是，则"升级现有账号"是唯一低风险路径）。
+      文档：https://developers.cloudflare.com/workers/configuration/routing/custom-domains/
 - [ ] **D1 的实际能力边界**：单库容量、读写 QPS、并发写、跨区读延迟（D1 是单主库 + 读副本）。
       图库只有几十张图、访问量小，容量不是问题，但**写放大与冷读延迟**要看清楚。
 - [ ] **better-auth 在 Workers 上**：依赖的 crypto / 存储是否都能跑；会话表放 D1 的适配。
@@ -110,8 +137,9 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
 
 ## 3. 风险与退出策略
 
-- **最大风险**：免费版 10ms CPU 放不下 → 若必须付费，则与"Vercel Pro（20 美元）"的性价比要重新比较；
-  那时更划算的可能是**只把 Vercel 升 Pro + 函数放东京**（一行配置，已写好）。
+- **最大风险已消除**：免费版 10ms CPU 确实放不下（官方文档确认），但 **Workers Paid 只要 5 美元/月**
+  且给到 5 分钟 CPU —— 比 Vercel Pro（20 美元）更便宜，同时延迟更低（边缘在香港/新加坡 + 数据库在东京）。
+  代价是需要**把持有域名的那张卡从免费升到付费**。
 - **次大风险**：opennext + better-auth catch-all 的已知 bug 未修 → 需要改鉴权实现，工作量不可控。
 - **退出策略**：任一 Phase 的验证不通过即停下汇报，不硬推。**主站始终保持 Vercel 在线**，
   只有 Phase 3 才切流量，且保留一键回滚。
