@@ -184,7 +184,25 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
 |---|---|---|
 | `$queryRaw` / `$executeRaw` 调用点 | **23** | ✗ 最大的一块，逐个都要审 |
 | 其中 `SELECT DISTINCT ON (...)` | **4**（均在 `server/db/query/images.ts`） | ✗ **SQLite 不支持**，必须改写为窗口函数或子查询 |
-| JSON 操作符（`->>` / `->`） | 代码里未直接命中，但**迁移 SQL 里用过**（`exif->>'model'`、`exif->>'lens_model'` 表达式索引） | 改 `json_extract` |
+| JSON 操作符 `->>` | **确实在用**（直接证据：`server/db/query/images.ts:12` 的 `image.exif->>'data_time'`、`:76` 的 `image.exif->>'model'`、`:338` 的 `labels::jsonb`） | 改 `json_extract` |
+
+补充实测（这些都是 **SQLite 不存在**的 Postgres 专有写法，逐个计数）：
+
+| Postgres 专有写法 | 处数 | 说明 |
+|---|---|---|
+| `TO_TIMESTAMP(...)` | 4 | 首页/相册的**排序**表达式，把 EXIF 的 `YYYY:MM:DD HH24:MI:SS` 字符串转时间 |
+| `jsonb_array_elements_text()` | 1 | 取标签集合（`server/db/query/images.ts:338`） |
+| `SELECT DISTINCT ON (...)` | 5 | 列表查询 |
+| `::jsonb` / `::json` 强制转换 | 4 + 4 | 同上 |
+
+⚠️ **排序是最麻烦的一处**：EXIF 的时间字符串是 `2026:10:05 12:00:00` 这种**非 ISO** 格式，
+SQLite 的 `strftime` 不能直接解析；改写要么在 SQL 里做字符串整形
+（`substr` + `replace` 把 `:` 换成 `-`），要么**新增一个归一化的拍摄时间列**并在写入时维护。
+schema 里目前**没有**这样的列（已确认），而仓库里存在 `scripts/migrate/backfill-exif-capture-time.ts`，
+说明历史上考虑过归一化 —— spike 时要决定走哪条路（这是**设计决策**，不只是语法替换）。
+
+> 过程记录：我一度用循环统计 `->>` 得到 0 处，与「直接打印出 `exif->>'data_time'`」矛盾 ——
+> 是我的循环匹配写错了，不是代码里没有。**以直接证据为准**，没有把那个 0 写进结论。
 
 **迁移目录**：`prisma/migrations/*` 全是 Postgres SQL，迁到 D1 需要**重做一套 SQLite 迁移**（不能复用）。
 
