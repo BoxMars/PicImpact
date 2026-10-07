@@ -206,6 +206,40 @@ schema 里目前**没有**这样的列（已确认），而仓库里存在 `scri
 
 **迁移目录**：`prisma/migrations/*` 全是 Postgres SQL，迁到 D1 需要**重做一套 SQLite 迁移**（不能复用）。
 
+#### 已验证的改写之一：列表排序（最麻烦的一处，已通过交叉验证 ✅）
+
+原写法（Postgres，用 `TO_TIMESTAMP` 解析 EXIF 时间串）：
+
+```sql
+COALESCE(TO_TIMESTAMP(COALESCE(image.exif->>'data_time', image.exif->>'date_time'),
+                      'YYYY:MM:DD HH24:MI:SS'), '1970-01-01 00:00:00') DESC,
+image.created_at DESC, image.updated_at DESC
+```
+
+**改写（SQLite）—— 不需要解析日期**：
+
+```sql
+COALESCE(json_extract(image.exif, '$.data_time'),
+         json_extract(image.exif, '$.date_time'),
+         '1970:01:01 00:00:00') DESC,
+image.created_at DESC, image.updated_at DESC
+```
+
+**为什么可以不解析**：先查了**真实数据**（种子里的 56 张图）—— `data_time` 56/56 有值、`date_time` 25/56，
+时间串形态 **55 张都是 `YYYY:MM:DD HH:MM:SS`**（定宽、零填充、大端）。这种格式的**字典序就等于时间序**，
+所以直接用 `json_extract` 取字符串排序即可，比原来的 `TO_TIMESTAMP(...)` 更简单、且没有解析失败的风险。
+（`'1970:01:01 00:00:00'` 兜底值同样按字典序落在最后。）
+
+**验证方式（可复用到其余 22 个调用点）**：
+1. 用上一节的 SQLite 空库建表；
+2. 灌入**真实的 56 条**（id / exif / createdAt 取自种子文件，不是编造数据）；
+3. 用改写后的 SQL 在 SQLite 里排一遍；
+4. 用 Python **独立**按同一规则排一遍；
+5. 逐个比对 —— 本次结果：**两者完全一致**（前 5 个 id 逐一相同）。
+
+> 这种「换一种实现独立算一遍再比对」的验证，比"看起来对"可靠得多；
+> 23 个原始 SQL 调用点都应按此法逐个验证，而不是改完就信。
+
 → 结论：这一段是**有明确工作量的工程**（23 个原始 SQL 调用点 + 54 处标注 + 一套新迁移），
   但边界清楚、可逐项勾选，没有未知黑盒。
 
