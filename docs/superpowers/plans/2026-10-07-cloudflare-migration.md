@@ -50,6 +50,20 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
   （Prisma 大版本升级可能带 schema/客户端 API 变化，本项目 `server/db/**` 用量不小）。
 - **Next.js on Workers 有官方路径**：`@opennextjs/cloudflare`
   https://developers.cloudflare.com/workers/framework-guides/web-apps/opennext/
+  包本身**活跃维护**（查 npm registry：最新 1.20.9，发布于 2026-10-06，132 个稳定版）。
+  它的 peerDependencies 划出硬门槛：`next >=15.5.27 <16 || >=16.3.8`、`wrangler ^4.125.0`、`rclone.js ^0.6.6`。
+
+  ⚠️ **本项目不满足该门槛，需要升级依赖**（逐条核对过版本号）：
+
+  | 依赖 | 本项目 | OpenNext 要求 | 结论 |
+  |---|---|---|---|
+  | next | **16.1.6** | >=15.5.27 <16 或 **>=16.3.8** | ✗ **16.1.6 两个区间都不在**，需升到 16.3.8+ |
+  | wrangler | **未安装** | ^4.125.0 | ✗ 需新增 |
+  | @prisma/client / prisma | **6.4.1** | 见 1.1 的 D1 适配器说明 | ✗ 需升级以配合 `@prisma/adapter-d1` |
+
+  也就是说：**迁移前要先做一轮依赖升级**（Next 16.1.6 → 16.3.8+、Prisma 6.4.1 → 支持 D1 适配器的版本、新增 wrangler）。
+  这一轮升级本身要单独验证 —— 尤其本项目用了 Next 16 的 server actions 与 `revalidateTag`，
+  升级后要回归首页 ISR 与上传流程。
 - **已知 bug 直接命中本项目**：opennextjs-cloudflare issue #942
   「Cloudflare build crashes on catch-all API route `/api/auth/[...better-auth]` due to invalid regex」
   https://github.com/opennextjs/opennextjs-cloudflare/issues/942
