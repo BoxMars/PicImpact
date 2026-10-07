@@ -87,10 +87,20 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
 - [ ] 仍待核实：**Images binding 的计费**（https://developers.cloudflare.com/images/pricing/）
 - [ ] **两个 Cloudflare 账号怎么配合**。已知：`boxz.dev` 在**免费账号**（有免费 Worker），
       另有**付费账号**但**没有托管 boxz.dev**。
-      **初步结论（待文档确认）**：不必动用付费账号 —— **把托管 boxz.dev 的免费账号升级为 Workers Paid（5 美元/月）**
-      即可同时满足「域名已有 + CPU 5 分钟」。这比把 zone 迁到付费账号（改 NS、动 DNS）风险小得多。
-      仍要确认：Worker 的 Custom Domain 是否必须与 zone 同账号（若是，则"升级现有账号"是唯一低风险路径）。
-      文档：https://developers.cloudflare.com/workers/configuration/routing/custom-domains/
+      **结论（已由官方文档确认）**：**不要动那个付费账号，把托管 boxz.dev 的免费账号升级为 Workers Paid（5 美元/月）**。
+
+      依据：Custom Domains 文档的 Caution 原文（https://developers.cloudflare.com/workers/configuration/routing/custom-domains/）：
+
+      > You cannot create a Custom Domain on a hostname with an existing CNAME DNS record
+      > **or on a zone you do not own**.
+
+      即 Worker 的自定义域**必须挂在同账号的 zone 上** → 没有托管 boxz.dev 的付费账号**无法**把
+      felina.boxz.dev 指过去。所以只有两条路：
+      (a) **把持有域名的账号升级为 Workers Paid** —— 不动 DNS、不改 NS，风险最小（推荐）；
+      (b) 把 zone 迁到付费账号 —— 要改 NS、动全部 DNS 记录，风险与工作量都大得多。
+
+      顺带确认：`felina.boxz.dev` 与 `felina-asset.boxz.dev` 都是**一级子域**，正好在 Universal SSL
+      覆盖范围内；Custom Domain 会自动建 DNS 记录并签发证书，不需要额外订阅 Advanced Certificate Manager。
 - [ ] **D1 的实际能力边界**：单库容量、读写 QPS、并发写、跨区读延迟（D1 是单主库 + 读副本）。
       图库只有几十张图、访问量小，容量不是问题，但**写放大与冷读延迟**要看清楚。
 - [ ] **better-auth 在 Workers 上**：依赖的 crypto / 存储是否都能跑；会话表放 D1 的适配。
@@ -115,7 +125,8 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
       验证 issue #942 是否已修（若未修，找出绕过方式：路由改写 / 降级 better-auth handler）
 - [ ] P0-3 最小 Prisma + D1 例程（一张表、一次读一次写），确认 `@prisma/adapter-d1` 可用
 - [ ] P0-4 Images binding 缩放一张真图，确认能替代 sharp 的预览图管线，并查清计费
-- [ ] P0-5 两个账号的域名/Worker 归属验证（用 workers.dev 子域先绕开 zone 问题）
+- [x] P0-5 两个账号的域名/Worker 归属验证 —— **已完成**（见 1.2 结论：Custom Domain 必须与 zone 同账号，
+      所以升级持有域名的账号；付费账号不参与）
 - 产出：一份 spike 结论 + 明确 go / no-go
 
 ### Phase 1 —— 数据与 schema
