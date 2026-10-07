@@ -8,6 +8,7 @@ import type { Config } from '~/types'
 import { getClient } from '~/server/lib/s3'
 import { getR2Client } from '~/server/lib/r2'
 import { generatePresignedUrl } from '~/server/lib/s3api'
+import { buildUploadKey } from '~/server/lib/upload-key'
 
 const app = new Hono()
 
@@ -40,10 +41,10 @@ app.post('/presigned-url', async (c) => {
         const bucket = configs.find((item: Config) => item.config_key === 'bucket')?.config_value || ''
         const storageFolder = configs.find((item: Config) => item.config_key === 'storage_folder')?.config_value || ''
 
-        // 构建文件路径
-        const filePath = storageFolder && storageFolder !== '/'
-          ? type && type !== '/' ? `${storageFolder}${type}/${filename}` : `${storageFolder}/${filename}`
-          : type && type !== '/' ? `${type.slice(1)}/${filename}` : `${filename}`
+        // 构建文件路径。布局规则与 App 的上传签发接口（/api/v1/admin/uploads/sign）
+        // 共用 server/lib/upload-key.ts 里的同一个函数 —— 两处各拼一遍迟早会漂移，
+        // 那会表现为"App 传的图与 web 传的图不落在同一个目录、缩略图生成不了"。
+        const filePath = buildUploadKey(storageFolder, type, filename)
 
         const client = getClient(configs)
         const presignedUrl = await generatePresignedUrl(client, bucket, filePath, contentType, 'put')
@@ -71,10 +72,10 @@ app.post('/presigned-url', async (c) => {
         const bucket = configs.find((item: Config) => item.config_key === 'r2_bucket')?.config_value || ''
         const storageFolder = configs.find((item: Config) => item.config_key === 'r2_storage_folder')?.config_value || ''
 
-        // 构建文件路径
-        const filePath = storageFolder && storageFolder !== '/'
-          ? type && type !== '/' ? `${storageFolder}${type}/${filename}` : `${storageFolder}/${filename}`
-          : type && type !== '/' ? `${type.slice(1)}/${filename}` : `${filename}`
+        // 构建文件路径。布局规则与 App 的上传签发接口（/api/v1/admin/uploads/sign）
+        // 共用 server/lib/upload-key.ts 里的同一个函数 —— 两处各拼一遍迟早会漂移，
+        // 那会表现为"App 传的图与 web 传的图不落在同一个目录、缩略图生成不了"。
+        const filePath = buildUploadKey(storageFolder, type, filename)
 
         const client = getR2Client(configs)
         const presignedUrl = await generatePresignedUrl(client, bucket, filePath, contentType, 'put')

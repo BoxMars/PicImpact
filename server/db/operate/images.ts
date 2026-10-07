@@ -7,13 +7,17 @@ import type { ImageType } from '~/types'
 
 /**
  * 新增图片
+ *
+ * 返回入库后的行：App 的登记接口（`POST /api/v1/admin/images`）要把 id / preview_url 等回给客户端。
+ * 原有的调用方（Web 的 `POST /api/v1/images/add`）忽略返回值，行为不变。
+ *
  * @param image 图片数据
  */
 export async function insertImage(image: ImageType) {
   if (!image.sort || image.sort < 0) {
     image.sort = 0
   }
-  await db.$transaction(async (tx) => {
+  return await db.$transaction(async (tx) => {
     const resultRow = await tx.images.create({
       data: {
         id: image.id,
@@ -36,6 +40,9 @@ export async function insertImage(image: ImageType) {
         // 原来只写了 show: 1，而 show_on_mainpage 干脆没写、落到数据库的
         // @default(1) 上 —— 两个开关默认都是关的，新传的照片在相册与首页都看不到。
         // 这里两个都显式写成 0：不依赖数据库默认值，也就不用为了改默认值对线上库做迁移。
+        //
+        // ⚠️ 这两个值**不接受调用方传入**（即便传了也在这里被写死成 0），
+        // 免得将来某个新入口"不小心"把新图直接标成隐藏。
         show: 0,
         show_on_mainpage: 0,
         sort: image.sort,
@@ -43,16 +50,18 @@ export async function insertImage(image: ImageType) {
       }
     })
 
-    if (resultRow) {
-      await tx.imagesAlbumsRelation.create({
-        data: {
-          imageId: resultRow.id,
-          album_value: image.album
-        }
-      })
-    } else {
+    if (!resultRow) {
       throw new Error('事务处理失败！')
     }
+
+    await tx.imagesAlbumsRelation.create({
+      data: {
+        imageId: resultRow.id,
+        album_value: image.album
+      }
+    })
+
+    return resultRow
   })
 }
 

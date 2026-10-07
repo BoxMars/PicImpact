@@ -2,6 +2,7 @@ import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 
 import type { Config } from '~/types'
 import { buildPreviewKey, generateThumbnail, readDisplaySize } from '~/server/lib/thumbnail'
+import { encodeThumbHash } from '~/lib/utils/blurhash-server'
 
 /**
  * 缩略图的存储侧PUT 与 URL↔key 映射。
@@ -124,11 +125,18 @@ export type EnsurePreviewResult =
       originalHeight: number
       originalBytes: number
       previewBytes: number
+      /**
+       * 原图的 ThumbHash（base64），写进 `images.blurhash`。
+       *
+       * 由服务端在**同一次下载**里算出来（见 `lib/utils/blurhash-server.ts` 的注释）：
+       * 客户端不再需要自己实现 ThumbHash，web 与 App 的占位图也就必然一致。
+       */
+      blurhash: string
     }
   | { ok: false; reason: string }
 
 /**
- * 由原图 URL 生成受管缩略图并上传，返回新的 `preview_url`。
+ * 由原图 URL 生成受管缩略图并上传，返回新的 `preview_url`（顺带返回宽高与 ThumbHash）。
  *
  * 不做任何"已存在就跳过"的判断：原缺陷的表现正是"形态合格但像素未缩放"，
  * 形态检查识别不出来（见 spec R1.2）。
@@ -147,9 +155,15 @@ export async function ensureManagedPreviewUrl(
     return { ok: false, reason: `下载原图失败 HTTP ${res.status}` }
   }
   const original = Buffer.from(await res.arrayBuffer())
-  const [thumb, display] = await Promise.all([
+  // ThumbHash 失败不该拖垮缩略图（缩略图才是列表能不能用的关键），所以单独兜住
+  const blurhashPromise = encodeThumbHash(original).catch((e) => {
+    console.warn('[blurhash] 生成 ThumbHash 失败，降级为空：', e)
+    return ''
+  })
+  const [thumb, display, blurhash] = await Promise.all([
     generateThumbnail(original),
     readDisplaySize(original),
+    blurhashPromise,
   ])
 
   const { createId } = await import('@paralleldrive/cuid2')
@@ -175,5 +189,6 @@ export async function ensureManagedPreviewUrl(
     originalHeight: display.height,
     originalBytes: original.length,
     previewBytes: thumb.buffer.length,
+    blurhash,
   }
 }
