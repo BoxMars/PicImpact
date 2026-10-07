@@ -1,7 +1,7 @@
 {
-  "name": "picimpact",
+  "name": "felina-gallery",
   "private": true,
-  "author": "Bess Croft <besscroft@foxmail.com>",
+  "author": "Box <me@boxz.dev>",
   "packageManager": "pnpm@9.7.1",
   "scripts": {
     "dev:server": "next dev",
@@ -130,5 +130,7 @@
       "@types/react": "19.2.14",
       "@types/react-dom": "19.2.3"
     }
-  }
+  },
+  "description": "Felina · 大福映画 —— 个人摄影作品站（Web）与配套 iOS App",
+  "license": "MIT"
 }
