@@ -5,13 +5,13 @@ import { EvervaultCard, Icon } from '~/components/ui/origin/evervault-card'
 import { fetchSiteBranding } from '~/server/db/query/configs'
 
 export default async function About() {
-  const contributors = await fetchContributors('besscroft', 'PicImpact')
+  const contributors = await fetchContributors('BoxMars', 'PicImpact')
   const branding = await fetchSiteBranding()
 
   return (
     <div className="flex flex-col space-y-4 h-full flex-1 w-full mx-auto items-center p-2">
       <Link
-        href="https://github.com/besscroft/PicImpact"
+        href="https://github.com/BoxMars/PicImpact"
         target="_blank"
       >
         <Image
