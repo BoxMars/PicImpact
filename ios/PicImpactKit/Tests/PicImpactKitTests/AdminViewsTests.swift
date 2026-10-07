@@ -86,6 +86,29 @@ struct AdminViewsTests {
         #expect(Self.count(done, 0x6FBA2C) > 10, "完成状态没有用成功色")
     }
 
+    @Test("编辑页：纸卡、主色（保存）、危险色（隐藏/取消）都画得出来")
+    func editSheetRenders() throws {
+        let summary = AdminImageSummary(
+            id: "clx1", url: "", previewUrl: "", title: "旧标题", detail: "", width: 4032, height: 3024,
+            show: 0, showOnMainpage: 0, labels: ["生日"], createdAt: nil, albumValue: "/daily",
+            albumName: "大福日常", exif: .init(model: "iPhone 17", lensModel: "", dataTime: "")
+        )
+        let view = AdminImageEditContent(
+            image: summary,
+            albums: [],
+            isSaving: false,
+            errorMessage: nil,
+            onCancel: {},
+            onSave: { _ in }
+        )
+        .frame(width: 393, height: 760)
+
+        let pixels = try #require(IslandCardTests.rasterize(view))
+        #expect(Self.count(pixels, 0x19C8B9) > 300, "保存按钮的主色没画出来")
+        #expect(Self.count(pixels, 0xE05A5A) > 300, "隐藏/取消的危险色没画出来")
+        #expect(Self.count(pixels, 0xF7F3DF) > 1000, "纸卡底色没画出来")
+    }
+
     @Test("列表行：缩略图描边 + 删除按钮用错误色")
     func imageRowRenders() throws {
         let summary = AdminImageSummary(
@@ -105,7 +128,7 @@ struct AdminViewsTests {
             exif: .init(model: "iPhone 15", lensModel: "", dataTime: "")
         )
         // url 为空 → 缩略图 URL 为 nil → 不会发起任何网络请求
-        let view = AdminImageRow(image: summary, loader: ImageLoader(), isDeleting: false, onDelete: {})
+        let view = AdminImageRow(image: summary, loader: ImageLoader(), isDeleting: false, onEdit: {}, onDelete: {})
             .padding(12)
             .frame(width: 360, height: 80)
         let pixels = try #require(IslandCardTests.rasterize(view))

@@ -82,6 +82,8 @@ struct AdminHomeContent: View {
     let onLibraryChanged: () async -> Void
 
     @State private var pendingDelete: AdminImageSummary?
+    @State private var pendingEdit: AdminImageSummary?
+    @State private var isSavingEdit = false
 
     var body: some View {
         VStack(spacing: AnimalTokens.spacingLG) {
@@ -118,6 +120,44 @@ struct AdminHomeContent: View {
             Button("取消", role: .cancel) { pendingDelete = nil }
         } message: { image in
             Text(image.title.isEmpty ? "删除后网页端也会立刻看不到。" : "「\(image.title)」删除后网页端也会立刻看不到。")
+        }
+        .sheet(item: $pendingEdit) { image in
+            AdminImageEditView(
+                image: image,
+                albums: images.albums,
+                isSaving: isSavingEdit,
+                errorMessage: images.errorMessage,
+                onCancel: { pendingEdit = nil },
+                onSave: { draft in Task { await save(image: image, draft: draft) } }
+            )
+        }
+    }
+
+    /// 保存编辑：**只发改过的那几个请求**（三个接口对应三件事）。
+    /// 任一失败就停在编辑页并把服务端原话显示出来，用户可以直接重试。
+    private func save(image: AdminImageSummary, draft: AdminImageEditDraft) async {
+        isSavingEdit = true
+        defer { isSavingEdit = false }
+
+        var saved = true
+        if draft.title != image.title || draft.detail != image.detail || draft.labels != image.labels {
+            saved = await images.saveMetadata(
+                id: image.id, title: draft.title, detail: draft.detail, labels: draft.labels
+            ) && saved
+        }
+        if draft.show != image.show {
+            saved = await images.setVisibility(id: image.id, show: draft.show) && saved
+        }
+        if draft.albumValue != image.albumValue,
+           let album = images.albums.first(where: { $0.value == draft.albumValue }) {
+            saved = await images.moveToAlbum(
+                id: image.id, albumId: album.id, albumValue: album.value, albumName: album.name
+            ) && saved
+        }
+
+        if saved {
+            pendingEdit = nil
+            await onLibraryChanged()
         }
     }
 
@@ -262,6 +302,7 @@ struct AdminHomeContent: View {
                                 image: image,
                                 loader: loader,
                                 isDeleting: images.deletingIDs.contains(image.id),
+                                onEdit: { pendingEdit = image },
                                 onDelete: { pendingDelete = image }
                             )
                         }
@@ -346,6 +387,7 @@ struct AdminImageRow: View {
     let image: AdminImageSummary
     let loader: ImageLoader
     let isDeleting: Bool
+    let onEdit: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -371,6 +413,15 @@ struct AdminImageRow: View {
 
             Spacer(minLength: 0)
 
+            Button(action: onEdit) {
+                Text("编辑")
+                    .font(.system(size: 12, weight: .heavy))
+                    .foregroundStyle(AnimalTokens.primary)
+            }
+            .buttonStyle(.plain)
+            .disabled(isDeleting)
+            .accessibilityIdentifier("admin-edit-\(image.id)")
+
             Button(action: onDelete) {
                 Text("删除")
                     .font(.system(size: 12, weight: .heavy))
@@ -390,6 +441,9 @@ struct AdminImageRow: View {
 
     private var subtitle: String {
         var parts: [String] = []
+        if image.show != 0 {
+            parts.append("已隐藏")
+        }
         if let createdAt = image.createdAt {
             parts.append(AdminImageRow.dateFormatter.string(from: createdAt))
         }

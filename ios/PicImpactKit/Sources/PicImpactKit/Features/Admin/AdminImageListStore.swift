@@ -132,7 +132,98 @@ public final class AdminImageListStore {
         }
     }
 
+    /// 编辑：保存标题 / 详情 / 标签。
+    ///
+    /// 成功后**就地更新本地那一条**（不整页重拉）：重拉会让列表跳一下，
+    /// 而且用户在编辑时通常正盯着这一行。返回值给调用方决定要不要收起编辑页。
+    @discardableResult
+    public func saveMetadata(id: String, title: String, detail: String, labels: [String]) async -> Bool {
+        guard let item = images.first(where: { $0.id == id }) else { return false }
+        guard let cookieHeader = cookie(), !cookieHeader.isEmpty else {
+            errorMessage = "登录状态已失效，请重新登录"
+            return false
+        }
+        // url / width / height 是服务端的硬校验，必须回传（其余字段见 AdminImageUpdate 的说明）
+        let update = AdminImageUpdate(
+            id: id, url: item.url, width: item.width, height: item.height,
+            title: title, detail: detail, labels: labels
+        )
+        do {
+            try await api.updateImage(update, cookie: cookieHeader)
+            replace(id: id) { $0.with(title: title, detail: detail, labels: labels) }
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = UploadCoordinator.failureMessage(error)
+            return false
+        }
+    }
+
+    /// 编辑：显示 / 隐藏（0＝显示，1＝隐藏）
+    @discardableResult
+    public func setVisibility(id: String, show: Int) async -> Bool {
+        guard let cookieHeader = cookie(), !cookieHeader.isEmpty else {
+            errorMessage = "登录状态已失效，请重新登录"
+            return false
+        }
+        do {
+            try await api.updateImageShow(id: id, show: show, cookie: cookieHeader)
+            replace(id: id) { $0.with(show: show) }
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = UploadCoordinator.failureMessage(error)
+            return false
+        }
+    }
+
+    /// 编辑：换相册。服务端收的是相册 **id**（`PUT /images/update-Album` 里按 id 查相册）
+    @discardableResult
+    public func moveToAlbum(id: String, albumId: String, albumValue newValue: String, albumName: String) async -> Bool {
+        guard let cookieHeader = cookie(), !cookieHeader.isEmpty else {
+            errorMessage = "登录状态已失效，请重新登录"
+            return false
+        }
+        do {
+            try await api.updateImageAlbum(imageId: id, albumId: albumId, cookie: cookieHeader)
+            replace(id: id) { $0.with(albumValue: newValue, albumName: albumName) }
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = UploadCoordinator.failureMessage(error)
+            return false
+        }
+    }
+
+    private func replace(id: String, _ transform: (AdminImageSummary) -> AdminImageSummary) {
+        guard let index = images.firstIndex(where: { $0.id == id }) else { return }
+        images[index] = transform(images[index])
+    }
+
     public func clearError() {
         errorMessage = nil
+    }
+}
+
+/// 就地改一条列表项。`AdminImageSummary` 的字段全是 `let`，逐字段复制容易漏，
+/// 所以集中在这里做（每个 `with` 只改自己那几个字段）。
+extension AdminImageSummary {
+    func with(title: String? = nil, detail: String? = nil, labels: [String]? = nil, show: Int? = nil, albumValue: String? = nil, albumName: String? = nil) -> AdminImageSummary {
+        AdminImageSummary(
+            id: id,
+            url: url,
+            previewUrl: previewUrl,
+            title: title ?? self.title,
+            detail: detail ?? self.detail,
+            width: width,
+            height: height,
+            show: show ?? self.show,
+            showOnMainpage: showOnMainpage,
+            labels: labels ?? self.labels,
+            createdAt: createdAt,
+            albumValue: albumValue ?? self.albumValue,
+            albumName: albumName ?? self.albumName,
+            exif: exif
+        )
     }
 }

@@ -105,6 +105,43 @@ public struct AdminRegisterInput: Encodable, Sendable, Equatable {
     }
 }
 
+/// 编辑请求体（对应 `PUT /api/v1/images/update`）。
+///
+/// ⚠️ 三个字段（`url` / `width` / `height`）是服务端的**硬校验**，必须回传；
+/// 其余字段只发要改的那几个即可 —— 服务端的 `updateImage()` 走 Prisma，
+/// 没出现的键是 `undefined`，等于"不改这一列"。
+///
+/// ⚠️ **刻意不发 `sort`**：服务端 `updateImage()` 里有 `if (!image.sort || image.sort < 0) image.sort = 0`，
+/// 也就是说不发就等于把它写成 0。生产库里现在**全部**是 0，所以无影响；如果以后启用网页后台的
+/// 排序功能，需要让管理列表接口多返回一个 `sort` 字段，再由 App 原样回传（见计划文档）。
+public struct AdminImageUpdate: Encodable, Sendable, Equatable {
+    public var id: String
+    public var url: String
+    public var width: Int
+    public var height: Int
+    public var title: String?
+    public var detail: String?
+    public var labels: [String]?
+
+    public init(
+        id: String,
+        url: String,
+        width: Int,
+        height: Int,
+        title: String? = nil,
+        detail: String? = nil,
+        labels: [String]? = nil
+    ) {
+        self.id = id
+        self.url = url
+        self.width = width
+        self.height = height
+        self.title = title
+        self.detail = detail
+        self.labels = labels
+    }
+}
+
 /// 管理端接口的能力。抽成协议是为了让上传状态机可以脱离网络测试。
 public protocol AdminImageAPI: Sendable {
     func signUpload(
@@ -120,6 +157,13 @@ public protocol AdminImageAPI: Sendable {
     func listImages(page: Int, pageSize: Int, album: String?, cookie: String) async throws -> AdminImagePage
 
     func deleteImage(id: String, cookie: String) async throws
+
+    /// 改标题 / 详情 / 标签（`PUT /api/v1/images/update`）
+    func updateImage(_ update: AdminImageUpdate, cookie: String) async throws
+    /// 显示 / 隐藏（`PUT /api/v1/images/update-show`，0＝显示，1＝隐藏）
+    func updateImageShow(id: String, show: Int, cookie: String) async throws
+    /// 换相册（`PUT /api/v1/images/update-Album`，服务端收的是相册 **id**）
+    func updateImageAlbum(imageId: String, albumId: String, cookie: String) async throws
 }
 
 /// `/api/v1/admin/*` 客户端。
@@ -141,6 +185,10 @@ public struct AdminImageClient: AdminImageAPI {
     public enum Endpoint {
         public static let sign = "/api/v1/admin/uploads/sign"
         public static let images = "/api/v1/admin/images"
+        /// 编辑类接口在 `/api/v1/images/*`（与网页后台同一个 app），不在 `/admin` 下
+        public static let update = "/api/v1/images/update"
+        public static let updateShow = "/api/v1/images/update-show"
+        public static let updateAlbum = "/api/v1/images/update-Album"
     }
 
     private let configuration: Configuration
@@ -200,6 +248,23 @@ public struct AdminImageClient: AdminImageAPI {
         _ = try await performRaw(request)
     }
 
+    public func updateImage(_ update: AdminImageUpdate, cookie: String) async throws {
+        let request = try Self.updateRequest(siteOrigin: configuration.siteOrigin, update: update, cookie: cookie)
+        _ = try await performRaw(request)
+    }
+
+    public func updateImageShow(id: String, show: Int, cookie: String) async throws {
+        let request = try Self.updateShowRequest(siteOrigin: configuration.siteOrigin, id: id, show: show, cookie: cookie)
+        _ = try await performRaw(request)
+    }
+
+    public func updateImageAlbum(imageId: String, albumId: String, cookie: String) async throws {
+        let request = try Self.updateAlbumRequest(
+            siteOrigin: configuration.siteOrigin, imageId: imageId, albumId: albumId, cookie: cookie
+        )
+        _ = try await performRaw(request)
+    }
+
     // MARK: - 请求构造（纯函数，单测直接断言）
 
     static func signRequest(
@@ -252,6 +317,24 @@ public struct AdminImageClient: AdminImageAPI {
             method: "DELETE",
             cookie: cookie
         )
+    }
+
+    static func updateRequest(siteOrigin: URL, update: AdminImageUpdate, cookie: String) throws -> URLRequest {
+        var request = try jsonRequest(url: url(base: siteOrigin, path: Endpoint.update), method: "PUT", cookie: cookie)
+        request.httpBody = try encode(update)
+        return request
+    }
+
+    static func updateShowRequest(siteOrigin: URL, id: String, show: Int, cookie: String) throws -> URLRequest {
+        var request = try jsonRequest(url: url(base: siteOrigin, path: Endpoint.updateShow), method: "PUT", cookie: cookie)
+        request.httpBody = try encode(ShowBody(id: id, show: show))
+        return request
+    }
+
+    static func updateAlbumRequest(siteOrigin: URL, imageId: String, albumId: String, cookie: String) throws -> URLRequest {
+        var request = try jsonRequest(url: url(base: siteOrigin, path: Endpoint.updateAlbum), method: "PUT", cookie: cookie)
+        request.httpBody = try encode(AlbumBody(imageId: imageId, albumId: albumId))
+        return request
     }
 
     static func url(base: URL, path: String) -> URL {
@@ -349,6 +432,18 @@ public struct AdminImageClient: AdminImageAPI {
         configuration.httpShouldSetCookies = false
         return URLSession(configuration: configuration)
     }
+}
+
+/// `PUT /images/update-show` 的请求体
+struct ShowBody: Encodable, Sendable {
+    let id: String
+    let show: Int
+}
+
+/// `PUT /images/update-Album` 的请求体（注意是相册的 **id**，不是 `album_value`）
+struct AlbumBody: Encodable, Sendable {
+    let imageId: String
+    let albumId: String
 }
 
 /// 签发请求体（字段名与服务端 `signRequestSchema` 一一对应）

@@ -151,5 +151,18 @@ private struct FailingRegisterAdminAPI: AdminImageAPI {
     func deleteImage(id: String, cookie: String) async throws {
         try await base.deleteImage(id: id, cookie: cookie)
     }
+
+    // 编辑不参与"孤儿对象"那个场景，原样透传
+    func updateImage(_ update: AdminImageUpdate, cookie: String) async throws {
+        try await base.updateImage(update, cookie: cookie)
+    }
+
+    func updateImageShow(id: String, show: Int, cookie: String) async throws {
+        try await base.updateImageShow(id: id, show: show, cookie: cookie)
+    }
+
+    func updateImageAlbum(imageId: String, albumId: String, cookie: String) async throws {
+        try await base.updateImageAlbum(imageId: imageId, albumId: albumId, cookie: cookie)
+    }
 }
 #endif

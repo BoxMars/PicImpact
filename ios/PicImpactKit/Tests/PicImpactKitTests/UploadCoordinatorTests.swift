@@ -67,6 +67,11 @@ struct UploadCoordinatorTests {
         func deleteImage(id: String, cookie: String) async throws {
             deleted.append(id)
         }
+
+        // 上传状态机用不到编辑，给空实现即可（协议要求）
+        func updateImage(_ update: AdminImageUpdate, cookie: String) async throws {}
+        func updateImageShow(id: String, show: Int, cookie: String) async throws {}
+        func updateImageAlbum(imageId: String, albumId: String, cookie: String) async throws {}
     }
 
     /// 记录上传、按需抛错的假上传器；可以回调几次进度
