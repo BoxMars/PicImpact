@@ -137,6 +137,18 @@ final class AppEnvironment {
         let adminAnon = await Self.probe("GET", "\(base)/api/v1/admin/images?page=1&pageSize=1", cookie: nil)
         let adminAuth = await Self.probe("GET", "\(base)/api/v1/admin/images?page=1&pageSize=1", cookie: header)
         APILog.credentials("diagnose public.list(no cookie)=\(publicList) admin.list(no cookie)=\(adminAnon) admin.list(with cookie)=\(adminAuth)")
+
+        // 4) 用**真实的管理客户端 + 内存会话**打一次列表：这是管理页看到的那条路径。
+        //    "401" 与 "200 但 0 行" 是两个完全不同的方向，必须在这里分清。
+        let client = AdminImageClient()
+        let sessionHeader = header ?? ""
+        do {
+            let page = try await client.listImages(page: 1, pageSize: 24, album: nil, cookie: sessionHeader)
+            let titles = page.items.prefix(3).map { $0.title.isEmpty ? "(无标题)" : $0.title }
+            APILog.credentials("diagnose admin.client.list OK total=\(page.total) items=\(page.items.count) hasMore=\(page.hasMore) first=\(titles.joined(separator: " / "))")
+        } catch {
+            APILog.credentials("diagnose admin.client.list FAILED error=\(String(describing: error))")
+        }
         APILog.credentials("=== diagnose end ===")
     }
 

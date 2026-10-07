@@ -38,6 +38,16 @@ if not DEVELOPMENT_TEAM:
 APP_DIR = IOS / PROJECT_NAME
 PACKAGE_RELATIVE = "PicImpactKit"  # 相对于工程文件所在目录
 
+# Associated Domains：让系统把**保存的密码**正确关联到这个 App（AutoFill 的正规机制）。
+# 站点侧还必须在 https://<域名>/.well-known/apple-app-site-association 声明
+# `webcredentials.apps = ["<TeamID>.<bundle id>"]`，两边缺一不可。
+#
+# 为什么由这个脚本生成 entitlements 文件：工程是**生成**的，如果有人手动在 Xcode 里加了
+# 这个能力，下次重新生成工程就会丢。让它成为脚本的输出，重新生成后依然有效。
+APP_DIR_NAME = APP_DIR.name  # 工程文件所在目录名，entitlements 路径以它为前缀
+ENTITLEMENTS_FILE_NAME = f"{PROJECT_NAME}.entitlements"
+ASSOCIATED_DOMAIN = "webcredentials:felina.boxz.dev"
+
 
 def uid(*parts: str) -> str:
     """由内容派生稳定的 24 位十六进制 ID（同一份输入永远得到同一个 ID）"""
@@ -341,6 +351,8 @@ def main() -> None:
 			isa = XCBuildConfiguration;
 			buildSettings = {{
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				// 关联域名（AutoFill 密码关联）由脚本生成的 entitlements 提供
+				CODE_SIGN_ENTITLEMENTS = "{APP_DIR_NAME}/{ENTITLEMENTS_FILE_NAME}";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "{DEVELOPMENT_TEAM}";
@@ -378,6 +390,8 @@ def main() -> None:
 			isa = XCBuildConfiguration;
 			buildSettings = {{
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				// 关联域名（AutoFill 密码关联）由脚本生成的 entitlements 提供
+				CODE_SIGN_ENTITLEMENTS = "{APP_DIR_NAME}/{ENTITLEMENTS_FILE_NAME}";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "{DEVELOPMENT_TEAM}";
@@ -451,6 +465,22 @@ def main() -> None:
 	rootObject = {project_id} /* Project object */;
 }}
 """
+
+    # entitlements：Associated Domains（AutoFill 关联）——必须每次重新生成都写一遍，
+    # 否则"手动加的能力"会在下一次生成工程时消失。
+    (APP_DIR / ENTITLEMENTS_FILE_NAME).write_text(
+        f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>{ASSOCIATED_DOMAIN}</string>
+	</array>
+</dict>
+</plist>
+"""
+    )
 
     project_dir = IOS / f"{PROJECT_NAME}.xcodeproj"
     project_dir.mkdir(parents=True, exist_ok=True)

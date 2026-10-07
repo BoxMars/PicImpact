@@ -67,6 +67,12 @@ struct AdminLoginContent: View {
     let onCancel: () -> Void
     let onSubmit: (String, String) -> Void
 
+    /// 键盘"下一项"要真的能跳到密码框。
+    /// 之前只有 `submitLabel(.next)`，按下去什么都不会发生 —— 而系统密码自动填充
+    /// 填完之后用户最常见的动作就是按这个键。
+    private enum Field: Hashable { case email, password }
+    @FocusState private var focusedField: Field?
+
     var body: some View {
         VStack(spacing: AnimalTokens.spacingLG) {
             HStack {
@@ -108,6 +114,8 @@ struct AdminLoginContent: View {
             .textContentType(.username)
             .adminKeyboard(.email)
             .submitLabel(.next)
+            .focused($focusedField, equals: .email)
+            .onSubmit { focusedField = .password }
             .font(.system(size: 15, weight: .semibold))
             .foregroundStyle(AnimalSignatures.cardText)
             .tint(AnimalTokens.primary)
@@ -122,6 +130,7 @@ struct AdminLoginContent: View {
             .textContentType(.password)
             .adminKeyboard(.password)
             .submitLabel(.go)
+            .focused($focusedField, equals: .password)
             .font(.system(size: 15, weight: .semibold))
             .foregroundStyle(AnimalSignatures.cardText)
             .tint(AnimalTokens.primary)

@@ -15,17 +15,28 @@ public enum APILog {
 
     private static let logger = Logger(subsystem: "dev.boxz.felina", category: "api")
 
+    /// 同时写系统日志与 stderr。
+    ///
+    /// 为什么要两份：系统日志适合事后检索（`log show`），但**真机上没有**
+    /// `log stream --device` 这种手段（本机 macOS 不支持），而 `xcrun devicectl device
+    /// process launch --console` 只抓进程的 stdout/stderr。用户用 Xcode 跑时看到的也是
+    /// Xcode 控制台 —— 所以 stderr 这一路是"真机上能立刻看到到底发生了什么"的唯一途径。
+    private static func emit(_ message: String) {
+        logger.notice("\(message, privacy: .public)")
+        NSLog("[pic-impact] %@", message)
+    }
+
     /// 一次请求的结果：方法、URL（去掉查询串里的敏感值不需要，这里原样）、状态码
     public static func request(_ method: String, _ url: String, status: Int, attachedSession: Bool) {
-        logger.notice("req \(method, privacy: .public) \(url, privacy: .public) -> \(status) session=\(attachedSession)")
+        emit("req \(method) \(url) -> \(status) session=\(attachedSession)")
     }
 
     public static func transportError(_ method: String, _ url: String, _ detail: String) {
-        logger.error("req \(method, privacy: .public) \(url, privacy: .public) -> transport error: \(detail, privacy: .public)")
+        emit("req \(method) \(url) -> transport error: \(detail)")
     }
 
     /// 凭证层：只记事实，不记值
     public static func credentials(_ message: String) {
-        logger.notice("cred \(message, privacy: .public)")
+        emit("cred \(message)")
     }
 }
