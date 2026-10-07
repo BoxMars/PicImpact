@@ -93,3 +93,65 @@
 - 因此上传应走 **iOS 直传对象存储（R2）**：服务端只负责签发**预签名 URL**（请求体极小），
   图片本体直接 PUT 到 R2，不经过 Vercel 函数。这样单张大小和单批数量都不再受该上限约束。
 - （待核实项：Vercel 请求体上限的准确数值与现行文档，本计划不引用未核实的数字。）
+
+---
+
+## 实施结果（回填）
+
+提交：`0364bf8 feat(ios): 管理入口地基（三击标题 → 登录 → 占位管理页）`（本地，未 push）。
+
+### 通过的命令与关键行
+
+```
+xcodebuild -project ios/FelinaGallery.xcodeproj -scheme FelinaGallery -configuration Debug \
+  -destination 'platform=iOS Simulator,id=89E4FEC2-E7B3-4F1B-8E9C-5D56EF1A9A79' \
+  -derivedDataPath ios/DerivedData build            → ** BUILD SUCCEEDED **
+scripts/ios-test.sh                                  → 198 tests / 31 suites passed (6.380s)
+xcrun simctl install <UDID> …/大福映画.app            → INSTALLED ok
+xcrun simctl launch  <UDID> dev.boxz.felina          → pid 4378（保持运行，用户可直接上手）
+```
+
+### 验收对照
+
+| 本批次验收项 | 结果 |
+|---|---|
+| 1. 编译通过 | ✓ `BUILD SUCCEEDED` |
+| 2. 指定 UDID 运行（禁用 `booted`） | ✓ 全程显式 UDID |
+| 3. 三击标题出登录界面 | ✓ XCUITest 合成真实触摸 + accessibility 断言 + OCR |
+| 4. 错误密码显示服务端**原文** | ✓ 显示 `Invalid email or password`（better-auth 原文） |
+| 5. 单测覆盖 Cookie/Keychain/请求体 | ✓ 198 tests 全过 |
+| 6. 真实密码登录成功（用户确认） | ✓ **已由用户实际操作并观察**：管理页显示 `邮箱 me@boxz.dev`、`昵称 admin`；冷启动后三击直接进管理页 |
+
+第 6 项的意义超出预期：它同时验证了「Keychain 存会话 → 启动时 `get-session` 校验 → 已登录直接进管理页」整条链路。
+
+### 实施中发现并修掉的一个隐蔽缺陷
+
+原设计依赖 `URLSession` 自动把 `Set-Cookie` 收进 `httpCookieStorage` 再读取。用本地 HTTP 服务做验证时发现：
+**该存储在测试进程里始终为空**（`URLSession.shared` 亦然），也就是"Cookie 是否真的被收下"无法验证，
+而真错了的症状是「登录成功却马上像没登录，且不报任何错」。
+
+改为自行解析响应头的 `Set-Cookie`（注意 Foundation 会把多条 Cookie 用 `, ` 拼成一条，而 `Expires` 自带逗号，
+故只在"逗号后紧跟新的 `名字=`"时才切分），并显式关闭 URLSession 的 Cookie 管理 —— 存（Keychain）与带
+（显式 `Cookie` 头）均由客户端自己负责。该测试现在覆盖了登录成功的 HTTP 路径。
+
+### 界面调整（用户反馈后）
+
+- 删除登录页整句提示 `连续点击首页标题三次才会出现这个入口。`（入口须隐蔽，页面上不得有任何提示）
+- 删除管理页整句 `这里是占位页：图片上传与图片列表还没有实现。`
+- 错误文案由 `服务端返回 401：Invalid email or password（INVALID_EMAIL_OR_PASSWORD）`
+  收敛为 `Invalid email or password`（只显示服务端原文，状态码与内部 code 不进界面）
+- 页标题改用与详情页 `PreviewTitleBlock` 一致的 20pt 粗体 + 青色短横；错误框移到按钮**下方**，
+  使其出现/消失时输入框与按钮不位移；去掉两处装饰图标与虚线分隔线
+
+### 未验证（如实）
+
+- 界面是否"好看"未经审美确认（实施者与执行代理都无法看图；所有"屏幕文字"均来自 Vision OCR + accessibility 断言）
+- `kSecAttrAccessibleAfterFirstUnlock` 的 iOS 分支未单独断言；**真机**（非模拟器）上的跨启动恢复未测
+- 上传相关一律未做
+
+### 已验证但尚未决定的两件
+
+- 构建会触发「生成打包种子」阶段，从线上刷新 `ios/FelinaGallery/Resources/Seed/`（本次刷到 **58 张**，
+  仓库里提交的是 56 张）—— 是否把刷新后的种子一并提交，待决定
+- 实施过程中临时使用的 UI 测试工程（`/tmp`，未进仓库）证明有价值（它抓出了"三击手势吃掉滚动"的回归）。
+  是否正式加一个 UI test target 进仓库，需要改 `scripts/ios-project.py`（目前只生成 App target），待决定。
