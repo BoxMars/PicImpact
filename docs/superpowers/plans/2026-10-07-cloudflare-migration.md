@@ -1,0 +1,122 @@
+# 计划：从 Vercel + Supabase 迁移到 Cloudflare Workers + D1
+
+状态：调研中（未开始实施）
+创建：2026-10-07
+约束：**本计划相关工作一律不 push**（用户明确要求）
+
+---
+
+## 0. 为什么要迁（实测数据，不是感觉）
+
+2026-10-07 实测线上 `felina.boxz.dev`：
+
+| 请求 | TTFB | 备注 |
+|---|---|---|
+| `/admin`（一个 307 跳转） | 1.14s | 管理页全是动态请求，所以最卡 |
+| `/api/public/v1/config`（已预热） | 1.05s | 链路地板 |
+| `/api/public/v1/images?page=1`（冷启） | 5.03s | |
+| 一张预览图 | 1.19s | |
+| 8 KB 静态 SVG | 0.90s | |
+
+当前链路（每一跳都是实测出来的）：
+
+```
+用户（中国）→ Cloudflare 边缘（新加坡 sin1 / 香港 hkg1）→ Vercel 函数（美东 iad1）
+            → Supabase PostgreSQL（东京 ap-northeast-1）
+```
+
+证据：
+- 响应头 `x-vercel-id: sin1::iad1::…`，**连续 5 次探测函数区域恒为 iad1**（边缘从 sin1 变到 hkg1，函数不变）
+- 已提交 `vercel.json` 指定 `regions: ["hnd1"]` —— **免费版忽略**，实验结论：必须 Pro
+- `DATABASE_URL` 主机 `aws-1-ap-northeast-1.pooler.supabase.com` = 东京
+
+所以每次动态请求要在**三个大洲之间往返两次**。Functions 与数据库同区即可把 1.05s 降到几百毫秒；
+Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上更优。
+
+## 1. 调研发现（含来源，标明置信度）
+
+### 1.1 已确认
+
+- **Prisma 有官方 D1 适配器**：Cloudflare 官方教程《Query D1 using Prisma ORM》
+  https://developers.cloudflare.com/d1/tutorials/d1-and-prisma-orm/
+  npm 包 `@prisma/adapter-d1` 存在（socket.dev 显示有 7.8.0-dev.x 版本）。
+  → 数据库层不必换 ORM，但 schema 要按 SQLite 改写（见 1.3）。
+- **Next.js on Workers 有官方路径**：`@opennextjs/cloudflare`
+  https://developers.cloudflare.com/workers/framework-guides/web-apps/opennext/
+- **已知 bug 直接命中本项目**：opennextjs-cloudflare issue #942
+  「Cloudflare build crashes on catch-all API route `/api/auth/[...better-auth]` due to invalid regex」
+  https://github.com/opennextjs/opennextjs-cloudflare/issues/942
+  本项目正是 `app/api/auth/[...all]/route.ts`（better-auth 官方 Next 处理器）→ **迁移前必须先在 spike 里验证**。
+  另一个相关 issue #345「getCloudflareContext gives error on catch-all routes」。
+- **图片处理有官方 binding**：Workers 的 Images binding
+  https://developers.cloudflare.com/workers/runtime-apis/bindings/（Images 一栏）
+  https://developers.cloudflare.com/images/optimization/binding/
+  → 可作为 sharp 的替代；**但其计费与免费额度待核实**。
+
+### 1.2 待核实（不凭记忆下结论）
+
+- [ ] **Workers 免费版 CPU 时间上限**（记忆中是每次调用 10ms，付费 30s）—— 核实方法：读
+      https://developers.cloudflare.com/workers/platform/limits/ 的 CPU time 一节（上次抓取正文被截断），
+      以及 https://developers.cloudflare.com/workers/platform/pricing/
+      这一条**决定整个方案成立与否**：Next.js SSR + Prisma 一次请求大概率超过 10ms。
+- [ ] **两个 Cloudflare 账号怎么配合**。已知：`boxz.dev` 在**免费账号**（有免费 Worker），
+      另有**付费账号**但**没有托管 boxz.dev**。要查清：
+      (a) Worker 的 **Custom Domain** 是否必须与 zone 在同一账号；
+      (b) 若必须，是否要把 zone 迁到付费账号（改 NS），或改用 workers.dev 子域 / Cloudflare for SaaS；
+      (c) 付费额度能否覆盖域名在另一账号的场景。
+- [ ] **D1 的实际能力边界**：单库容量、读写 QPS、并发写、跨区读延迟（D1 是单主库 + 读副本）。
+      图库只有几十张图、访问量小，容量不是问题，但**写放大与冷读延迟**要看清楚。
+- [ ] **better-auth 在 Workers 上**：依赖的 crypto / 存储是否都能跑；会话表放 D1 的适配。
+- [ ] **R2** 存原图与预览图（替换 `felina-asset.boxz.dev` 当前的对象存储），以及自定义域。
+
+### 1.3 已知的硬骨头（Postgres → SQLite）
+
+迁移不是"换个连接串"，以下都要改：
+
+- `SELECT DISTINCT ON (image.id)` —— 现有索引迁移里用到了，**SQLite 不支持**，要改写成窗口函数或子查询。
+- **JSON 操作符**：现有表达式索引用 `exif->>'model'` / `exif->>'lens_model'`，SQLite 是 `json_extract`。
+- `@db.SmallInt` / `@db.Text` / `@db.Timestamp` 等 Postgres 专有类型标注要去掉。
+- 枚举、自增、`now()` 默认值等语义差异。
+- Prisma 的迁移目录（`prisma/migrations/*`）是 Postgres SQL，迁到 D1 需要**重做一套 SQLite 迁移**。
+
+## 2. 分阶段计划
+
+### Phase 0 —— 可行性 spike（不碰主站）
+目标：在**不影响线上**的前提下，回答 1.2 里的四个问题。
+- [ ] P0-1 核实 Workers 免费/付费 CPU 上限与计费；确认 10ms 是否够 SSR
+- [ ] P0-2 在付费账号上跑一个 `@opennextjs/cloudflare` 最小 Next 应用，**带一个 catch-all 路由**
+      验证 issue #942 是否已修（若未修，找出绕过方式：路由改写 / 降级 better-auth handler）
+- [ ] P0-3 最小 Prisma + D1 例程（一张表、一次读一次写），确认 `@prisma/adapter-d1` 可用
+- [ ] P0-4 Images binding 缩放一张真图，确认能替代 sharp 的预览图管线，并查清计费
+- [ ] P0-5 两个账号的域名/Worker 归属验证（用 workers.dev 子域先绕开 zone 问题）
+- 产出：一份 spike 结论 + 明确 go / no-go
+
+### Phase 1 —— 数据与 schema
+- [ ] P1-1 把 `schema.prisma` 改写成 SQLite 兼容版（保留 Postgres 版以便回滚，用分支隔离）
+- [ ] P1-2 重写迁移 SQL；把 DISTINCT ON 与 JSON 索引改写成 SQLite 写法
+- [ ] P1-3 从 Supabase 导出数据、导入 D1，并**逐表比对行数与抽样内容**
+- [ ] P1-4 查询层改造：`server/db/**` 里所有 Postgres 专有 SQL
+
+### Phase 2 —— 运行时与图片
+- [ ] P2-1 better-auth 会话改造（D1 存储 + Workers 兼容）
+- [ ] P2-2 sharp → Images binding（或 WASM 方案），改动上传与预览图生成
+- [ ] P2-3 R2 接管图片存储与分发（含自定义域）
+- [ ] P2-4 server actions 在 Workers 上的逐一验证
+
+### Phase 3 —— 切换
+- [ ] P3-1 用 workers.dev 子域跑通全站，与线上并行比对
+- [ ] P3-2 域名切换（含 DNS/TLS、以及**回滚预案**：保留 Vercel 部署随时切回）
+- [ ] P3-3 上线后复测本文档第 0 节那张表，给出前后对比
+
+## 3. 风险与退出策略
+
+- **最大风险**：免费版 10ms CPU 放不下 → 若必须付费，则与"Vercel Pro（20 美元）"的性价比要重新比较；
+  那时更划算的可能是**只把 Vercel 升 Pro + 函数放东京**（一行配置，已写好）。
+- **次大风险**：opennext + better-auth catch-all 的已知 bug 未修 → 需要改鉴权实现，工作量不可控。
+- **退出策略**：任一 Phase 的验证不通过即停下汇报，不硬推。**主站始终保持 Vercel 在线**，
+  只有 Phase 3 才切流量，且保留一键回滚。
+
+## 4. 与本次会话其它工作的边界
+
+- 站点当前的「新上传图片默认显示」修复（`a4b8945`）与 App Store 横幅回退（`8b53754`）**已推送**，与本计划无关。
+- 本计划的所有产物（含本文件）**不 push** —— 等 Phase 0 结论出来、你确认 go 之后再定。
