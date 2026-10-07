@@ -486,6 +486,49 @@ EXISTS (
 需要用户确认是否可以改 `boxz.dev` 的 NS。在确认之前，Phase 0 继续做与账号无关的实证
 （adapter 在真实 D1 上的一读一写、Images 缩放、依赖升级、OpenNext 在本项目上的构建）。
 
+## 1.7 实地核查：账号里已有什么（2026-10-07，通过本机 wrangler 登录态只读查询）
+
+本机已有 wrangler 登录态（`~/Library/Preferences/.wrangler/config/default.toml`，OAuth，邮箱 boxmars@foxmail.com）。
+`wrangler whoami` 显示**两个账号**，与用户描述一致：
+
+| 账号 | Account ID | D1 | R2 |
+|---|---|---|---|
+| **Boxmars@foxmail.com** | `6c56147bf20cc0889b4306d7733cc9dd` | `jb-accounting`（0 表） | **`boxblog`**、**`felina-image`**、`harbor` |
+| **Umacauhelper@gmail.com** | `daf039070292bceb5571908d0e3d2a8f` | `next-web-tag-cache`（0 表） | `next-web-inc-cache`、`umeatfun` |
+
+### 三个重要推论
+
+1. **本项目图片很可能已经在 Cloudflare 上**：`felina-image` 这个 R2 桶（2025-04-28 创建）几乎确定就是本站图床，
+   `felina-asset.boxz.dev` 应是它的自定义域。→ 迁移时**不需要把图片从别处搬进来**，只需处理**账号归属**
+   （该桶在 Boxmars 账号，而 Worker 若跑在另一个账号则**无法直接绑定**，R2 binding 不跨账号）。
+
+2. **付费账号极可能是 Umacauhelper**：它有 `next-web-tag-cache`（D1）与 `next-web-inc-cache`（R2）——
+   这两个正是 **Next.js on Workers 的 tag cache 与 incremental cache**，说明**该账号上已经跑着一个
+   OpenNext/Workers 的 Next 项目**。也就是说：**这类迁移在这个账号上已经做过一次**，路径是被验证过的。
+   （此推断需要用户确认，见下。）
+
+3. **`boxz.dev` 在 Boxmars 账号**（`boxblog` 等资源也在），而 Custom Domain 必须与 zone 同账号 →
+   这正是 1.2 里那条限制的具体体现。
+
+### 由此收敛出的方案
+
+因为 **R2 binding 不跨账号**、而 **Custom Domain 必须与 zone 同账号**，把资源摊在两个账号上会带来持续的别扭。
+**最省事的是把 `boxz.dev` 这个 zone 迁到付费账号**（路线一），然后：
+
+* Worker、D1、Images、新的 R2 桶**全部建在付费账号**；
+* 现有 `felina-image` 桶里的图**复制过去**即可 —— 图库很小（56 张原图约 190 MB + 预览图），复制是分钟级操作；
+* `next-web-*` 那两个资源证明该账号跑得动 Next on Workers，可作为**同类项目的参照**（甚至直接问那个项目是怎么配的）。
+
+若不能改 NS，则退回 1.6 的路线二（免费账号做静态 + 反代动态到付费账号），但要注意
+**R2/D1 的账号归属**会让数据面更绕。
+
+### 待用户确认
+
+- [ ] 哪个账号是**付费**的？（推断是 Umacauhelper）
+- [ ] 能否把 `boxz.dev` 的 zone 迁到付费账号？（改 NS）
+- [ ] `felina-image` 桶是否就是本站图床？`felina-asset.boxz.dev` 是不是它的自定义域？
+- [ ] 付费账号上那个 `next-web-*` 项目是什么？能否作为本次迁移的参照模板？
+
 ## 2. 分阶段计划
 
 ### Phase 0 —— 可行性 spike（不碰主站）
