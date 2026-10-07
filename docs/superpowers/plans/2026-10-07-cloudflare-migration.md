@@ -64,11 +64,28 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
   也就是说：**迁移前要先做一轮依赖升级**（Next 16.1.6 → 16.3.8+、Prisma 6.4.1 → 支持 D1 适配器的版本、新增 wrangler）。
   这一轮升级本身要单独验证 —— 尤其本项目用了 Next 16 的 server actions 与 `revalidateTag`，
   升级后要回归首页 ISR 与上传流程。
-- **已知 bug 直接命中本项目**：opennextjs-cloudflare issue #942
-  「Cloudflare build crashes on catch-all API route `/api/auth/[...better-auth]` due to invalid regex」
+- **曾直接命中本项目的 catch-all bug —— 已修复**（2026-10-07 查证）：
+
+  opennextjs-cloudflare issue #942「Cloudflare build crashes on catch-all API route
+  `/api/auth/[...better-auth]` due to invalid regex」
   https://github.com/opennextjs/opennextjs-cloudflare/issues/942
-  本项目正是 `app/api/auth/[...all]/route.ts`（better-auth 官方 Next 处理器）→ **迁移前必须先在 spike 里验证**。
-  另一个相关 issue #345「getCloudflareContext gives error on catch-all routes」。
+
+  本项目正是 `app/api/auth/[...all]/route.ts`（better-auth 官方 Next 处理器），形状完全一致。
+
+  **查证结论：已关闭且已完成修复**。证据链（三处互相印证，不是推断）：
+  1. 页面载荷里 `"state":"CLOSED"` 且 `"stateReason":"COMPLETED"`；
+  2. 页面上明确写着 `fixed in @opennextjs/cloudflare@1.10.1`（附 PR 链接）；
+  3. 有用户回复确认修复后错误消失（"I can confirm the error is gone now"）。
+
+  而本项目要用的版本是 **1.20.9**（当前 latest，2026-10-06 发布），**远高于修复版本 1.10.1** ——
+  所以这个 bug 在目标版本上不构成阻碍。**P0-2 由"最大不确定性"降级为"已消除"。**
+
+  另一个相关 issue #345「getCloudflareContext gives error on catch-all routes」仍**未查证**，
+  留待 spike 时一并确认（若命中，绕过方式是用 `cloudflareContext` 的异步 API 而不是同步取值）。
+
+  取证方法记一笔：GitHub API 未认证调用按 IP 限流（60/小时，实测遇到 403 与配额 0），
+  网页版用 `web_fetch` 会被导航淹没；**可行做法是 `curl` 抓 HTML 后从页面内嵌 JSON 里 grep
+  `"state"` / `"stateReason"`**（本次即用此法拿到结论）。
 - **图片处理有官方 binding，而且免费额度就够用**（读官方 Pricing 文档原文确认）：
   https://developers.cloudflare.com/images/optimization/binding/ 与 https://developers.cloudflare.com/images/pricing/
 
@@ -154,11 +171,9 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
 ### Phase 0 —— 可行性 spike（不碰主站）
 目标：在**不影响线上**的前提下，回答 1.2 里的四个问题。
 - [x] P0-1 核实 Workers 免费/付费 CPU 上限与计费 —— **已完成**（见 1.2：免费 10ms 不够 SSR，付费 5 分钟）
-- [ ] P0-2 验证 issue #942（catch-all 路由让 CF 构建因非法正则而崩）**是否已修**
-      —— 状态：**未验证**。第一次尝试读 GitHub issue 时 API 被限流（403，`x-ratelimit-remaining: 0`），
-      下轮改用网页版或等配额重置后再读；若仍未修，需在最小应用上复现并确定绕过方式
-      （路由改写 / 降级 better-auth handler / 自定义 catch-all 处理）。
-      注意：@opennextjs/cloudflare 最新 1.20.9 发布于 2026-10-06（就在最近），修复可能性不低，但**必须实测**。
+- [x] P0-2 issue #942（catch-all 路由让 CF 构建崩）**已查证为已修复** —— 于 1.10.1 修复，本项目用 1.20.9。
+      证据见 1.1（state=CLOSED / stateReason=COMPLETED / 页面原文 fixed in @1.10.1 / 用户确认）。
+      剩余动作：issue #345（getCloudflareContext 在 catch-all 路由上的报错）留到 spike 时确认。
 - [ ] P0-3 最小 Prisma + D1 例程（一张表、一次读一次写），确认 `@prisma/adapter-d1` 可用
       —— 注意：本项目 Prisma 为 6.4.1，而适配器稳定版最早可见 6.19.3，**需要先做一次 Prisma 升级**并单独验证
 - [x] P0-4 Images binding 能替代 sharp 的预览图管线，**计费已查清**（见 1.1：Free 含变换、5,000 次/月、
