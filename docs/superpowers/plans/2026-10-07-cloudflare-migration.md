@@ -69,10 +69,22 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
   https://github.com/opennextjs/opennextjs-cloudflare/issues/942
   本项目正是 `app/api/auth/[...all]/route.ts`（better-auth 官方 Next 处理器）→ **迁移前必须先在 spike 里验证**。
   另一个相关 issue #345「getCloudflareContext gives error on catch-all routes」。
-- **图片处理有官方 binding**：Workers 的 Images binding
-  https://developers.cloudflare.com/workers/runtime-apis/bindings/（Images 一栏）
-  https://developers.cloudflare.com/images/optimization/binding/
-  → 可作为 sharp 的替代；**但其计费与免费额度待核实**。
+- **图片处理有官方 binding，而且免费额度就够用**（读官方 Pricing 文档原文确认）：
+  https://developers.cloudflare.com/images/optimization/binding/ 与 https://developers.cloudflare.com/images/pricing/
+
+  关键事实：
+  * **默认就在 Images Free 计划上**，而 Free **包含 transformations**（缩放）—— 用于优化**存储在 Images 之外**
+    （例如 R2）的图片。免费额度：**每月 5,000 次 unique transformation**。
+  * 超出后：**已缓存的缩放宽照常服务**，新的返回错误码 `9422`（可用 `onerror` 回退到原图），
+    而且 —— **Free 计划超限不收费**（只是新变换失败）。
+  * 计费口径是**每月去重的 unique transformation**（同一张图同一组参数在一个月内只算一次），
+    所以日常重复访问不会线性累计。
+  * R2 侧免费额度：10 GB 存储、100 万次 Class A、1000 万次 Class B（见该页 Example #2 的脚注）。
+
+  → **对本站完全够**：图库只有 56 张，按每张 2-3 个尺寸算，一个月约 150-200 次 unique transformation，
+    离 5,000 差两个数量级。**结论：sharp 可以用 Images binding 替代，且不需要买 Images 付费版。**
+  → 注意：上传时**生成**预览图也可以走 binding（`.input().transform().output()`），每次上传只消耗个位数变换。
+  → 已有预览图（此前由 sharp 生成并存放在资源站）不需要重做，随数据迁移搬到 R2 即可。
 
 ### 1.2 已确认的关键限制（2026-10-07 读官方 Limits 文档原文）
 
@@ -142,11 +154,15 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
 ### Phase 0 —— 可行性 spike（不碰主站）
 目标：在**不影响线上**的前提下，回答 1.2 里的四个问题。
 - [x] P0-1 核实 Workers 免费/付费 CPU 上限与计费 —— **已完成**（见 1.2：免费 10ms 不够 SSR，付费 5 分钟）
-- [ ] P0-2 在付费账号上跑一个 `@opennextjs/cloudflare` 最小 Next 应用，**带一个 catch-all 路由**
-      验证 issue #942 是否已修（若未修，找出绕过方式：路由改写 / 降级 better-auth handler）
+- [ ] P0-2 验证 issue #942（catch-all 路由让 CF 构建因非法正则而崩）**是否已修**
+      —— 状态：**未验证**。第一次尝试读 GitHub issue 时 API 被限流（403，`x-ratelimit-remaining: 0`），
+      下轮改用网页版或等配额重置后再读；若仍未修，需在最小应用上复现并确定绕过方式
+      （路由改写 / 降级 better-auth handler / 自定义 catch-all 处理）。
+      注意：@opennextjs/cloudflare 最新 1.20.9 发布于 2026-10-06（就在最近），修复可能性不低，但**必须实测**。
 - [ ] P0-3 最小 Prisma + D1 例程（一张表、一次读一次写），确认 `@prisma/adapter-d1` 可用
       —— 注意：本项目 Prisma 为 6.4.1，而适配器稳定版最早可见 6.19.3，**需要先做一次 Prisma 升级**并单独验证
-- [ ] P0-4 Images binding 缩放一张真图，确认能替代 sharp 的预览图管线，并查清计费
+- [x] P0-4 Images binding 能替代 sharp 的预览图管线，**计费已查清**（见 1.1：Free 含变换、5,000 次/月、
+      超限不收费只报 9422；本站约 150-200 次/月）—— 剩一步：实测缩放一张真图
 - [x] P0-5 两个账号的域名/Worker 归属验证 —— **已完成**（见 1.2 结论：Custom Domain 必须与 zone 同账号，
       所以升级持有域名的账号；付费账号不参与）
 - 产出：一份 spike 结论 + 明确 go / no-go
