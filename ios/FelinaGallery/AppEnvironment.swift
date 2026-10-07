@@ -19,6 +19,8 @@ final class AppEnvironment {
     let auth: AuthStore
     /// 管理端接口（上传签发 / 登记 / 列表 / 删除）
     let adminImages: AdminImageClient
+    /// 判重账本
+    let ledger: UploadLedger?
     /// 管理页的图片列表
     let adminList: AdminImageListStore
     /// 上传队列（选图 → 直传 R2 → 登记）
@@ -60,6 +62,7 @@ final class AppEnvironment {
         #endif
 
         self.adminImages = adminImages
+        self.ledger = UploadLedger()
         // 会话 Cookie 由 auth 一处持有：管理接口每次请求都现取，登出/过期后立刻失效
         self.adminList = AdminImageListStore(
             api: adminAPI,
@@ -68,7 +71,29 @@ final class AppEnvironment {
         )
         self.uploads = UploadCoordinator(
             api: adminAPI,
-            cookie: { [weak auth] in auth?.sessionCookieHeader }
+            cookie: { [weak auth] in auth?.sessionCookieHeader },
+            // 判重依据之一：这台设备传过哪些照片（离线也能判，重装前一直有效）
+            ledger: self.ledger,
+            // 判重依据之二：服务端列表里已有的那些（元数据足够 —— 拍摄时间/尺寸/机型）
+            serverFingerprints: { [weak adminList] in
+                (adminList?.images ?? []).map { image in
+                    let title = image.title.isEmpty
+                        ? (URL(string: image.url)?.lastPathComponent ?? "")
+                        : image.title
+                    return (
+                        UploadFingerprint(
+                            // 服务端只有元数据，没有原图字节 —— digest 留空即"不比字节"
+                            digest: "",
+                            capturedAt: EXIFDateParser.date(from: image.exif.dataTime),
+                            width: image.width,
+                            height: image.height,
+                            model: image.exif.model
+                        ),
+                        image.id,
+                        title
+                    )
+                }
+            }
         )
     }
 

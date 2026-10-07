@@ -203,7 +203,11 @@ struct AdminHomeContent: View {
                 PhotoPickerButton(title: "选择照片", isEnabled: !uploads.isRunning) { candidates in
                     uploads.albumValue = images.albumValue
                     uploads.enqueue(candidates)
-                    Task { await runUploads() }
+                    Task {
+                        // 判重要对着"服务端已有的全部照片"比，所以先把列表翻完（有上限，见实现）
+                        await images.loadAllRemainingPages()
+                        await runUploads()
+                    }
                 }
 
                 if uploads.failedCount > 0 {
@@ -211,6 +215,15 @@ struct AdminHomeContent: View {
                         Task { await runUploads(isRetry: true) }
                     }
                     .accessibilityIdentifier("admin-retry-uploads")
+                }
+
+                // 判重规则（拍摄时间 ±2 分钟）可能把连拍里的兄弟照片也判成"已上传"，
+                // 所以必须给一个一键推翻的出口 —— 否则就成了"照片被悄悄丢掉"。
+                if uploads.skippedCount > 0 {
+                    IslandActionButton("仍然上传这 \(uploads.skippedCount) 张", isEnabled: !uploads.isRunning) {
+                        Task { await runUploads(isRetry: true, includingSkipped: true) }
+                    }
+                    .accessibilityIdentifier("admin-force-upload-skipped")
                 }
 
                 if uploads.doneCount > 0 && !uploads.isRunning && uploads.failedCount == 0 {
@@ -268,9 +281,9 @@ struct AdminHomeContent: View {
         }
     }
 
-    private func runUploads(isRetry: Bool = false) async {
+    private func runUploads(isRetry: Bool = false, includingSkipped: Bool = false) async {
         if isRetry {
-            await uploads.retryFailed()
+            await uploads.retryFailed(includingSkipped: includingSkipped)
         } else {
             await uploads.runPending()
         }
@@ -351,6 +364,13 @@ struct AdminUploadStatusRow: View {
                     .foregroundStyle(AnimalTokens.error)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            if let reason = item.skipReason {
+                Text(reason)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(AnimalTokens.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(AnimalTokens.spacingSM + 2)
         .islandSurface(borderWidth: 1.5, cornerRadius: 12, shadowOffsetY: 2)
@@ -360,6 +380,8 @@ struct AdminUploadStatusRow: View {
         switch item.state {
         case .queued:
             return "等待中"
+        case .skipped:
+            return "已跳过"
         case let .running(step, fraction):
             if step == .upload {
                 return "上传中 \(Int(fraction * 100))%"
@@ -376,6 +398,8 @@ struct AdminUploadStatusRow: View {
         switch item.state {
         case .done: return AnimalTokens.success
         case .failed: return AnimalTokens.error
+        // 跳过不是错误：用次要色，避免"红色＝出错"的误导
+        case .skipped: return AnimalTokens.textSecondary
         default: return AnimalTokens.textSecondary
         }
     }

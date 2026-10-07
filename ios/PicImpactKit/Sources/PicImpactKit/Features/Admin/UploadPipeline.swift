@@ -55,6 +55,9 @@ public struct UploadItem: Identifiable, Sendable, Equatable {
         case running(Step, fraction: Double)
         case done(imageID: String, url: String)
         case failed(Step, message: String)
+        /// 判重命中"已经传过"，**没有**上传（原因见 UploadDedupe 的说明）。
+        /// 与 `failed` 分开：这不是错误，界面上要给出"仍然上传"的出口。
+        case skipped(reason: String)
     }
 
     public let id: UUID
@@ -72,6 +75,13 @@ public struct UploadItem: Identifiable, Sendable, Equatable {
     public var isQueued: Bool { state == .queued }
     public var isFailed: Bool { if case .failed = state { return true }; return false }
     public var isDone: Bool { if case .done = state { return true }; return false }
+    public var isSkipped: Bool { if case .skipped = state { return true }; return false }
+
+    /// 被跳过（判定为已上传）的原因
+    public var skipReason: String? {
+        if case let .skipped(reason) = state { return reason }
+        return nil
+    }
 
     /// 失败发生在哪一步（界面要能一眼说清"哪一张、失败在哪一步"）
     public var failedStep: Step? {
@@ -206,17 +216,25 @@ public final class UploadCoordinator {
     private let api: any AdminImageAPI
     private let uploader: any FileUploading
     private let cookie: @MainActor () -> String?
+    /// 这台设备传过哪些照片（本地账本，判重的主要依据）
+    private let ledger: UploadLedger?
+    /// 服务端已经有的照片指纹（管理列表那一条条元数据），判重时与账本合并
+    private let serverFingerprints: @MainActor () -> [(fingerprint: UploadFingerprint, id: String, title: String)]
     /// 失败重试要用到原图字节，所以候选要留到成功或用户手动清掉为止
     private var candidates: [UUID: UploadCandidate] = [:]
 
     public init(
         api: any AdminImageAPI,
         uploader: any FileUploading = URLSessionFileUploader(),
-        cookie: @escaping @MainActor () -> String?
+        cookie: @escaping @MainActor () -> String?,
+        ledger: UploadLedger? = nil,
+        serverFingerprints: @escaping @MainActor () -> [(fingerprint: UploadFingerprint, id: String, title: String)] = { [] }
     ) {
         self.api = api
         self.uploader = uploader
         self.cookie = cookie
+        self.ledger = ledger
+        self.serverFingerprints = serverFingerprints
     }
 
     // MARK: - 队列
@@ -253,6 +271,8 @@ public final class UploadCoordinator {
     public var pendingCount: Int { items.filter { !$0.isDone }.count }
     public var failedCount: Int { items.filter(\.isFailed).count }
     public var doneCount: Int { items.filter(\.isDone).count }
+    /// 判定为"已经传过"而没上传的张数
+    public var skippedCount: Int { items.filter(\.isSkipped).count }
 
     /// 是否还有"没跑完"的项（含等待与失败），供界面决定是否显示"重试失败项"
     public var hasRetryable: Bool { items.contains { $0.isQueued || $0.isFailed } }
@@ -275,13 +295,23 @@ public final class UploadCoordinator {
     }
 
     /// 重试所有失败项（重新走完整的三步 —— 签发的 URL 可能已过期，重签最稳）
-    public func retryFailed() async {
+    ///
+    /// - Parameter includingSkipped: 连"判定为已上传而跳过"的也一起上传。
+    ///   这是判重规则的**安全出口**：连拍同尺寸照片可能被误判成重复，用户一键就能推翻。
+    public func retryFailed(includingSkipped: Bool = false) async {
         guard !isRunning else { return }
-        for index in items.indices where items[index].isFailed {
+        for index in items.indices where items[index].isFailed || (includingSkipped && items[index].isSkipped) {
             items[index].state = .queued
+        }
+        if includingSkipped {
+            // 用户明确要求上传这些 → 本轮不再对它们判重（否则会立刻被再跳过一次）
+            forcedIDs.formUnion(items.filter(\.isQueued).map(\.id))
         }
         await runPending()
     }
+
+    /// 被用户强制放行的项（绕过判重）
+    private var forcedIDs: Set<UUID> = []
 
     private func markAllQueuedAsFailed(step: UploadItem.Step, message: String) {
         for index in items.indices where items[index].isQueued {
@@ -294,6 +324,13 @@ public final class UploadCoordinator {
 
         guard let cookieHeader = cookie(), !cookieHeader.isEmpty else {
             items[index].state = .failed(.sign, message: "登录状态已失效，请重新登录")
+            return
+        }
+
+        // 0) 判重：已经传过的不再传（用户要求"把已上传的挑出来"，规则见 UploadDedupe）
+        let fingerprint = Self.fingerprint(for: candidate)
+        if !forcedIDs.contains(id), let match = await duplicateMatch(for: fingerprint) {
+            items[index].state = .skipped(reason: match.message)
             return
         }
 
@@ -345,6 +382,8 @@ public final class UploadCoordinator {
                 cookie: cookieHeader
             )
             items[index].state = .done(imageID: registered.id, url: registered.url)
+            // 记账：下次再选到这张（或差 2 分钟内的同尺寸同机型）就能判出来
+            await ledger?.record(fingerprint, imageID: registered.id, title: candidate.filename)
         } catch {
             // 这一步失败＝R2 里已经留下一个**已上传但未登记**的对象（孤儿）。
             // 提示里必须说清楚，用户/开发者才知道去桶里按 key 找：key 就是 signed.key。
@@ -353,6 +392,27 @@ public final class UploadCoordinator {
                 message: "\(Self.failureMessage(error))（原图已上传到存储，但未登记；对象 key：\(signed.key)）"
             )
         }
+    }
+
+    /// 判重：本地账本 ∪ 服务端列表
+    private func duplicateMatch(for fingerprint: UploadFingerprint) async -> DuplicateMatch? {
+        var known = serverFingerprints()
+        if let ledger {
+            known.append(contentsOf: await ledger.known())
+        }
+        guard !known.isEmpty else { return nil }
+        return DuplicateMatcher.match(fingerprint, in: known)
+    }
+
+    /// 由候选算出指纹。EXIF 时间读不出来（截图/微信导出图）时只有字节哈希能用来判重。
+    static func fingerprint(for candidate: UploadCandidate) -> UploadFingerprint {
+        UploadFingerprint(
+            digest: UploadFingerprint.digest(of: candidate.data),
+            capturedAt: EXIFDateParser.date(from: candidate.exif["data_time"]?.stringValue),
+            width: candidate.width,
+            height: candidate.height,
+            model: candidate.exif["model"]?.stringValue ?? ""
+        )
     }
 
     private func updateUploadProgress(id: UUID, fraction: Double) {

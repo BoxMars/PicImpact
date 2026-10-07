@@ -132,15 +132,36 @@ public final class AdminImageListStore {
         }
     }
 
+    /// 把列表剩余页全部拉下来（判重要拿"服务端已有的全部照片"来比）。
+    ///
+    /// 有上限：判重是加分项，不值得为了它把几百页都翻一遍 —— 5 页 × 24 条已经覆盖
+    /// 绝大多数家庭相册；再往前的靠本地账本兜底。
+    public func loadAllRemainingPages(maxPages: Int = 5) async {
+        var pages = 0
+        while hasMore, pages < maxPages, !isLoadingMore {
+            let before = total
+            await loadNextPage()
+            pages += 1
+            // 没有进展就退出，避免服务端 hasMore 说谎时死循环
+            if total == before, !hasMore { break }
+        }
+    }
+
     /// 编辑：保存标题 / 详情 / 标签。
     ///
     /// 成功后**就地更新本地那一条**（不整页重拉）：重拉会让列表跳一下，
     /// 而且用户在编辑时通常正盯着这一行。返回值给调用方决定要不要收起编辑页。
     @discardableResult
     public func saveMetadata(id: String, title: String, detail: String, labels: [String]) async -> Bool {
-        guard let item = images.first(where: { $0.id == id }) else { return false }
+        // 先看会话：会话失效时"重新登录"才是用户能采取的行动
         guard let cookieHeader = cookie(), !cookieHeader.isEmpty else {
             errorMessage = "登录状态已失效，请重新登录"
+            return false
+        }
+        // 列表里没有这一条就没法回传 url/width/height（服务端硬校验）。
+        // 这里必须**说出来**，静默 false 会让界面"点了保存没反应"。
+        guard let item = images.first(where: { $0.id == id }) else {
+            errorMessage = "这张图片不在当前列表里，请下拉刷新后再试"
             return false
         }
         // url / width / height 是服务端的硬校验，必须回传（其余字段见 AdminImageUpdate 的说明）

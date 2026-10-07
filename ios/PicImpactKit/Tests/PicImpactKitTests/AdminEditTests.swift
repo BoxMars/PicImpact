@@ -186,6 +186,18 @@ struct AdminImageListEditingTests {
         #expect(store.images[0].title == "旧标题", "失败时不能改本地数据")
     }
 
+    @Test("列表里没有这一条：说清楚原因，不能静默失败")
+    func missingItemExplainsItself() async {
+        let api = FakeAdminAPI(listResult: makePage())
+        let store = makeStore(api)
+        await store.loadFirstPage()
+
+        let ok = await store.saveMetadata(id: "不存在", title: "x", detail: "", labels: [])
+        #expect(ok == false)
+        #expect(store.errorMessage?.contains("不在当前列表") == true)
+        #expect(api.updates.isEmpty)
+    }
+
     @Test("会话失效：不发请求，直接提示重新登录")
     func missingSessionSkipsRequest() async {
         let api = FakeAdminAPI(listResult: makePage())

@@ -281,6 +281,104 @@ struct UploadCoordinatorTests {
         #expect(coordinator.items.isEmpty)
     }
 
+    // MARK: - 判重（拍摄时间 ±2 分钟那一套）
+
+    private func makeLedger() -> UploadLedger {
+        UploadLedger(directory: FileManager.default.temporaryDirectory
+            .appendingPathComponent("upload-ledger-\(UUID().uuidString)"))
+    }
+
+    @Test("判重命中：直接跳过，签发/直传/登记一个请求都不发")
+    func skipsAlreadyUploaded() async {
+        let ledger = makeLedger()
+        let candidate = candidate()
+        // 先把这张"记成已上传"（等价于用户上次传过）
+        await ledger.record(UploadCoordinator.fingerprint(for: candidate), imageID: "clx-old", title: "老照片")
+
+        let api = FakeAdminAPI()
+        let uploader = FakeUploader()
+        let coordinator = UploadCoordinator(api: api, uploader: uploader, cookie: { "session=abc" }, ledger: ledger)
+        coordinator.albumValue = "/daily"
+
+        coordinator.enqueue([candidate])
+        await coordinator.runPending()
+
+        #expect(coordinator.items[0].isSkipped)
+        #expect(coordinator.items[0].skipReason?.contains("完全相同") == true)
+        #expect(api.signCalls.isEmpty, "跳过就不该签发")
+        #expect(uploader.uploads.isEmpty, "跳过就不该直传")
+        #expect(api.registerCalls.isEmpty)
+        #expect(coordinator.skippedCount == 1)
+        #expect(coordinator.doneCount == 0)
+    }
+
+    @Test("用户点「仍然上传」：绕过判重，照常走完三步")
+    func forcedUploadBypassesDedupe() async {
+        let ledger = makeLedger()
+        let candidate = candidate()
+        await ledger.record(UploadCoordinator.fingerprint(for: candidate), imageID: "clx-old", title: "老照片")
+
+        let api = FakeAdminAPI()
+        let coordinator = UploadCoordinator(api: api, uploader: FakeUploader(), cookie: { "session=abc" }, ledger: ledger)
+        coordinator.albumValue = "/daily"
+
+        coordinator.enqueue([candidate])
+        await coordinator.runPending()
+        #expect(coordinator.items[0].isSkipped)
+
+        await coordinator.retryFailed(includingSkipped: true)
+        #expect(coordinator.items[0].isDone, "强制上传必须真的传上去（连拍被误判的出口）")
+        #expect(api.registerCalls.count == 1)
+    }
+
+    @Test("上传成功后记账：同一张再选一次会被判重")
+    func recordsAfterSuccessfulUpload() async {
+        let ledger = makeLedger()
+        let api = FakeAdminAPI()
+        let coordinator = UploadCoordinator(api: api, uploader: FakeUploader(), cookie: { "session=abc" }, ledger: ledger)
+        coordinator.albumValue = "/daily"
+
+        let candidate = candidate()
+        coordinator.enqueue([candidate])
+        await coordinator.runPending()
+        #expect(coordinator.items[0].isDone)
+
+        // 再选一次同一张：这次应当直接跳过（账本里已经有它了）
+        coordinator.removeFinished()
+        coordinator.enqueue([candidate])
+        await coordinator.runPending()
+        #expect(coordinator.items[0].isSkipped)
+        #expect(api.registerCalls.count == 1, "第二次不该再登记一遍")
+    }
+
+    @Test("服务端列表来的指纹（只有元数据、没有字节）也能判重")
+    func matchesServerMetadataFingerprint() async {
+        let api = FakeAdminAPI()
+        // 候选带 EXIF：拍摄时间 16:26:04、4032×3024、iPhone 17
+        let withEXIF = UploadCandidate(
+            filename: "a.jpg", contentType: "image/jpeg", data: Data(repeating: 3, count: 1024),
+            exif: ["data_time": .string("2026:10:07 16:26:04"), "model": .string("iPhone 17")],
+            width: 4032, height: 3024
+        )
+        let coordinator = UploadCoordinator(
+            api: api,
+            uploader: FakeUploader(),
+            cookie: { "session=abc" },
+            ledger: nil,
+            serverFingerprints: {
+                [(UploadFingerprint(digest: "", capturedAt: EXIFDateParser.date(from: "2026:10:07 16:25:30"), width: 4032, height: 3024, model: "iPhone 17"), "clx-server", "服务器上的那张")]
+            }
+        )
+        coordinator.albumValue = "/daily"
+
+        coordinator.enqueue([withEXIF])
+        await coordinator.runPending()
+
+        #expect(coordinator.items[0].isSkipped)
+        #expect(coordinator.items[0].skipReason?.contains("服务器上的那张") == true, "要告诉用户是跟哪一张撞了")
+        #expect(api.signCalls.isEmpty)
+    }
+
     @Test("失败文案优先级：服务端原话 → 网络文案 → 通用文案")
     func failureMessagePriority() {
         #expect(UploadCoordinator.failureMessage(APIError.http(status: 401, code: nil, message: "authentication failed")) == "authentication failed")
