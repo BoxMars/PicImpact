@@ -44,10 +44,13 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
   依赖为 `ky` / `@cloudflare/workers-types` / `@prisma/driver-adapter-utils`（与 Workers 定位一致）。
   → 数据库层不必换 ORM，但 schema 要按 SQLite 改写（见 1.3）。
 
-  ⚠️ **版本缺口（需要升级 Prisma）**：本项目用的是 **Prisma 6.4.1**，而 registry 上稳定版里能看到的最早
-  6.x 适配器是 **6.19.3** → 现在的 6.4.1 很可能**早于适配器引入**。所以 P0-3 不只是"跑个例程"，
-  还包含一次 **Prisma 升级**（先升到适配器支持的 6.x，或直接上 7.x），升级本身要单独验证
-  （Prisma 大版本升级可能带 schema/客户端 API 变化，本项目 `server/db/**` 用量不小）。
+  ✅ **版本缺口：不存在**（这里更正我上一轮的判断 —— 当时我说"最早可见 6.19.3、6.4.1 可能太旧"，
+  那是**错的**）。完整拉取版本谱系后：`@prisma/adapter-d1` 的 6.x 稳定版从 **6.0.0** 就有
+  （发布于 2024-11-28），7.x 从 7.0.0 起。适配器版本与 Prisma 主版本是**一一对应**的，
+  所以本项目用 **6.4.1 可以配 `@prisma/adapter-d1@6.4.x`**，**不需要为了用适配器升级 Prisma**。
+
+  → P0-3 的范围因此缩小为「跑通最小例程 + 改 SQLite 语法」，不包含 Prisma 大版本升级。
+    上一次的误判来自只看 registry 返回里最后 8 个版本；教训是**版本谱系必须完整拉取再下结论**。
 - **Next.js on Workers 有官方路径**：`@opennextjs/cloudflare`
   https://developers.cloudflare.com/workers/framework-guides/web-apps/opennext/
   包本身**活跃维护**（查 npm registry：最新 1.20.9，发布于 2026-10-06，132 个稳定版）。
@@ -156,15 +159,37 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
 - [ ] **better-auth 在 Workers 上**：依赖的 crypto / 存储是否都能跑；会话表放 D1 的适配。
 - [ ] **R2** 存原图与预览图（替换 `felina-asset.boxz.dev` 当前的对象存储），以及自定义域。
 
-### 1.3 已知的硬骨头（Postgres → SQLite）
+### 1.3 已知的硬骨头（Postgres → SQLite）—— 已做代码级盘点
 
-迁移不是"换个连接串"，以下都要改：
+迁移不是"换个连接串"。下面是**从代码里数出来的**清单（不是泛泛而谈）：
 
-- `SELECT DISTINCT ON (image.id)` —— 现有索引迁移里用到了，**SQLite 不支持**，要改写成窗口函数或子查询。
-- **JSON 操作符**：现有表达式索引用 `exif->>'model'` / `exif->>'lens_model'`，SQLite 是 `json_extract`。
-- `@db.SmallInt` / `@db.Text` / `@db.Timestamp` 等 Postgres 专有类型标注要去掉。
-- 枚举、自增、`now()` 默认值等语义差异。
-- Prisma 的迁移目录（`prisma/migrations/*`）是 Postgres SQL，迁到 D1 需要**重做一套 SQLite 迁移**。
+**schema 层（`prisma/schema.prisma`）**
+
+| 项 | 数量 | 处理 |
+|---|---|---|
+| `@db.Timestamp` | 19 | 去掉标注（SQLite 无原生类型属性） |
+| `@db.Text` | 13 | 同上 |
+| `@db.VarChar` | 10 | 同上 |
+| `@db.SmallInt` | 10 | 同上 |
+| `@db.Json` | 2 | 同上（`exif` / `labels` 两个字段） |
+| 枚举 `enum` | **0** | 无需迁移（好消息） |
+| `@default(now())` | 3 | SQLite 可用 `CURRENT_TIMESTAMP`，需确认 Prisma 生成结果 |
+
+合计 **54 处类型标注**要去掉，另有 2 个 JSON 字段（`exif` 用于相机/镜头等 EXIF，`labels` 用于标签）
+在 SQLite 里以 TEXT 存储，查询要走 `json_extract`。
+
+**查询层（`server/**`）**
+
+| 项 | 数量 | 风险 |
+|---|---|---|
+| `$queryRaw` / `$executeRaw` 调用点 | **23** | ✗ 最大的一块，逐个都要审 |
+| 其中 `SELECT DISTINCT ON (...)` | **4**（均在 `server/db/query/images.ts`） | ✗ **SQLite 不支持**，必须改写为窗口函数或子查询 |
+| JSON 操作符（`->>` / `->`） | 代码里未直接命中，但**迁移 SQL 里用过**（`exif->>'model'`、`exif->>'lens_model'` 表达式索引） | 改 `json_extract` |
+
+**迁移目录**：`prisma/migrations/*` 全是 Postgres SQL，迁到 D1 需要**重做一套 SQLite 迁移**（不能复用）。
+
+→ 结论：这一段是**有明确工作量的工程**（23 个原始 SQL 调用点 + 54 处标注 + 一套新迁移），
+  但边界清楚、可逐项勾选，没有未知黑盒。
 
 ## 2. 分阶段计划
 
@@ -174,8 +199,9 @@ Workers 跑在边缘（香港/新加坡）且紧邻东京数据库，理论上�
 - [x] P0-2 issue #942（catch-all 路由让 CF 构建崩）**已查证为已修复** —— 于 1.10.1 修复，本项目用 1.20.9。
       证据见 1.1（state=CLOSED / stateReason=COMPLETED / 页面原文 fixed in @1.10.1 / 用户确认）。
       剩余动作：issue #345（getCloudflareContext 在 catch-all 路由上的报错）留到 spike 时确认。
-- [ ] P0-3 最小 Prisma + D1 例程（一张表、一次读一次写），确认 `@prisma/adapter-d1` 可用
-      —— 注意：本项目 Prisma 为 6.4.1，而适配器稳定版最早可见 6.19.3，**需要先做一次 Prisma 升级**并单独验证
+- [ ] P0-3 最小 Prisma + D1 例程（一张表、一次读一次写），确认 `@prisma/adapter-d1@6.4.x` 与项目 6.4.1 可用
+      —— 版本缺口已排除（见 1.1 更正）；本项剩余的是**实证**：真跑一次
+- [x] P0-3b **Postgres 专有用法清单**（已完成，见 1.3 —— 把"要改 SQLite"变成可勾选列表）
 - [x] P0-4 Images binding 能替代 sharp 的预览图管线，**计费已查清**（见 1.1：Free 含变换、5,000 次/月、
       超限不收费只报 9422；本站约 150-200 次/月）—— 剩一步：实测缩放一张真图
 - [x] P0-5 两个账号的域名/Worker 归属验证 —— **已完成**（见 1.2 结论：Custom Domain 必须与 zone 同账号，
