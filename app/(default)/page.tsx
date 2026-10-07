@@ -1,4 +1,5 @@
 import type { ImageHandleProps } from '~/types/props'
+import { AppStoreBanner } from '~/components/layout/appstore-banner'
 import { fetchClientImagesListByAlbum, fetchClientImagesPageTotalByAlbum } from '~/server/db/query/images'
 import { fetchConfigsByKeys } from '~/server/db/query/configs'
 import dynamic from 'next/dynamic'
@@ -62,6 +63,8 @@ export default async function Home() {
 
   return (
     <>
+      {/* 顶部 App Store 横幅：使用官方徽章，链接为 Apple 查询接口返回的真实地址 */}
+      <AppStoreBanner />
       {currentStyle
         && currentStyle === '1' ? <SimpleGallery {...props} />
         : currentStyle === '2' ? <PolaroidGallery {...props} />
