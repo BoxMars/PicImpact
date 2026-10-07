@@ -49,6 +49,13 @@ public final class GalleryStore {
     /// 那次 `loadNextPage()` 会被 `!isLoading` 挡掉 —— 如果没有这个补偿标记，
     /// 下一页就再也不会被请求（用户反馈："第二次启动就看不到第二页了"）。
     private var pendingNextPage = false
+    /// 有"刷新"被挡下来时记在这里，等在飞的加载结束后补做。
+    ///
+    /// 为什么必须有：上传完照片后 App 调用的就是 `refresh()`，而它原来撞上在飞的请求
+    /// （60 秒轮询 / 首屏后台校验）会**直接丢弃** —— 界面就停在旧数据，用户只能手动下拉。
+    private var pendingRefresh = false
+    /// 上一次拿到的总页数。用来判断"网站是否有更新"，比只比第一张的 id 可靠得多。
+    private var knownPageTotal: Int?
     /// 当前正在请求哪一页（nil = 没有在飞）。用来区分"在飞的是首屏校验还是下一页"。
     private var loadingPage: Int?
 
@@ -128,9 +135,11 @@ public final class GalleryStore {
 
     /// 主动查询网站是否有更新（用户要求"网站更新时主动查询"）。
     ///
-    /// 只比较**第一页的第一张**：id 变了说明相册有新增/删除，此时做一次完整刷新；
-    /// 没变就什么都不做 —— 这样不会打扰用户已经翻到的页码和滚动位置。
+    /// 判据是**总页数 + 第一页的 id 序列**，不是"只看第一张的 id"：
+    /// 相册可以配成"旧→新"或随机排序，新照片往往落在末尾/中间，第一张根本没变 ——
+    /// 只比第一张的话，网站明明更新了 App 却永远不刷新（用户反馈："传完照片要手动刷新"）。
     ///
+    /// 没变就什么都不做 —— 这样不会打扰用户已经翻到的页码和滚动位置。
     /// 失败一律静默：这是后台轮询，不该因为一次网络抖动给用户弹错误。
     public func pollForUpdates() async {
         guard !isLoading else { return }        // 有请求在飞就不叠加
@@ -138,8 +147,9 @@ public final class GalleryStore {
             let latest = try await dataSource.images(
                 album: album, tag: tag, camera: nil, lens: nil, page: 1
             )
-            guard let newest = latest.list.first?.id, let current = images.first?.id else { return }
-            if newest != current {
+            let latestIDs = latest.list.map(\.id)
+            let currentIDs = images.prefix(latestIDs.count).map(\.id)
+            if latest.pageTotal != knownPageTotal || latestIDs != currentIDs {
                 await refresh()
             }
         } catch {
@@ -151,10 +161,25 @@ public final class GalleryStore {
     ///
     /// **不清空现有列表**：清空会让整屏内容先消失再出现（跳变），
     /// 而新数据到达后整体替换即可，视觉上更稳。
+    ///
+    /// ⚠️ 有请求在飞时**排队**而不是丢弃（见 `pendingRefresh`）：上传/删除后的自动刷新
+    /// 走的也是这个方法，丢掉就等于"界面不更新，要用户自己下拉"。
     public func refresh() async {
-        guard !isLoading else { return }
+        guard !isLoading else {
+            pendingRefresh = true
+            return
+        }
         hasMore = true
         await load(page: 1, replacing: true, isRefresh: true)
+    }
+
+    /// 管理端改完数据（上传 / 删除 / 编辑）后调用：作废磁盘缓存并重拉第一页。
+    ///
+    /// 只 `refresh()` 不作废缓存的话，下次启动会先把**上一次的旧内容**铺出来
+    /// （"先出缓存再校验"是设计如此），用户就会看到"重开 App 还是旧图"。
+    public func invalidateCacheAndRefresh() async {
+        await cache?.clear()
+        await refresh()
     }
 
     /// 失败后重试（失败时不在 phase 里保留 page 进度，重试当前目标页）
@@ -193,6 +218,7 @@ public final class GalleryStore {
             )
             pageSize = result.pageSize
             hasMore = result.hasMore
+            knownPageTotal = result.pageTotal
 
             if replacing {
                 images = result.list
@@ -215,8 +241,13 @@ public final class GalleryStore {
         isLoading = false
         loadingPage = nil
 
-        // 补偿：加载期间被挡掉的「下一页」请求，现在补做
-        if pendingNextPage {
+        // 补偿：加载期间被挡掉的请求，现在补做。
+        // 刷新优先于"下一页"：刷新会把列表重置回第一页，先补下一页没有意义。
+        if pendingRefresh {
+            pendingRefresh = false
+            pendingNextPage = false
+            await refresh()
+        } else if pendingNextPage {
             pendingNextPage = false
             await loadNextPage()
         }

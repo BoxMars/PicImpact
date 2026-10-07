@@ -248,3 +248,48 @@ struct AdminImageClientHTTPTests {
         }
     }
 }
+
+/// 系统 HTTP 缓存这一层：线上 `/api/*` 的响应是 `cache-control: public` 且**没有 ETag**，
+/// 系统缓存是否新鲜完全不可预期（实测管理列表响应被 URLCache 存下来了）。
+/// 所以 API 请求一律显式绕过它 —— 这两条测试就是钉住这一点。
+@Suite("HTTP 缓存 · 接口请求必须真的打到服务端", .serialized)
+struct APICachePolicyTests {
+
+    @Test("管理列表：同一页连拉两次，服务端必须收到两次")
+    func adminListAlwaysHitsServer() async throws {
+        let body = #"{"code":200,"data":{"page":1,"pageSize":24,"total":1,"hasMore":false,"items":[]}}"#
+        let server = try LocalHTTPServer(.init(
+            status: 200,
+            headers: ["Content-Type": "application/json", "Cache-Control": "public"],
+            body: body
+        ))
+        defer { server.stop() }
+
+        let client = AdminImageClient(
+            configuration: .init(siteOrigin: server.origin, session: AdminImageClient.makeSession())
+        )
+        _ = try await client.listImages(page: 1, pageSize: 24, album: nil, cookie: "session=abc")
+        _ = try await client.listImages(page: 1, pageSize: 24, album: nil, cookie: "session=abc")
+
+        let hits = server.receivedRequests.filter { $0.contains("/api/v1/admin/images") }
+        #expect(hits.count == 2, "第二次请求被系统缓存挡掉了，服务端只收到 \(hits.count) 次")
+    }
+
+    @Test("公开列表：同一页连拉两次，服务端必须收到两次")
+    func publicListAlwaysHitsServer() async throws {
+        let body = #"{"code":200,"message":"ok","data":{"list":[],"page":1,"pageSize":24,"pageTotal":1,"hasMore":false}}"#
+        let server = try LocalHTTPServer(.init(
+            status: 200,
+            headers: ["Content-Type": "application/json", "Cache-Control": "public"],
+            body: body
+        ))
+        defer { server.stop() }
+
+        let client = APIClient(baseURL: server.origin, session: .shared)
+        _ = try await client.images(page: 1)
+        _ = try await client.images(page: 1)
+
+        let hits = server.receivedRequests.filter { $0.contains("/images") }
+        #expect(hits.count == 2, "第二次请求被系统缓存挡掉了，服务端只收到 \(hits.count) 次")
+    }
+}

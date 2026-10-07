@@ -86,8 +86,10 @@ struct RootView: View {
                 images: environment.adminList,
                 uploads: environment.uploads,
                 loader: environment.loader,
-                // 上传成功 / 删除之后公开画廊要跟着变（与 web 的 revalidate 是同一件事）
-                onLibraryChanged: { await environment.gallery.refresh() },
+                // 上传成功 / 删除之后公开画廊要跟着变（与 web 的 revalidate 是同一件事）。
+                // 必须"作废磁盘缓存 + 重拉"：只重拉的话，下次启动会先把旧缓存铺出来，
+                // 用户看到的就是"重开 App 还是旧图"。
+                onLibraryChanged: { await environment.gallery.invalidateCacheAndRefresh() },
                 onDismiss: { showAdmin = false }
             )
         }

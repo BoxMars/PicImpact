@@ -279,6 +279,10 @@ public struct AdminImageClient: AdminImageAPI {
     private static func plainRequest(url: URL, method: String, cookie: String) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = method
+        // 管理接口一律不走系统 HTTP 缓存。实测线上 `/api/v1/admin/images` 的 GET 响应
+        // 会被 URLCache 存下来（在模拟器的 Cache.db 里能看到），于是"刚传完照片、
+        // 重新打开后台还是旧列表"。这里由客户端自己保证每次请求都打到服务端。
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(APIEnvironment.appVersion, forHTTPHeaderField: "X-App-Version")
         request.setValue(APIEnvironment.platform, forHTTPHeaderField: "X-App-Platform")

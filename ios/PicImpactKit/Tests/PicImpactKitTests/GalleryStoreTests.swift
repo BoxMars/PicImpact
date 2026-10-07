@@ -37,6 +37,8 @@ actor StubGalleryDataSource: GalleryDataSource {
         pages[page] = ids.map { Self.makeImage(id: $0) }
     }
     func setDelay(_ nanoseconds: UInt64) { delayNanoseconds = nanoseconds }
+    /// 模拟"网站新增/删除了一批图片"：总页数变了，但第一页内容可能没变
+    func setTotalPages(_ value: Int) { totalPages = value }
     func requested() -> [Int] { requestedPages }
     func requestCount() -> Int { requestedPages.count }
 
@@ -397,5 +399,83 @@ struct GalleryPollingTests {
 
         #expect(store.images.map(\.id) == before, "查询失败不该清空或改动内容")
         #expect(store.phase == .loaded, "查询失败不该切成错误页，实际 \(store.phase)")
+    }
+}
+
+/// 上传/删除之后"界面不更新"这一类问题的回归测试。
+///
+/// 之前所有刷新路径都是 `guard !isLoading else { return }` —— 撞上在飞的请求就**静默丢弃**，
+/// 用户看到的现象是"刚传完照片，界面还是旧的，要手动下拉才出来"。
+@Suite("T7b · 刷新不能被静默丢弃")
+@MainActor
+struct GalleryRefreshReliabilityTests {
+
+    @Test("刷新撞上在飞的加载会被排队，而不是丢掉")
+    func refreshWhileBusyIsQueued() async throws {
+        let source = StubGalleryDataSource(totalPages: 2, itemsPerPage: 3)
+        await source.setDelay(150_000_000)   // 150ms，保证刷新请求会撞上在飞的加载
+        let store = GalleryStore(dataSource: source)
+
+        async let first: Void = store.loadFirstPageIfNeeded()
+        try await Task.sleep(nanoseconds: 30_000_000)
+        await store.refresh()                // 此刻 isLoading == true，必须排队
+        await first
+
+        let requested = await source.requested()
+        #expect(requested.filter { $0 == 1 }.count == 2, "第一页应当被请求两次（首屏 + 排队的刷新），实际 \(requested)")
+        #expect(store.images.count == 3)
+        #expect(store.phase == .loaded)
+    }
+
+    @Test("轮询判据是「总页数 + 第一页 id 序列」：第一张没变也要能发现更新")
+    func pollDetectsChangeWithoutFirstItemChanging() async {
+        let source = StubGalleryDataSource(totalPages: 2, itemsPerPage: 3)
+        let store = GalleryStore(dataSource: source)
+        await store.loadFirstPageIfNeeded()
+        let before = await source.requestCount()
+
+        // 每次 poll 自己会发 1 次请求；判定"有更新"时还会再发 1 次刷新。
+        // 情况一：第一页内容一个字没变，只是总页数变了（网站新增了整页图片）
+        await source.setTotalPages(3)
+        await store.pollForUpdates()
+        #expect(await source.requestCount() == before + 2, "总页数变了应当触发刷新（poll 1 次 + 刷新 1 次）")
+
+        // 情况二：第一张还是那张，但第一页中间插进来一张新的
+        let mid = await source.requestCount()
+        await source.replacePage(1, with: ["p1-i0", "p1-new", "p1-i1", "p1-i2"])
+        await store.pollForUpdates()
+        #expect(await source.requestCount() == mid + 2, "第一页序列变了应当触发刷新")
+        #expect(store.images.map(\.id).first == "p1-i0")
+    }
+
+    @Test("什么都没变时不要瞎刷（不能每次都重拉）")
+    func pollDoesNothingWhenUnchanged() async {
+        let source = StubGalleryDataSource(totalPages: 2, itemsPerPage: 3)
+        let store = GalleryStore(dataSource: source)
+        await store.loadFirstPageIfNeeded()
+        let before = await source.requestCount()
+        await store.pollForUpdates()
+        // 只有 poll 自己那 1 次请求，不该再多一次刷新
+        #expect(await source.requestCount() == before + 1, "没有更新就不该触发刷新")
+        #expect(store.images.map(\.id) == ["p1-i0", "p1-i1", "p1-i2"])
+    }
+
+    @Test("管理端改完数据：作废磁盘缓存（刷新失败时也不能留下旧内容）")
+    func invalidateCacheDropsStaleDiskCache() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gallery-cache-\(UUID().uuidString)")
+        let cache = FirstPageCache(directory: directory, key: "first-page")
+        let source = StubGalleryDataSource(totalPages: 1, itemsPerPage: 3)
+        let store = GalleryStore(dataSource: source, cache: cache)
+
+        await store.loadFirstPageIfNeeded()
+        let savedAfterLoad = await cache.load()
+        #expect(savedAfterLoad != nil, "第一页加载成功后应当写入磁盘缓存")
+
+        // 网站挂了 / 断网：此时刷新失败，但旧缓存必须已经被作废，否则下次启动又铺旧的
+        await source.setFailOnPage(1)
+        await store.invalidateCacheAndRefresh()
+        let savedAfterInvalidate = await cache.load()
+        #expect(savedAfterInvalidate == nil, "改完数据后旧缓存必须作废")
     }
 }

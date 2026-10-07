@@ -130,6 +130,11 @@ public struct APIClient: Sendable {
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
+        // ⚠️ 不走系统 HTTP 缓存。线上 `/api/public/v1/*` 的响应头是 `cache-control: public`，
+        // **既没有 max-age 也没有 ETag**（实测），系统缓存对它是否新鲜完全靠启发式规则，
+        // 结果就是"刚传完照片，重开 App 还是旧列表"。App 自己有一层解析后的首屏缓存
+        // （`FirstPageCache`）负责"先出内容再校验"，系统这层只会带来不可控的陈旧数据。
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         // 便于服务端统计仍在使用的旧版本（API 文档 §4 的弃用流程需要它）
         request.setValue(APIEnvironment.appVersion, forHTTPHeaderField: "X-App-Version")
