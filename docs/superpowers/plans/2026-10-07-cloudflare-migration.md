@@ -529,6 +529,62 @@ EXISTS (
 - [ ] `felina-image` 桶是否就是本站图床？`felina-asset.boxz.dev` 是不是它的自定义域？
 - [ ] 付费账号上那个 `next-web-*` 项目是什么？能否作为本次迁移的参照模板？
 
+## 1.8 参照项目 `~/UMHelper/next-web`（付费账号上已跑通的同类项目）
+
+用户确认：**Umacauhelper 是付费账号**，其上那个 Next on Workers 项目就是 `~/UMHelper/next-web`。
+直接读它的真实配置 —— 这比查文档推断可靠得多，且**解决了本计划里最大的未知：ISR 缓存怎么办**。
+
+### 它的依赖版本（可执行的一手证据）
+
+| 依赖 | 版本 |
+|---|---|
+| next | **15.5.27** ← 正好满足 OpenNext 的 `>=15.5.27 <16` |
+| @opennextjs/cloudflare | **1.16.6**（> 1.10.1，catch-all 修复已含） |
+| wrangler | ^4.62.0 |
+
+脚本：`build:pages = opennextjs-cloudflare build`、`deploy = opennextjs-cloudflare build && opennextjs-cloudflare deploy`
+
+### 它的 wrangler.jsonc（本项目可直接照搬的骨架）
+
+```jsonc
+"main": ".open-next/worker.js",
+"compatibility_date": "2024-12-30",
+"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+"assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+"services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "next-web" }],
+"r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "next-web-inc-cache" }],
+"d1_databases": [{ "binding": "NEXT_TAG_CACHE_D1", "database_name": "next-web-tag-cache" }]
+```
+
+### 它的 open-next.config.ts —— **这就是 ISR 在 Workers 上的答案**
+
+```ts
+import { defineCloudflareConfig } from "@opennextjs/cloudflare";
+import r2IncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/r2-incremental-cache";
+import d1NextTagCache from "@opennextjs/cloudflare/overrides/tag-cache/d1-next-tag-cache";
+
+export default defineCloudflareConfig({
+  incrementalCache: r2IncrementalCache,   // ISR 产物缓存 → R2
+  tagCache: d1NextTagCache,               // revalidateTag 的标签缓存 → D1
+});
+```
+
+**这条对我们的意义很大**：本站正是用 `revalidate = 60` + `revalidateTag('images')` 的站点 —— 也就是说
+**公开页面可以保留 ISR，不需要退化成纯静态导出**。之前设想的 `output: 'export'` 路线（会牺牲 ISR、
+并且要额外解决 i18n 的 cookies 问题）**不再是必需的**。
+
+### 它没覆盖到的（我们仍要自己解决）
+
+参照项目**不含数据库 ORM**（依赖里既没有 Prisma 也没有 Drizzle）→ 所以"Prisma + D1"这条路它没走过，
+我们仍需按 1.1/1.3 的方案自行验证 `@prisma/adapter-d1`。它也不含 better-auth 与图片处理（sharp/Images）。
+
+### 由此更新的两条待决
+
+- [ ] **本项目的 Next 版本怎么走**：参照项目用 **15.5.27**（已验证可行），而本项目是 **16.1.6**（不满足
+      OpenNext 的 `>=16.3.8`，也不满足 `<16`）。两条路：降到 15.5.27（有参照、但属于降版本）
+      或升到 16.3.8+（顺着走、但无参照）。**建议先问清 next-web 为什么停在 15.5.27**（是主动选择还是被兼容性挡住的）。
+- [ ] 照搬其 `assets` / `services` / R2 / D1 骨架到本项目（改名与桶名后再建资源）。
+
 ## 2. 分阶段计划
 
 ### Phase 0 —— 可行性 spike（不碰主站）
