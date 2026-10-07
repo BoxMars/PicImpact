@@ -81,7 +81,15 @@ struct RootView: View {
         .tint(AnimalTokens.primary)
         .sheet(isPresented: $showAdmin) {
             // sheet 内部自己决定显示登录表单还是管理页（见 AdminGateView）
-            AdminGateView(store: environment.auth) { showAdmin = false }
+            AdminGateView(
+                store: environment.auth,
+                images: environment.adminList,
+                uploads: environment.uploads,
+                loader: environment.loader,
+                // 上传成功 / 删除之后公开画廊要跟着变（与 web 的 revalidate 是同一件事）
+                onLibraryChanged: { await environment.gallery.refresh() },
+                onDismiss: { showAdmin = false }
+            )
         }
     }
 }

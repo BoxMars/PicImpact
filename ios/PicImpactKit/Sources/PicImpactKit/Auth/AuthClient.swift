@@ -156,7 +156,9 @@ public struct AuthClient: AuthAPI {
     /// 不用 `appendingPathComponent`：它会把 `"/api/auth/..."` 整体当成一个路径段做百分号转义
     /// （斜杠变成 `%2F`），拼出来是个 404。用 `relativeTo` 才是"相对站点根"的正确语义。
     static func url(base: URL, path: String) -> URL {
-        URL(string: path, relativeTo: base) ?? base
+        // 与 `AdminImageClient.url` 同一个坑：`URL(string:relativeTo:)` 带 baseURL，
+        // 转绝对 URL 之后才不会被后续的 URLComponents 丢掉 base。
+        (URL(string: path, relativeTo: base) ?? base).absoluteURL
     }
 
     // MARK: - 错误与 Cookie

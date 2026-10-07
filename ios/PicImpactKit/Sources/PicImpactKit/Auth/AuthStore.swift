@@ -57,6 +57,12 @@ public final class AuthStore {
     public var isSignedIn: Bool { currentUser != nil }
     public var isWorking: Bool { state == .signingIn }
 
+    /// 当前会话的 `Cookie` 请求头（没有会话、或全部 Cookie 都已过期时为 nil）。
+    ///
+    /// 管理接口（上传签发 / 登记 / 列表 / 删除）都要把它显式放进请求头 ——
+    /// 这个后端没有 bearer 插件，会话只走 Cookie（与 `AuthClient` 一致）。
+    public var sessionCookieHeader: String? { storedCookieHeader() }
+
     // MARK: - 动作
 
     public func clearError() {
