@@ -36,3 +36,9 @@ ios/DerivedData/
 **/DerivedData/
 *.xcuserstate
 *.xcworkspace/xcuserdata/
+
+# 本地团队 ID（由 scripts/ios-project.py 读取；不要提交）
+ios/DEVELOPMENT_TEAM
+
+# 数据库导出（含 R2 密钥等敏感配置，绝不入库）
+/db-backups/
