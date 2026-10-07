@@ -240,6 +240,54 @@ image.created_at DESC, image.updated_at DESC
 > 这种「换一种实现独立算一遍再比对」的验证，比"看起来对"可靠得多；
 > 23 个原始 SQL 调用点都应按此法逐个验证，而不是改完就信。
 
+#### 已验证的改写之二：全部标签（`server/db/query/images.ts` 的 `fetchAllTags`）
+
+原写法（Postgres，集合返回函数 + 类型兜底）：
+
+```sql
+SELECT DISTINCT tag
+FROM "public"."images" AS image,
+     jsonb_array_elements_text((image.labels)::jsonb) AS tag
+WHERE image.del = 0 AND image.show = 0
+  AND image.labels IS NOT NULL
+  AND jsonb_typeof((image.labels)::jsonb) = 'array'
+ORDER BY tag
+```
+
+**改写（SQLite）**：
+
+```sql
+SELECT DISTINCT je.value AS tag
+FROM images AS image,
+     json_each(
+       CASE WHEN json_valid(image.labels)
+            THEN (CASE WHEN json_type(image.labels) = 'array' THEN image.labels ELSE '[]' END)
+            ELSE '[]' END
+     ) AS je
+WHERE image.del = 0 AND image.show = 0 AND image.labels IS NOT NULL
+ORDER BY tag
+```
+
+对应关系：`jsonb_array_elements_text(x)` → `json_each(x)` 取其 `.value`；
+`jsonb_typeof(x) = 'array'` → `json_type(x) = 'array'`；`(x)::jsonb` 转换去掉（SQLite 的 JSON 函数直接吃 TEXT）。
+
+**为什么用嵌套的 `CASE` 而不是 `AND` 串联条件**：SQLite 的 `json_each` 遇到**非法 JSON 会直接报错**
+（比 Postgres 更危险），而 SQL 里 `AND` 的求值顺序**没有保证**，`json_valid(x) AND json_type(x)='array'`
+仍可能先算 `json_type` 而炸掉。嵌套 `CASE` 是**惰性**的，能确保先验合法性再取类型，
+非法值退化为 `'[]'`（即"不贡献标签"），与原 Postgres 版本 `jsonb_typeof` 兜底的**意图一致**。
+
+**验证（这次先踩了一个坑，见下）**：入库 63 行 = 56 条真实数据（实测标签全是 `[]`）+ 3 条合成标签
+（`["猫","日常"]` / `["猫","风景"]` / `["风景"]`）+ 4 条刻意脏数据（非法 JSON / 对象 / NULL / 空数组）。
+
+结果：SQLite 得 `['日常','猫','风景']`，Python 独立计算完全相同；**去重正确**（`猫` 出现在两行里只输出一次）；
+**4 条脏数据既没让查询报错、也没产生任何标签**。
+
+> ⚠️ **差点交出一个"空的 ✓"**：第一次跑这个验证时，两边都返回 **0 个标签**，"两者一致 ✓" 只是 `0 == 0`，
+> **什么也没证明**。原因是真实的 56 条数据 `labels` 全是 `[]`（实测：56/56 都是空数组）。
+> 发现后补了 3 条合成标签重跑，才得到**非空**的验证结果。
+> **教训**：比对类断言必须**先确认两侧都有数据**，否则"一致"可能只是"两边都空"。
+> 这一条适用于其余 22 个调用点 —— 验证脚本要先打印样本量，再断言相等。
+
 → 结论：这一段是**有明确工作量的工程**（23 个原始 SQL 调用点 + 54 处标注 + 一套新迁移），
   但边界清楚、可逐项勾选，没有未知黑盒。
 
