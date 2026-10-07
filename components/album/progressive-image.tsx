@@ -103,8 +103,10 @@ export default function ProgressiveImage(
       }
 
       if (fallbackLoaded) {
+        // 只负责预热与决定 src；**不再**在这里宣布"原图已就绪"。
+        // 那一层 <img> 自己的 onLoad + decode() 完成后才会淡入（见下方），
+        // 否则会出现"元素已变为可见、但内容还没画出来"的空窗 —— 就是那个一闪。
         setResolvedHighResSrc(proxyLoaded ? highResProxySrc : highResRawSrc)
-        setHighResImageLoaded(true)
         setIsLoading(false)
       } else {
         setError(t('Tips.imageLoadFailed'))
@@ -160,7 +162,17 @@ export default function ProgressiveImage(
           height={props.height}
           alt={props.alt || 'image'}
           loading="eager"
-          decoding="async"
+          // 同步解码：保证一次性画完整，避免先画空再补内容（代价是几十毫秒的主线程阻塞）
+          decoding="sync"
+          onLoad={async (e) => {
+            try {
+              // 等这一次真正的解码完成，再让它可见
+              await e.currentTarget.decode?.()
+            } catch {
+              // 解码 API 不可用/失败时，onLoad 本身已足够
+            }
+            setHighResImageLoaded(true)
+          }}
           style={{
             opacity: highResImageLoaded ? 1 : 0,
             transition: highResImageLoaded ? 'opacity 0.8s ease' : 'none',
