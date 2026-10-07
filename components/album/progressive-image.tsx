@@ -131,7 +131,15 @@ export default function ProgressiveImage(
   }
 
   return (
-    <div className="relative">
+    // `sm:self-start`：详情页里本组件处在**会被拉伸**的容器中（右侧信息栏更高时，
+    // grid 行高由信息栏决定，图片格默认 align-self: stretch），外层于是比预览图高。
+    // 预览图在文档流里只占自己那份高度，而原图层是 `absolute inset-0` 铺满外层再
+    // `object-contain` —— 结果就是原图在外层里垂直居中、与预览图错开（实测 95px）。
+    // 让外层回到"图片本身的高度"，两层就落在同一个盒里。
+    //
+    // 只在 sm 及以上生效：移动端是纵向 flex，`self-start` 会作用在**水平**轴上，
+    // 把图片缩成内容宽度而不是占满一行。
+    <div className="relative sm:self-start">
       {/* Preview — always in DOM as base layer; provides layout dimensions */}
       <MotionImage
         initial={{ opacity: 0 }}
