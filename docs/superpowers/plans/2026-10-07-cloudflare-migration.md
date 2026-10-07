@@ -217,8 +217,27 @@ schema 里目前**没有**这样的列（已确认），而仓库里存在 `scri
 - [x] P0-2 issue #942（catch-all 路由让 CF 构建崩）**已查证为已修复** —— 于 1.10.1 修复，本项目用 1.20.9。
       证据见 1.1（state=CLOSED / stateReason=COMPLETED / 页面原文 fixed in @1.10.1 / 用户确认）。
       剩余动作：issue #345（getCloudflareContext 在 catch-all 路由上的报错）留到 spike 时确认。
-- [ ] P0-3 最小 Prisma + D1 例程（一张表、一次读一次写），确认 `@prisma/adapter-d1@6.4.x` 与项目 6.4.1 可用
-      —— 版本缺口已排除（见 1.1 更正）；本项剩余的是**实证**：真跑一次
+- [x] P0-3 schema 层实证 —— **已完成，结果好于预期**。做法：零侵入（不装任何依赖、不动仓库），
+      把 `prisma/schema.prisma` 复制到 `/tmp/d1spike`，只改两处后用**仓库自带的 Prisma 6.4.1** 验证并建库：
+
+      1. `provider = "postgresql"` → `"sqlite"`，`url = env("DATABASE_URL")` → 本地文件
+      2. 去掉 **54 处 `@db.*` 原生类型标注**（VarChar/Text/SmallInt/Timestamp/Json）
+      3. 去掉 **1 处 `directUrl = env("DIRECT_URL")`** —— SQLite/D1 没有池化/直连之分
+
+      结果：
+      * `prisma validate` → `The schema at … is valid 🚀`
+      * `prisma db push` → `SQLite database test.db created` / `Your database is now in sync … Done in 13ms`
+      * 建出 **10 张表**：`images` / `configs` / `albums` / `images_albums_relation`，
+        以及 better-auth 的 `user` / `session` / `account` / `verification` / `passkey` / `two_factor`
+      * `images` 表列类型符合预期；**`exif` / `labels` 在 SQLite 里是 `JSONB`**（Prisma 的 SQLite 连接器
+        **接受 `Json` 类型**，存为 TEXT —— 此前担心的"JSON 字段要改结构"**不成立**）
+
+      **结论**：schema 迁移是**机械改动**（54 处标注 + 1 行 directUrl），没有结构性阻碍；
+      **better-auth 的表也能原样建出来**，这同时降低了第 5 项（鉴权兼容性）的风险。
+      数据库这块真正的工程量集中在**原始 SQL**（23 个 `$queryRaw`/`$executeRaw` 调用点，见 1.3），不在 schema。
+
+      ⚠️ 仍需实证的剩余部分：`@prisma/adapter-d1` 在**真实 D1 binding** 上的一读一写
+      （本次验的是 schema 与 DDL，没有触及 adapter 与 D1 运行时）。
 - [x] P0-3b **Postgres 专有用法清单**（已完成，见 1.3 —— 把"要改 SQLite"变成可勾选列表）
 - [x] P0-4 Images binding 能替代 sharp 的预览图管线，**计费已查清**（见 1.1：Free 含变换、5,000 次/月、
       超限不收费只报 9422；本站约 150-200 次/月）—— 剩一步：实测缩放一张真图
