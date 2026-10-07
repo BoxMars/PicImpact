@@ -28,7 +28,9 @@ export async function proxy(request: NextRequest) {
 // 全压在中间件上，是纯浪费。/admin 与 /api/v1 的鉴权保持不变。
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|api/public|favicon\\.ico|manifest\\.json|robots\\.txt|icons/|fonts/|cursor-icon\\.png|apple-touch-icon\\.png|maskable-icon\\.png|.*\\.(?:png|jpe?g|webp|avif|svg|gif|ico|woff2?|ttf|css|js|map|txt|xml)$).*)',
+    // `.well-known/` 必须放行：Apple 关联域名文件（AASA）在 /.well-known/ 下，
+    // 中间件一旦插手（重定向/改写），系统就取不到这份文件，密码 AutoFill 关联会失效。
+    '/((?!_next/static|_next/image|api/public|\\.well-known/|favicon\\.ico|manifest\\.json|robots\\.txt|icons/|fonts/|cursor-icon\\.png|apple-touch-icon\\.png|maskable-icon\\.png|.*\\.(?:png|jpe?g|webp|avif|svg|gif|ico|woff2?|ttf|css|js|map|txt|xml)$).*)',
     '/admin/:path*',
     '/api/v1/:path*',
   ],
