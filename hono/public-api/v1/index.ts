@@ -13,6 +13,7 @@ import {
   fetchClientImagesPageTotalByTag,
   fetchImageByIdAndAuth,
 } from '~/server/db/query/images'
+import { parseImageSort } from '~/server/lib/image-sort'
 import type { ImageType } from '~/types'
 
 import { PAGE_SIZE, apiHeaders, ok, parsePage, type ApiEnvelope } from '../shared'
@@ -115,12 +116,21 @@ app.get('/images/:id', async (c) => {
  *
  * `camera` / `lens` 仅对 album 模式生效（与 Web 端行为一致）。
  * 分页大小固定 24，响应里回传 `pageSize`；`pageTotal` 是总**页数**（服务端就是这么算的）。
+ *
+ * `sort` 是**可选加法**（契约规则 2 允许新增可选查询参数）：
+ *   - 不传 = 现状（首页按拍摄时间从新到旧；相册按相册自己的 `image_sorting` / `random_show`）；
+ *   - 传了 = 按它排，并**覆盖**相册的随机/排序配置；非法值回退到不传的行为（不报错）；
+ *   - `?tag=` 模式**忽略** `sort`（该模式本来就是上传时间从新到旧），与 `camera`/`lens` 只在 album 模式生效同理。
+ *
+ * ⚠️ 默认行为必须与新增此参数之前**逐字节相同**：老客户端不发这个参数，
+ * 拿到的顺序、URL、边缘缓存命中都不该有任何变化。
  */
 app.get('/images', async (c) => {
   const page = parsePage(c.req.query('page'))
   const tag = c.req.query('tag')?.trim()
   const camera = c.req.query('camera')?.trim() || undefined
   const lens = c.req.query('lens')?.trim() || undefined
+  const sort = parseImageSort(c.req.query('sort'))
 
   if (tag) {
     const [list, pageTotal] = await Promise.all([
@@ -143,7 +153,7 @@ app.get('/images', async (c) => {
   // 与 Web 端一致：不传 album 即首页
   const album = c.req.query('album')?.trim() || '/'
   const [list, pageTotal] = await Promise.all([
-    fetchClientImagesListByAlbum(page, album, camera, lens),
+    fetchClientImagesListByAlbum(page, album, camera, lens, sort),
     fetchClientImagesPageTotalByAlbum(album, camera, lens),
   ])
 

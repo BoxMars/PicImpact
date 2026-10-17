@@ -127,6 +127,23 @@ App Store 里的旧版 App **不可能被强制升级**。用户可能永远停�
 | `album` | 相册 value，形如 `/daily`。**默认 `/`，即首页**（所有 `show_on_mainpage = 0` 的图） |
 | `tag` | 标签。**优先级高于 `album`**（显式传 tag 时忽略 album） |
 | `camera` / `lens` | 仅 album 模式生效，与 Web 端行为一致 |
+| `sort` | 排序，**可选**（2026-10-13 新增）。见下表；非法值回退到「不传」的行为，不报错 |
+
+**`sort` 的取值**（术语与 Web 后台的相册排序规则一致：**上传时间** = `created_at` 入库时间，**拍摄时间** = EXIF `data_time`）：
+
+| 取值 | 含义 |
+|---|---|
+| （不传） | **现状**：首页 = 拍摄时间从新到旧；相册 = 该相册的 `image_sorting` / `random_show` 配置 |
+| `uploaded_desc` | 上传时间从新到旧 |
+| `uploaded_asc` | 上传时间从旧到新 |
+| `taken_desc` | 拍摄时间从新到旧（= 首页默认） |
+| `taken_asc` | 拍摄时间从旧到新 |
+
+- 显式传 `sort` 时，**覆盖该相册的随机展示配置**（`random_show = 0`）—— 客户端明确要求了排序，就以它为准。
+- `?tag=` 模式**忽略** `sort`（该模式本来就是上传时间从新到旧），与 `camera`/`lens` 只在 album 模式生效同理。
+- 所有排序都以 `image.sort DESC`（人工置顶）**打头**，这一条不随 `sort` 变化。
+- 排序键末尾带 `image.id` 作为全序兜底：`created_at` 不唯一（批量上传同一秒入库），
+  OFFSET 分页在排序键不唯一时会重复/漏图。
 
 **没有 `size` 参数** —— 服务端查询里 `LIMIT` 写死为 24（`server/db/query/images.ts` 的 `DEFAULT_SIZE`），
 提供却不能生效比不提供更糟。页大小请从响应的 `pageSize` 读取，**不要硬编码**。
@@ -226,3 +243,4 @@ pnpm api:verify-contract
 | 日期 | 变更 | 类型 |
 |---|---|---|
 | 2026-10-04 | v1 首次发布：`/config` `/albums` `/tags` `/filters` `/images` `/images/:id` | 新增 |
+| 2026-10-13 | `GET /images` 新增可选参数 `sort`（`uploaded_desc` / `uploaded_asc` / `taken_desc` / `taken_asc`）。不传时行为与旧版**逐字节相同**；响应形状未变 | 新增（加法） |

@@ -3,17 +3,23 @@
 import { Prisma } from '@prisma/client'
 import { unstable_cache } from 'next/cache'
 import { db } from '~/server/lib/db'
+import {
+  EXIF_CAPTURE_TIME_SQL,
+  HOME_IMAGE_SORTING_ORDER,
+  IMAGE_SORT_ORDERS,
+  type ImageSort,
+} from '~/server/lib/image-sort'
 import type { ImageType } from '~/types'
 import { fetchConfigValue } from './configs'
 
 const ALBUM_IMAGE_SORTING_ORDER = [
   null,
   'image.created_at DESC, image.updated_at DESC',
-  'COALESCE(TO_TIMESTAMP(COALESCE(image.exif->>\'data_time\', image.exif->>\'date_time\'), \'YYYY:MM:DD HH24:MI:SS\'), \'1970-01-01 00:00:00\') DESC, image.created_at DESC, image.updated_at DESC',
+  // 相册规则 2「拍摄时间从新到旧」与首页默认是**同一条**（曾经逐字写了两遍），现在共用一份
+  HOME_IMAGE_SORTING_ORDER,
   'image.created_at ASC, image.updated_at ASC',
-  'COALESCE(TO_TIMESTAMP(COALESCE(image.exif->>\'data_time\', image.exif->>\'date_time\'), \'YYYY:MM:DD HH24:MI:SS\'), \'1970-01-01 00:00:00\') ASC, image.created_at ASC, image.updated_at ASC',
+  `${EXIF_CAPTURE_TIME_SQL} ASC, image.created_at ASC, image.updated_at ASC`,
 ]
-const HOME_IMAGE_SORTING_ORDER = 'COALESCE(TO_TIMESTAMP(COALESCE(image.exif->>\'data_time\', image.exif->>\'date_time\'), \'YYYY:MM:DD HH24:MI:SS\'), \'1970-01-01 00:00:00\') DESC, image.created_at DESC, image.updated_at DESC'
 
 const DEFAULT_SIZE = 24
 
@@ -171,18 +177,23 @@ export async function fetchServerImagesPageTotalByAlbum(
  * @param album 相册
  * @param camera 相机型号（可选）
  * @param lens 镜头型号（可选）
+ * @param sort 显式排序（可选）。不传 = 现状：首页按拍摄时间、相册按相册自己的配置
  * @returns {Promise<ImageType[]>} 图片列表
  */
 async function fetchClientImagesListByAlbumImpl(
   pageNum: number,
   album: string,
   camera?: string,
-  lens?: string
+  lens?: string,
+  sort?: ImageSort
 ): Promise<ImageType[]> {
   if (pageNum < 1) {
     pageNum = 1
   }
   if (album === '/') {
+    // 首页默认是「拍摄时间从新到旧」（HOME_IMAGE_SORTING_ORDER）；传了 sort 就按传的来。
+    // ⚠️ 默认值必须与不传参数时**逐字节相同**，否则就是改了语义（契约不允许）。
+    const order = sort ? IMAGE_SORT_ORDERS[sort] : HOME_IMAGE_SORTING_ORDER
     return await db.$queryRaw`
     SELECT 
         image.*
@@ -196,7 +207,7 @@ async function fetchClientImagesListByAlbumImpl(
         image.show_on_mainpage = 0
     ${camera ? Prisma.sql`AND COALESCE(image.exif->>'model', 'Unknown') = ${camera}` : Prisma.empty}
     ${lens ? Prisma.sql`AND COALESCE(image.exif->>'lens_model', 'Unknown') = ${lens}` : Prisma.empty}
-    ORDER BY image.sort DESC, ${Prisma.sql([HOME_IMAGE_SORTING_ORDER])}
+    ORDER BY image.sort DESC, ${Prisma.sql([order])}
     LIMIT ${DEFAULT_SIZE} OFFSET ${(pageNum - 1) * DEFAULT_SIZE}
   `
   }
@@ -205,15 +216,21 @@ async function fetchClientImagesListByAlbumImpl(
       album_value: album
     }
   })
-  let orderBy = Prisma.sql(['image.sort DESC, image.created_at DESC, image.updated_at DESC'])
-  if (albumData && albumData.image_sorting && ALBUM_IMAGE_SORTING_ORDER[albumData.image_sorting]) {
+  let orderBy = Prisma.sql([
+    `image.sort DESC, ${sort ? IMAGE_SORT_ORDERS[sort] : 'image.created_at DESC, image.updated_at DESC'}`
+  ])
+  // 显式 sort 的优先级高于相册配置（随机 / image_sorting）：用户在界面上明确选了排序，
+  // 就该按他选的来。没传 sort 时才是既有行为。
+  if (!sort && albumData && albumData.image_sorting && ALBUM_IMAGE_SORTING_ORDER[albumData.image_sorting]) {
     orderBy = Prisma.sql([`image.sort DESC, ${ALBUM_IMAGE_SORTING_ORDER[albumData.image_sorting]}`])
   }
   // 随机展示：随机性必须落在 SQL 侧、且对同一相册**稳定**，否则分页会重复/漏图。
   // 原实现在 LIMIT 之后用 JS 洗牌（`[...dataList].sort(() => Math.random() - 0.5)`），
   // 只打乱了已经取到的那 24 行 —— 无限滚动翻页时同一张图可能出现两次、另一张永远看不到。
   // 用 `md5(id || album)` 作为稳定的伪随机排序键：看起来仍然随机，但每次翻页顺序一致。
-  if (albumData && albumData.random_show === 0) {
+  //
+  // 显式传了 sort 时不走随机：用户明确点了排序，随机配置让位（同上）。
+  if (!sort && albumData && albumData.random_show === 0) {
     orderBy = Prisma.sql`md5(image.id || ${album})`
   }
   const dataList: any[] = await db.$queryRaw`
