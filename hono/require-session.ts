@@ -26,9 +26,21 @@ export type SessionLookup = (headers: Headers) => Promise<{ userId: string; emai
 export const UNAUTHENTICATED_BODY = { code: 401, message: 'authentication failed' } as const
 
 /**
+ * context 上会话变量的形状。
+ *
+ * 读取方声明 `new Hono<{ Variables: SessionVariables }>()` 就能拿到类型；
+ * 写入方是本文件的中间件（它拿到的是 any-Env 的 Context，`set` 不做键名检查）。
+ */
+export type SessionVariables = { session: { userId: string; email: string } }
+
+/**
  * 用给定的会话查询函数构造中间件（便于单测注入替身）。
  *
  * 查询函数返回 null 即视为未登录 → `401`，**不会**进入下游 handler（所以不可能产生数据变更）。
+ *
+ * 校验通过后会把会话**放进 context**（`c.get('session')`）：需要 userId 的路由
+ * （`/api/v1/push/*`）因此不必自己再验一次 —— 再验一次既是双倍开销，
+ * 也给「某个路由忘了验、转而相信 body 里的 userId」留下了口子。
  */
 export function createRequireSession(lookup: SessionLookup): MiddlewareHandler {
   return async (c, next) => {
@@ -36,6 +48,7 @@ export function createRequireSession(lookup: SessionLookup): MiddlewareHandler {
     if (!session) {
       return c.json(UNAUTHENTICATED_BODY, 401)
     }
+    c.set('session', session)
     await next()
   }
 }

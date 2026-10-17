@@ -97,6 +97,11 @@ function routeFiles(dir: string): string[] {
 }
 
 test('hono/ 下每个注册了路由的文件都挂了会话校验（防"新加接口忘挂"）', () => {
+  // ⚠️ 两个已知例外，都不是"忘了挂"，而是刻意的：
+  //   · `ANONYMOUS_BY_DESIGN`（对外只读 API）—— 整个文件匿名；
+  //   · `hono/push/api.ts` —— **部分**路由公开：`POST/DELETE /devices` 必须匿名
+  //     （装了 App 的家人朋友要能注册，否则收不到新照片通知），只有 `GET /devices` 挂会话。
+  //     这个文件的公开面由 `tests/api/push-api.test.ts` 逐个端点断言（POST 无会话 200 / GET 无会话 401）。
   const files = routeFiles('hono')
   const checked: string[] = []
   const offenders: string[] = []
@@ -123,6 +128,7 @@ test('脚本自身已覆盖 /api/v1 下所有写接口所在文件', () => {
     'hono/file.ts',
     'hono/storage/open-list.ts',
     'hono/admin/api.ts',
+    'hono/push/api.ts',
   ]
   const scanned = routeFiles('hono').filter((f) => !ANONYMOUS_BY_DESIGN.some((p) => f.startsWith(p)))
   for (const file of mustBeChecked) {

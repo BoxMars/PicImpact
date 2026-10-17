@@ -5,7 +5,16 @@ export async function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request, {
     cookiePrefix: 'pic-impact'
   })
-  if (request.nextUrl.pathname.startsWith('/api/v1') && !sessionCookie) {
+  // 推送设备注册/停用是**公开**接口：装了 App 的人（家人/朋友）不登录也要能注册，
+  // 否则他们永远收不到「有新照片」的通知。这里放行，由路由自己决定哪些方法要会话
+  // （只有诊断用的 GET /api/v1/push/devices 需要，见 hono/push/api.ts）。
+  //
+  // ⚠️ 这是对「/api/v1 一律要 cookie」的唯一放行点，所以限定得尽量死：
+  // 路径必须精确到 `/devices`，方法必须**不是** GET。
+  const isPublicPushRegistration =
+    request.nextUrl.pathname === '/api/v1/push/devices' && request.method !== 'GET'
+
+  if (request.nextUrl.pathname.startsWith('/api/v1') && !isPublicPushRegistration && !sessionCookie) {
     return Response.json(
       { success: false, message: 'authentication failed' },
       { status: 401 }

@@ -13,6 +13,7 @@ import {
 } from '~/server/db/query/images'
 import { db } from '~/server/lib/db'
 import { attachManagedImageMetadata } from '~/server/lib/managed-image'
+import { notifyNewImage } from '~/server/lib/new-image-notify'
 import { R2_CONFIG_KEYS } from '~/server/lib/preview-storage'
 import { getR2Client } from '~/server/lib/r2'
 import { generatePresignedUrl } from '~/server/lib/s3api'
@@ -124,4 +125,8 @@ export default createAdminApi({
       console.warn('[cache] revalidateTag(images) 失败：', e)
     }
   },
+
+  // 推送：与 Web 后台上传共用同一份实现（server/lib/new-image-notify.ts）。
+  // 它自己吞异常，所以这里不需要再包一层 try/catch。
+  notifyNewImage,
 })

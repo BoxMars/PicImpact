@@ -5,6 +5,7 @@ import file from '~/hono/file'
 import images from '~/hono/images'
 import albums from '~/hono/albums'
 import admin from '~/hono/admin'
+import push from '~/hono/push'
 import openList from '~/hono/storage/open-list.ts'
 import { HTTPException } from 'hono/http-exception'
 
@@ -25,6 +26,8 @@ route.route('/albums', albums)
 // 挂在既有的 /api/v1 前缀下，就原样沿用了 proxy.ts 对 /api/v1 的会话门禁；
 // 路由内部还会用 auth.api.getSession() 再做一次**真正的**校验（那道门禁只判断 cookie 在不在）。
 route.route('/admin', admin)
+// 推送设备注册（App 用）。同样挂在 /api/v1 下、同样在路由内真正校验会话。
+route.route('/push', push)
 route.route('/storage/open-list', openList)
 
 export default route

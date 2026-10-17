@@ -326,7 +326,13 @@
     "submit": "Submit",
     "updateSuccess": "Update successful!",
     "updateFailed": "Update failed!",
-    "requestFailed": "Request failed!"
+    "requestFailed": "Request failed!",
+    "pushSection": "Push notifications",
+    "pushEnabled": "Push notifications",
+    "pushEnabledDesc": "Whether to send a push notification to registered iOS devices after a new photo is uploaded",
+    "pushCooldownSeconds": "Push cooldown (seconds)",
+    "pushCooldownSecondsDesc": "A user receives at most one push within this many seconds, preventing spam from batch uploads",
+    "pushCooldownInvalid": "Cooldown must be an integer between 0 and 3600"
   },
   "Command": {
     "placeholder": "Type a command or search...",

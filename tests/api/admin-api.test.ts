@@ -32,6 +32,7 @@ type Captured = {
   registered: RegisterImageInput[]
   deleted: string[]
   invalidated: number
+  notified: Array<{ notice: Record<string, any>; clientId: string | null }>
 }
 
 const SESSION = { userId: 'u_1', email: 'admin@example.com' }
@@ -48,7 +49,7 @@ function makeDeps(
     total?: number
   } = {},
 ): { deps: AdminApiDeps; captured: Captured } {
-  const captured: Captured = { signedKeys: [], registered: [], deleted: [], invalidated: 0 }
+  const captured: Captured = { signedKeys: [], registered: [], deleted: [], invalidated: 0, notified: [] }
   const deps: AdminApiDeps = {
     async getSession() {
       return options.session === undefined ? SESSION : options.session
@@ -90,6 +91,9 @@ function makeDeps(
     },
     invalidate() {
       captured.invalidated += 1
+    },
+    async notifyNewImage(notice, options) {
+      captured.notified.push({ notice: notice as Record<string, any>, clientId: options.clientId })
     },
   }
   return { deps, captured }
@@ -272,6 +276,30 @@ test('正常登记：入库且 show / show_on_mainpage 被强制为 0', async ()
   assert.equal(input.lon, '')
   assert.equal(input.type, 1, '缺省 type = 1（普通图片）')
   assert.equal(captured.invalidated, 1, '登记后必须失效图片缓存')
+})
+
+test('正常登记：会触发新照片推送，且带上发起上传的 clientId（自己传的不通知自己）', async () => {
+  const { deps, captured } = makeDeps()
+  const res = await app(deps).request('/images', {
+    ...json(REGISTER_BODY),
+    headers: { 'Content-Type': 'application/json', 'X-Felina-Client-Id': 'CLIENT-ABC-1234' },
+  })
+
+  assert.equal(res.status, 200)
+  assert.equal(captured.notified.length, 1, '入库后必须触发一次推送')
+  assert.equal(captured.notified[0].clientId, 'CLIENT-ABC-1234')
+  assert.equal(captured.notified[0].notice.id, 'clx0000000000000000000001')
+  assert.equal(captured.notified[0].notice.albumValue, REGISTER_BODY.albumValue)
+  assert.equal(captured.notified[0].notice.show, 0, '推的必须是这张已公开的图')
+  assert.equal(captured.notified[0].notice.del, 0)
+})
+
+test('登记失败时不得触发推送（不能为一张没入库的图发通知）', async () => {
+  const { deps, captured } = makeDeps({ registerThrows: true })
+  const res = await app(deps).request('/images', json(REGISTER_BODY))
+
+  assert.equal(res.status, 500)
+  assert.deepEqual(captured.notified, [], '入库失败就不该有推送')
 })
 
 test('登记请求里塞 show=1 / preview_url / blurhash 一律无效（zod 丢弃未声明字段）', async () => {

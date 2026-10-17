@@ -13,6 +13,7 @@ import { HTTPException } from 'hono/http-exception'
 import { revalidateTag } from 'next/cache'
 import { IMAGES_TAG } from '~/server/db/query/images'
 import { attachManagedImageMetadata } from '~/server/lib/managed-image'
+import { notifyNewImage } from '~/server/lib/new-image-notify'
 
 const app = new Hono()
 
@@ -55,6 +56,20 @@ app.post('/add', async (c) => {
     // 保存图片信息
     const res = await insertImage(body)
     invalidateImages()
+    // 推送新照片通知（写后副作用，与缓存失效并列）。
+    // notifyNewImage 内部吞掉所有异常，只记日志 —— 推送挂了不能让上传失败。
+    await notifyNewImage(
+      {
+        id: res.id,
+        title: res.title,
+        imageName: res.image_name,
+        previewUrl: res.preview_url,
+        albumValue: typeof body.album === 'string' ? body.album : null,
+        show: res.show,
+        del: res.del,
+      },
+      { clientId: c.req.header('X-Felina-Client-Id') ?? null }
+    )
     return Response.json({
       code: 200,
       data: res

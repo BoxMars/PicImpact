@@ -326,7 +326,13 @@
     "submit": "提出",
     "updateSuccess": "更新に成功しました！",
     "updateFailed": "更新に失敗しました！",
-    "requestFailed": "リクエストに失敗しました！"
+    "requestFailed": "リクエストに失敗しました！",
+    "pushSection": "プッシュ通知",
+    "pushEnabled": "プッシュ通知の総合スイッチ",
+    "pushEnabledDesc": "新しい写真のアップロード後、登録済みの iOS デバイスにプッシュ通知を送信するかどうか",
+    "pushCooldownSeconds": "プッシュ通知のクールダウン（秒）",
+    "pushCooldownSecondsDesc": "同一ユーザーがこの秒数内に受け取るプッシュは最大 1 件で、一括アップロードによる通知の氾濫を防ぎます",
+    "pushCooldownInvalid": "クールダウンは 0〜3600 の整数で指定してください"
   },
   "Command": {
     "placeholder": "コマンドまたは検索を入力...",

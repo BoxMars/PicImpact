@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { CopyIcon } from '~/components/icons/copy'
+import { Card } from '~/components/ui/card'
 
 export default function Preferences() {
   const [title, setTitle] = useState('')
@@ -30,9 +31,14 @@ export default function Preferences() {
   const [maxUploadFiles, setMaxUploadFiles] = useState('5')
   const [customIndexOriginEnable, setCustomIndexOriginEnable] = useState(false)
   const [adminImagesPerPage, setAdminImagesPerPage] = useState('8')
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushCooldownSeconds, setPushCooldownSeconds] = useState('120')
+  const [pushLoading, setPushLoading] = useState(false)
   const t = useTranslations()
 
   const { data, isValidating, isLoading } = useSWR<{ config_key: string, config_value: string }[]>('/api/v1/settings/get-custom-info', fetcher)
+  // 推送配置单独一个 key：它有自己的保存按钮，跟上面的站点信息不是一次提交
+  const { data: pushData, isValidating: pushValidating, mutate: mutatePush } = useSWR<{ config_key: string, config_value: string }[]>('/api/v1/settings/get-push-info', fetcher)
 
   async function updateInfo() {
     const maxWidth = parseInt(previewImageMaxWidth)
@@ -88,6 +94,33 @@ export default function Preferences() {
     }
   }
 
+  async function updatePushInfo() {
+    const cooldown = Number(pushCooldownSeconds)
+    if (!/^\d+$/.test(pushCooldownSeconds) || cooldown > 3600) {
+      toast.error(t('Config.pushCooldownInvalid'))
+      return
+    }
+    try {
+      setPushLoading(true)
+      await fetch('/api/v1/settings/update-push-info', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify([
+          { config_key: 'push_enabled', config_value: pushEnabled ? 'true' : 'false' },
+          { config_key: 'push_cooldown_seconds', config_value: String(cooldown) },
+        ]),
+      }).then(res => res.json())
+      toast.success(t('Config.updateSuccess'))
+      mutatePush()
+    } catch (e) {
+      toast.error(t('Config.updateFailed'))
+    } finally {
+      setPushLoading(false)
+    }
+  }
+
   useEffect(() => {
     setTitle(data?.find((item) => item.config_key === 'custom_title')?.config_value || '')
     setCustomFaviconUrl(data?.find((item) => item.config_key === 'custom_favicon_url')?.config_value || '')
@@ -105,6 +138,11 @@ export default function Preferences() {
     setCustomIndexOriginEnable(data?.find((item) => item.config_key === 'custom_index_origin_enable')?.config_value.toString() === 'true' || false)
     setAdminImagesPerPage(data?.find((item) => item.config_key === 'admin_images_per_page')?.config_value || '8')
   }, [data])
+
+  useEffect(() => {
+    setPushEnabled(pushData?.find((item) => item.config_key === 'push_enabled')?.config_value === 'true')
+    setPushCooldownSeconds(pushData?.find((item) => item.config_key === 'push_cooldown_seconds')?.config_value || '120')
+  }, [pushData])
 
   return (
     <div className="flex flex-col space-y-4 h-full flex-1">
@@ -341,6 +379,50 @@ export default function Preferences() {
           </label>
         </div>
       </div>
+      <Card className="p-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-small font-semibold leading-none text-default-600">{t('Config.pushSection')}</h4>
+          <Button
+            variant="outline"
+            disabled={pushLoading || pushValidating}
+            onClick={() => updatePushInfo()}
+            aria-label={t('Button.submit')}
+            className="cursor-pointer"
+          >
+            {pushLoading && <ReloadIcon className="mr-2 h-4 w-4 animate-spin"/>}
+            {t('Button.submit')}
+          </Button>
+        </div>
+        <div className="mt-3 flex max-w-sm flex-col space-y-3">
+          <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-gray-700">{t('Config.pushEnabled')}</span>
+              <span className="text-tiny text-default-400">{t('Config.pushEnabledDesc')}</span>
+            </div>
+            <Switch
+              id="pushEnabled"
+              className="cursor-pointer"
+              disabled={pushValidating}
+              checked={pushEnabled}
+              onCheckedChange={checked => setPushEnabled(checked)}
+            />
+          </div>
+          <div className="grid w-full items-center gap-1.5">
+            <Label htmlFor="pushCooldownSeconds">{t('Config.pushCooldownSeconds')}</Label>
+            <Input
+              type="number"
+              id="pushCooldownSeconds"
+              min={0}
+              max={3600}
+              disabled={pushValidating}
+              value={pushCooldownSeconds}
+              placeholder={t('Config.pushCooldownSecondsDesc')}
+              onChange={(e) => setPushCooldownSeconds(e.target.value)}
+            />
+            <span className="text-tiny text-default-400">{t('Config.pushCooldownSecondsDesc')}</span>
+          </div>
+        </div>
+      </Card>
     </div>
   )
 }

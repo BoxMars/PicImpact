@@ -83,18 +83,19 @@ model ImagesAlbumsRelation {
 
 // better-auth
 model User {
-  id               String      @id
-  name             String      @unique @db.VarChar(50)
-  email            String      @db.VarChar(200)
+  id               String       @id
+  name             String       @unique @db.VarChar(50)
+  email            String       @db.VarChar(200)
   emailVerified    Boolean
   image            String?
   twoFactorEnabled Boolean?
-  createdAt        DateTime    @db.Timestamp()
-  updatedAt        DateTime    @db.Timestamp()
+  createdAt        DateTime     @db.Timestamp()
+  updatedAt        DateTime     @db.Timestamp()
   sessions         Session[]
   accounts         Account[]
   TwoFactor        TwoFactor[]
   passkeys         Passkey[]
+  pushDevices      PushDevice[]
 
   @@unique([email])
   @@map("user")
@@ -171,4 +172,59 @@ model Passkey {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("passkey")
+}
+
+// 推送设备表：一台安装了 App、同意接收推送的设备 = 一行。
+//
+// ⚠️ **推送目标是「所有启用的设备」，不是「某个用户」**：装了 App 的人（家人/朋友）都该收到
+// 「有新照片」的通知，登录只是上传/管理才需要。所以 `userId` 是**可空的** ——
+// 只有恰好用管理员账号登录过的设备才会被写上，普通 App 用户就是 null，且**不参与任何筛选**。
+//
+// `token` 是 APNs device token（十六进制），全局唯一 —— 重装/换环境时改这一行而不是新增。
+// `environment` 决定用哪个 APNs 端点与哪把 key，**必须与 token 来源一致**
+// （Debug 包拿到的是沙箱 token，TestFlight/App Store 包是生产 token）。
+// `clientId` 是 App 自己生成、存 Keychain 的稳定 id，用来排除「自己传的不通知自己」。
+model PushDevice {
+  id            String    @id @default(cuid()) @db.VarChar(50)
+  userId        String?   @db.VarChar(50)
+  token         String    @unique @db.Text
+  environment   String    @db.VarChar(16)
+  bundleId      String    @db.VarChar(120)
+  clientId      String    @db.VarChar(64)
+  deviceName    String?   @db.VarChar(100)
+  systemVersion String?   @db.VarChar(32)
+  appVersion    String?   @db.VarChar(32)
+  locale        String?   @db.VarChar(16)
+  enabled       Int       @default(1) @db.SmallInt
+  lastSeenAt    DateTime  @default(now()) @map("last_seen_at") @db.Timestamp
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp
+  updatedAt     DateTime? @updatedAt @map("updated_at") @db.Timestamp
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([enabled])
+  @@index([clientId])
+  @@map("push_device")
+}
+
+// 推送投递日志。
+//
+// 一张表两个用途：① 冷却判据（查该**设备**最近一条 status='sent' 的时间）；
+// ② 「我为什么没收到推送」的排障依据（APNs 的 httpStatus / reason / apnsId）。
+// 按计划只记 sent / failed / pruned 三类，不记 skipped_*，避免热路径半数是噪声。
+model PushDelivery {
+  id          String   @id @default(cuid()) @db.VarChar(50)
+  /// 可空：匿名设备（没登录过的普通 App 用户）的投递，这里就是 null
+  userId      String?  @db.VarChar(50)
+  deviceId    String?  @db.VarChar(50)
+  imageId     String?  @db.VarChar(50)
+  environment String   @db.VarChar(16)
+  status      String   @db.VarChar(24)
+  httpStatus  Int?
+  apnsId      String?  @db.VarChar(64)
+  reason      String?  @db.VarChar(64)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp
+
+  @@index([deviceId, status, createdAt])
+  @@index([createdAt])
+  @@map("push_delivery")
 }

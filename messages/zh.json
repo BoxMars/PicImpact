@@ -326,7 +326,13 @@
     "submit": "提交",
     "updateSuccess": "更新成功！",
     "updateFailed": "更新失败！",
-    "requestFailed": "请求失败！"
+    "requestFailed": "请求失败！",
+    "pushSection": "推送通知",
+    "pushEnabled": "推送总开关",
+    "pushEnabledDesc": "新照片上传后是否向已注册的 iOS 设备发送推送通知",
+    "pushCooldownSeconds": "推送冷却秒数",
+    "pushCooldownSecondsDesc": "同一用户在该秒数内最多收到一条推送，防止批量上传刷屏",
+    "pushCooldownInvalid": "冷却秒数只支持 0-3600 的整数"
   },
   "Command": {
     "placeholder": "输入命令或搜索...",

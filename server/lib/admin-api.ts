@@ -25,7 +25,7 @@ export const MAX_PAGE_SIZE = 60
  * 用带 `res` 的 `HTTPException` 而不是只给 message：`hono/index.ts` 的 onError 会把
  * `err.getResponse()` 原样返回，所以无论错误最终被哪一层 onError 接住，客户端拿到的都是这个 JSON。
  */
-export function apiError(status: 400 | 401 | 403 | 404 | 500, message: string): HTTPException {
+export function apiError(status: 400 | 401 | 403 | 404 | 429 | 500, message: string): HTTPException {
   return new HTTPException(status, {
     res: Response.json({ code: status, message }, { status }),
   })

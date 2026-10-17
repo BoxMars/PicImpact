@@ -52,6 +52,26 @@ export async function updateR2Config(configs: any) {
 }
 
 /**
+ * 更新推送配置
+ *
+ * 布尔语义在 configs 表里是字符串字面量 'true'/'false'（同 custom_index_download_enable），
+ * 不是 '1'/'0' —— 读取方 new-image-notify 也是按 'true' 比较的。
+ * @param configs 配置信息
+ */
+export async function updatePushConfig(configs: any) {
+  return await db.$executeRaw`
+    UPDATE "public"."configs"
+    SET config_value = CASE
+       WHEN config_key = 'push_enabled' THEN ${configs.pushEnabled}
+       WHEN config_key = 'push_cooldown_seconds' THEN ${configs.pushCooldownSeconds}
+       ELSE 'N&A'
+    END,
+        updated_at = NOW()
+    WHERE config_key IN ('push_enabled', 'push_cooldown_seconds');
+  `
+}
+
+/**
  * 更新 Open List 配置
  * @param configs 配置信息
  */

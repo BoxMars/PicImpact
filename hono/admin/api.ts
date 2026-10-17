@@ -13,6 +13,7 @@ import {
 } from '~/server/lib/admin-api'
 import { buildUploadKey, extensionOf, isKeyWithinFolder, isSafeAlbumValue, isUrlUnderPrefix } from '~/server/lib/upload-key'
 import { createRequireSession } from '~/hono/require-session'
+import type { NewImageNotice } from '~/server/lib/new-image-notify'
 
 /**
  * 管理端 API 的路由**工厂**（`/api/v1/admin/*`）。
@@ -90,6 +91,16 @@ export interface AdminApiDeps {
   newId(): string
   /** 失效图片缓存（复用 revalidateTag(IMAGES_TAG)） */
   invalidate(): void
+  /**
+   * 新照片入库后的推送（真实实现 `server/lib/new-image-notify.ts` 的 `notifyNewImage`）。
+   *
+   * 必须注入而不是在这里直接 import：`notifyNewImage` 内部会动态 import Prisma 与 APNs，
+   * 而本文件要能在 `node --test` 下跑。真实装配在 `hono/admin/index.ts`。
+   *
+   * `clientId` 是发起这次登记的客户端标识（请求头 `X-Felina-Client-Id`），
+   * 用来实现「自己传的不通知自己」。
+   */
+  notifyNewImage(notice: NewImageNotice, options: { clientId: string | null }): Promise<unknown>
 }
 
 export function createAdminApi(deps: AdminApiDeps): Hono {
@@ -202,6 +213,21 @@ export function createAdminApi(deps: AdminApiDeps): Hono {
     }
 
     deps.invalidate()
+    // 推送：新照片入库是**写后副作用**（与缓存失效并列），失败不影响登记
+    // —— notifyNewImage 内部把异常全吞掉，只记日志。
+    await deps.notifyNewImage(
+      {
+        id: saved.id,
+        title: body.title ?? '',
+        imageName: body.imageName ?? '',
+        previewUrl: saved.previewUrl,
+        albumValue: body.albumValue,
+        show: saved.show,
+        // 刚登记的行必然是未删除的
+        del: 0,
+      },
+      { clientId: c.req.header('X-Felina-Client-Id') ?? null }
+    )
     return c.json({ code: 200, data: saved })
   })
 
