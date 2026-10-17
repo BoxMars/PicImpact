@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import os
 import pathlib
+import re
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 IOS = ROOT / "ios"
@@ -48,11 +49,71 @@ APP_DIR_NAME = APP_DIR.name  # 工程文件所在目录名，entitlements 路径
 ENTITLEMENTS_FILE_NAME = f"{PROJECT_NAME}.entitlements"
 ASSOCIATED_DOMAIN = "webcredentials:felina.boxz.dev"
 
+# 推送（APNs）能力。
+#
+# `aps-environment` 的取值**必须与构建配置匹配**：Debug 包拿到的是沙箱 token，
+# TestFlight / App Store 包拿到的是生产 token。服务端按这个值选 APNs 端点与 key，
+# 配错的表现是"推送静默不发"或 `BadDeviceToken` / `TopicDisallowed`，极难定位。
+#
+# 所以这里**按配置生成两份 entitlements**，而不是只写 `development` 再指望
+# provisioning profile 在归档时覆盖它 —— 那种隐式行为调错时没有任何提示。
+#
+# ⚠️ 前置：Apple Developer 后台要给 App ID `dev.boxz.felina` 勾上 Push Notifications，
+# 自动签名才会重新生成带这个能力的 profile。这一步必须人工做一次。
+APS_ENVIRONMENT_DEBUG = "development"
+APS_ENVIRONMENT_RELEASE = "production"
+
+
+def entitlements_file_name(configuration: str) -> str:
+    return f"{PROJECT_NAME}.{configuration.lower()}.entitlements"
+
+
+def entitlements_xml(aps_environment: str) -> str:
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>{ASSOCIATED_DOMAIN}</string>
+	</array>
+	<key>aps-environment</key>
+	<string>{aps_environment}</string>
+</dict>
+</plist>
+"""
+
 
 def uid(*parts: str) -> str:
     """由内容派生稳定的 24 位十六进制 ID（同一份输入永远得到同一个 ID）"""
     digest = hashlib.sha1("::".join(parts).encode()).hexdigest().upper()
     return digest[:24]
+
+
+def assign_config_entitlements(pbxproj: str) -> str:
+    """把每个 **target** 构建配置的 CODE_SIGN_ENTITLEMENTS 指到对应配置的那一份。
+
+    模板里 Debug / Release 两个配置块原本共用同一行 `CODE_SIGN_ENTITLEMENTS`（文本完全相同），
+    字符串替换没法区分，所以按块切分、用块内唯一的 `name = Debug|Release;` 定位。
+    工程级（project）配置没有这一项，正则不匹配、原样保留。
+    """
+    parts = pbxproj.split("isa = XCBuildConfiguration;")
+    for index in range(1, len(parts)):
+        block = parts[index]
+        configuration = None
+        if "name = Debug;" in block:
+            configuration = "Debug"
+        elif "name = Release;" in block:
+            configuration = "Release"
+        if configuration is None:
+            continue
+        parts[index] = re.sub(
+            r'CODE_SIGN_ENTITLEMENTS = "[^"]+";',
+            f'CODE_SIGN_ENTITLEMENTS = "{APP_DIR_NAME}/{entitlements_file_name(configuration)}";',
+            block,
+            count=1,
+        )
+    return "isa = XCBuildConfiguration;".join(parts)
 
 
 def main() -> None:
@@ -466,21 +527,30 @@ def main() -> None:
 }}
 """
 
-    # entitlements：Associated Domains（AutoFill 关联）——必须每次重新生成都写一遍，
-    # 否则"手动加的能力"会在下一次生成工程时消失。
-    (APP_DIR / ENTITLEMENTS_FILE_NAME).write_text(
-        f"""<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>com.apple.developer.associated-domains</key>
-	<array>
-		<string>{ASSOCIATED_DOMAIN}</string>
-	</array>
-</dict>
-</plist>
-"""
-    )
+    # entitlements：Associated Domains（AutoFill 关联）＋ 推送的 aps-environment。
+    # 必须每次重新生成都写一遍，否则"手动加的能力"会在下一次生成工程时消失。
+    #
+    # 两份而不是一份：`aps-environment` 的取值必须与构建配置匹配（Debug = development /
+    # Release = production），靠 provisioning profile 隐式覆盖是调错时没有任何提示的做法。
+    for configuration, aps_environment in (
+        ("Debug", APS_ENVIRONMENT_DEBUG),
+        ("Release", APS_ENVIRONMENT_RELEASE),
+    ):
+        (APP_DIR / entitlements_file_name(configuration)).write_text(
+            entitlements_xml(aps_environment)
+        )
+
+    # 老的单份 entitlements 已经被上面两份取代。留着它会让人以为它是生效的那份。
+    legacy = APP_DIR / ENTITLEMENTS_FILE_NAME
+    if legacy.exists() and legacy.name not in {
+        entitlements_file_name("Debug"),
+        entitlements_file_name("Release"),
+    }:
+        legacy.unlink()
+
+    # 把两个 target 构建配置的 CODE_SIGN_ENTITLEMENTS 指到各自那一份。
+    # 用正则按 `name = Debug / Release` 定位，是因为模板里这两行文本完全相同、无法用字符串区分。
+    pbxproj = assign_config_entitlements(pbxproj)
 
     project_dir = IOS / f"{PROJECT_NAME}.xcodeproj"
     project_dir.mkdir(parents=True, exist_ok=True)

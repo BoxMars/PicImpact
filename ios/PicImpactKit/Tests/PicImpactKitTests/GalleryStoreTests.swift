@@ -7,6 +7,8 @@ import Testing
 actor StubGalleryDataSource: GalleryDataSource {
     private var pages: [Int: [ImageDTO]] = [:]
     private var requestedPages: [Int] = []
+    /// 每次请求收到的 sort 值（`nil` = 没带这个参数）
+    private var requestSorts: [String?] = []
     private var failOnPage: Int?
     private var delayNanoseconds: UInt64 = 0
     private var totalPages = 1
@@ -41,15 +43,18 @@ actor StubGalleryDataSource: GalleryDataSource {
     func setTotalPages(_ value: Int) { totalPages = value }
     func requested() -> [Int] { requestedPages }
     func requestCount() -> Int { requestedPages.count }
+    func requestedSorts() -> [String?] { requestSorts }
 
     func images(
         album: String?,
         tag: String?,
         camera: String?,
         lens: String?,
-        page: Int
+        page: Int,
+        sort: String?
     ) async throws -> ImagePageDTO {
         requestedPages.append(page)
+        requestSorts.append(sort)
         if delayNanoseconds > 0 { try? await Task.sleep(nanoseconds: delayNanoseconds) }
         if failOnPage == page {
             throw APIError.transport("注入的失败")

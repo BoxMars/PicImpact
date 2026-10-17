@@ -8,7 +8,9 @@ public protocol GalleryDataSource: Sendable {
         tag: String?,
         camera: String?,
         lens: String?,
-        page: Int
+        page: Int,
+        /// 排序。`nil` = 不带 `sort` 参数（服务端默认行为），见 `GallerySort.queryValue`
+        sort: String?
     ) async throws -> ImagePageDTO
 }
 

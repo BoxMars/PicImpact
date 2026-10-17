@@ -2234,6 +2234,180 @@
         }
       }
     },
+    "Config.pushCooldownInvalid": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "冷却秒数只支持 0-3600 的整数"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cooldown must be an integer between 0 and 3600"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クールダウンは 0〜3600 の整数で指定してください"
+          }
+        },
+        "zh-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "冷卻秒數只支援 0-3600 的整數"
+          }
+        }
+      }
+    },
+    "Config.pushCooldownSeconds": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推送冷却秒数"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push cooldown (seconds)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プッシュ通知のクールダウン（秒）"
+          }
+        },
+        "zh-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推送冷卻秒數"
+          }
+        }
+      }
+    },
+    "Config.pushCooldownSecondsDesc": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同一用户在该秒数内最多收到一条推送，防止批量上传刷屏"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A user receives at most one push within this many seconds, preventing spam from batch uploads"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同一ユーザーがこの秒数内に受け取るプッシュは最大 1 件で、一括アップロードによる通知の氾濫を防ぎます"
+          }
+        },
+        "zh-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同一使用者在該秒數內最多收到一則推送，防止批次上傳刷屏"
+          }
+        }
+      }
+    },
+    "Config.pushEnabled": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推送总开关"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push notifications"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プッシュ通知の総合スイッチ"
+          }
+        },
+        "zh-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推送總開關"
+          }
+        }
+      }
+    },
+    "Config.pushEnabledDesc": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新照片上传后是否向已注册的 iOS 设备发送推送通知"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whether to send a push notification to registered iOS devices after a new photo is uploaded"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しい写真のアップロード後、登録済みの iOS デバイスにプッシュ通知を送信するかどうか"
+          }
+        },
+        "zh-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新照片上傳後是否向已註冊的 iOS 裝置發送推送通知"
+          }
+        }
+      }
+    },
+    "Config.pushSection": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推送通知"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push notifications"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プッシュ通知"
+          }
+        },
+        "zh-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推送通知"
+          }
+        }
+      }
+    },
     "Config.r2Title": {
       "extractionState": "manual",
       "localizations": {

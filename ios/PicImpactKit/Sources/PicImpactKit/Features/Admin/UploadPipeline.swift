@@ -216,6 +216,9 @@ public final class UploadCoordinator {
     private let api: any AdminImageAPI
     private let uploader: any FileUploading
     private let cookie: @MainActor () -> String?
+    /// 这台安装的稳定 id（`PushRegistrar.clientId`），登记时作为 `X-Felina-Client-Id` 发出。
+    /// 服务端据此跳过"自己传的不通知自己"。为 nil 时不上报 —— 上传三步流程完全不受影响。
+    private let clientId: @MainActor () -> String?
     /// 这台设备传过哪些照片（本地账本，判重的主要依据）
     private let ledger: UploadLedger?
     /// 服务端已经有的照片指纹（管理列表那一条条元数据），判重时与账本合并
@@ -228,13 +231,15 @@ public final class UploadCoordinator {
         uploader: any FileUploading = URLSessionFileUploader(),
         cookie: @escaping @MainActor () -> String?,
         ledger: UploadLedger? = nil,
-        serverFingerprints: @escaping @MainActor () -> [(fingerprint: UploadFingerprint, id: String, title: String)] = { [] }
+        serverFingerprints: @escaping @MainActor () -> [(fingerprint: UploadFingerprint, id: String, title: String)] = { [] },
+        clientId: @escaping @MainActor () -> String? = { nil }
     ) {
         self.api = api
         self.uploader = uploader
         self.cookie = cookie
         self.ledger = ledger
         self.serverFingerprints = serverFingerprints
+        self.clientId = clientId
     }
 
     // MARK: - 队列
@@ -379,7 +384,9 @@ public final class UploadCoordinator {
                     width: candidate.width,
                     height: candidate.height
                 ),
-                cookie: cookieHeader
+                cookie: cookieHeader,
+                // 让服务端知道"这次上传是这台设备发起的"，从而跳过它自己（规格 §4.5）
+                clientId: clientId()
             )
             items[index].state = .done(imageID: registered.id, url: registered.url)
             // 记账：下次再选到这张（或差 2 分钟内的同尺寸同机型）就能判出来

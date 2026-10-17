@@ -15,7 +15,11 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { dirname } from 'node:path'
 
 const LOCALES = ['zh', 'en', 'ja', 'zh-TW']
-const OUT = 'ios/PicImpact/Resources/Localizable.xcstrings'
+// ⚠️ 这个路径必须是**工程真正编译的那份**：`ios/FelinaGallery/Resources/Localizable.xcstrings`
+// （`project.pbxproj` 的 Copy Bundle Resources 指向它）。
+// 原来写的是 `ios/PicImpact/Resources/...` —— 那个目录根本不存在，
+// 所以脚本一直往一个没人读的地方写，`--check` 也永远报"不存在"。
+const OUT = 'ios/FelinaGallery/Resources/Localizable.xcstrings'
 const checkMode = process.argv.includes('--check')
 
 /** 展平成点号路径 → 字符串。只取叶子字符串，忽略嵌套对象本身。 */

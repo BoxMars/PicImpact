@@ -46,6 +46,16 @@ public final class AuthStore {
     private let keychain: any KeychainStoring
     private let storageKey: String
 
+    /// 登出时的副作用钩子（当前只有一个：把推送设备置 `enabled=0`）。
+    ///
+    /// ## 为什么挂在状态机里，而不是让界面多调一次
+    /// 登出的界面入口只有一个，但 `signOut()` 里有多条分支（服务端吊销失败也必须本地登出）。
+    /// 挂在状态机里，才能保证**每一条路径**都执行到，而不会出现"某个出口忘了停推送"。
+    ///
+    /// ⚠️ 它必须在**服务端吊销会话之前**调用：停用设备要带一个仍然有效的 Cookie，
+    /// 会话一旦被吊销，同一个 Cookie 再发 DELETE 只会拿到 401。
+    public var onSignOut: (@MainActor () async -> Void)?
+
     public init(
         api: any AuthAPI,
         keychain: any KeychainStoring = KeychainStore(),
@@ -127,6 +137,10 @@ public final class AuthStore {
 
     public func signOut() async {
         let header = sessionCookieHeader
+        // 推送设备停用（DELETE /api/v1/push/devices）要在服务端吊销会话**之前**：
+        // 那之后同一个 Cookie 已经无效，DELETE 只会 401，设备会一直停在 enabled=1
+        // —— 用户"登出了还在收通知"。钩子本身尽力而为，失败不影响登出。
+        await onSignOut?()
         if let header {
             // 尽力而为：服务端吊销失败（断网）也必须能登出，所以这里不把错误往上抛
             try? await api.signOut(sessionCookie: header)

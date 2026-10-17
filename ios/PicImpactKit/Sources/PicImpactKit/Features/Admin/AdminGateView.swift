@@ -18,12 +18,22 @@ public struct AdminGateView: View {
     private let loader: ImageLoader
     private let onLibraryChanged: () async -> Void
     private let onDismiss: () -> Void
+    /// 系统通知权限被关闭（用户拒绝过，或后来在设置里关掉）。管理页据此给"去系统设置"的入口。
+    private let pushDenied: Bool
+    /// 打开系统设置里的本 App 通知开关（`UIApplication.openSettingsURLString` 只能在 App target 用）。
+    private let onOpenNotificationSettings: () -> Void
+    /// 进入管理页（登录成功 / 已有会话）时调用：申请通知权限并注册 APNs。
+    /// **不在启动时申请**（规格 §5.2）：冷启动直接弹权限框同意率最低，而且那时还没有会话可以注册设备。
+    private let onEnterAdmin: () async -> Void
 
     public init(
         store: AuthStore,
         images: AdminImageListStore,
         uploads: UploadCoordinator,
         loader: ImageLoader,
+        pushDenied: Bool = false,
+        onOpenNotificationSettings: @escaping () -> Void = {},
+        onEnterAdmin: @escaping () async -> Void = {},
         onLibraryChanged: @escaping () async -> Void = {},
         onDismiss: @escaping () -> Void
     ) {
@@ -31,6 +41,9 @@ public struct AdminGateView: View {
         self.images = images
         self.uploads = uploads
         self.loader = loader
+        self.pushDenied = pushDenied
+        self.onOpenNotificationSettings = onOpenNotificationSettings
+        self.onEnterAdmin = onEnterAdmin
         self.onLibraryChanged = onLibraryChanged
         self.onDismiss = onDismiss
     }
@@ -45,6 +58,8 @@ public struct AdminGateView: View {
                     loader: loader,
                     isBusy: store.isWorking,
                     storageWarning: store.storageWarning,
+                    pushDenied: pushDenied,
+                    onOpenNotificationSettings: onOpenNotificationSettings,
                     onSignOut: {
                         // 登出是异步的（要告诉服务端吊销会话），但界面不该等它 ——
                         // 本地凭证在 signOut 里立刻清掉，然后由我们收起 sheet。
@@ -56,6 +71,12 @@ public struct AdminGateView: View {
                     onClose: onDismiss,
                     onLibraryChanged: onLibraryChanged
                 )
+                // 登录成功、或带着已有会话打开管理页时各触发一次。
+                // `id` 用 user.id：同一账号反复进出不会重复弹框（系统本来也只会弹一次），
+                // 但**换账号**必须重新走一遍（上一个账号登出时把这台设备停用了）。
+                .task(id: user.id) {
+                    await onEnterAdmin()
+                }
             } else {
                 AdminLoginView(
                     isBusy: store.isWorking,

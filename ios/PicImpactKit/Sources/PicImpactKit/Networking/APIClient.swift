@@ -86,12 +86,15 @@ public struct APIClient: Sendable {
     ///   - album: 相册 value（形如 `/daily`）。传 nil 即首页
     ///   - tag: 标签。**优先级高于 album**（与 Web 端一致）
     ///   - page: 页码，从 1 开始
+    ///   - sort: 排序。`nil`（或空串）= **不带这个参数** —— 默认档必须与老版本请求逐字节相同，
+    ///     否则服务端的 `unstable_cache` 与边缘缓存会被劈成两份
     public func images(
         album: String? = nil,
         tag: String? = nil,
         camera: String? = nil,
         lens: String? = nil,
-        page: Int = 1
+        page: Int = 1,
+        sort: String? = nil
     ) async throws -> ImagePageDTO {
         var query: [String: String] = ["page": String(max(1, page))]
         if let tag, !tag.isEmpty {
@@ -101,6 +104,7 @@ public struct APIClient: Sendable {
         }
         if let camera, !camera.isEmpty { query["camera"] = camera }
         if let lens, !lens.isEmpty { query["lens"] = lens }
+        if let sort, !sort.isEmpty { query["sort"] = sort }
         return try await get("/images", query: query)
     }
 

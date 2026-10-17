@@ -163,6 +163,38 @@ struct AuthStoreTests {
         #expect(stored == nil)
     }
 
+    /// 记录钩子被调用时的现场（不能用 `var` 局部变量：闭包是 @MainActor 的，会被判"捕获后被改"）
+    final class HookRecorder: @unchecked Sendable {
+        var cookieAtHookTime: String?
+        var revokeAlreadySent: Bool?
+        var calls = 0
+    }
+
+    @Test("推送停用钩子：在服务端吊销会话**之前**执行（DELETE 要带一个仍然有效的 Cookie）")
+    func signOutRunsPushHookBeforeRevokingSession() async {
+        let keychain = InMemoryKeychain()
+        let api = FakeAPI(signIn: .success(Fixtures.session()), user: .success(Fixtures.user))
+        let store = AuthStore(api: api, keychain: keychain)
+        await store.signIn(email: "someone@example.com", password: "pw")
+
+        let recorder = HookRecorder()
+        store.onSignOut = { [weak store, weak api] in
+            recorder.calls += 1
+            // 钩子就是"停用推送设备"要走的那条路：它自己会去取 sessionCookieHeader 发 DELETE
+            recorder.cookieAtHookTime = store?.sessionCookieHeader
+            recorder.revokeAlreadySent = api?.signOutCookie != nil
+        }
+
+        await store.signOut()
+
+        #expect(recorder.calls == 1, "登出必须调用钩子一次（少了＝登出后还在收推送）")
+        #expect(
+            recorder.cookieAtHookTime == "better-auth.session_token=abc",
+            "钩子执行时会话必须还在 —— 否则 DELETE 只会拿到 401，设备停在 enabled=1"
+        )
+        #expect(recorder.revokeAlreadySent == false, "推送停用必须发生在服务端吊销之前")
+    }
+
     // MARK: - 启动恢复
 
     @Test("启动恢复：本地会话仍被服务端认可 → 直接进入已登录")

@@ -88,7 +88,13 @@ public struct HomeView: View {
                     title: headerTitle,
                     subtitle: headerSubtitle,
                     photoCount: store.images.count,
-                    onTitleTripleTap: onTitleTripleTap
+                    sort: store.sort,
+                    onTitleTripleTap: onTitleTripleTap,
+                    // 排序入口挂在计数胶囊上（见 GalleryHeader.sortEntry）。
+                    // 切换是 async（要作废磁盘缓存并重拉第一页），所以这里起一个 Task。
+                    onSelectSort: { newSort in
+                        Task { await store.setSort(newSort) }
+                    }
                 )
                 .id(Self.topAnchorID)
 

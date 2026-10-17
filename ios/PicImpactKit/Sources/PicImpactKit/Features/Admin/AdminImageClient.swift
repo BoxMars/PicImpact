@@ -154,6 +154,12 @@ public protocol AdminImageAPI: Sendable {
 
     func registerImage(_ input: AdminRegisterInput, cookie: String) async throws -> RegisteredImage
 
+    /// 登记，并带上发起这次上传的客户端标识（请求头 `X-Felina-Client-Id`）。
+    ///
+    /// 服务端据此跳过"发起这次上传的那台设备" —— 自己传完 App 自己就会刷新，
+    /// 再响一声是打扰（规格 §4.5）。为 `nil` 时**不发这个头**（服务端会通知所有设备）。
+    func registerImage(_ input: AdminRegisterInput, cookie: String, clientId: String?) async throws -> RegisteredImage
+
     func listImages(page: Int, pageSize: Int, album: String?, cookie: String) async throws -> AdminImagePage
 
     func deleteImage(id: String, cookie: String) async throws
@@ -164,6 +170,17 @@ public protocol AdminImageAPI: Sendable {
     func updateImageShow(id: String, show: Int, cookie: String) async throws
     /// 换相册（`PUT /api/v1/images/update-Album`，服务端收的是相册 **id**）
     func updateImageAlbum(imageId: String, albumId: String, cookie: String) async throws
+}
+
+extension AdminImageAPI {
+    /// 不带 `clientId` 的登记 = 不排除任何设备。
+    ///
+    /// 给默认实现（而不是让每个实现者都写一遍）是为了让"不关心这件事"的替身
+    /// —— `UploadCoordinatorTests` 里的假接口、`AppEnvironment` 的故障注入装饰器 ——
+    /// 保持原样：它们只需要实现 2 参那个要求，调用方走的重载会自动转发过来。
+    public func registerImage(_ input: AdminRegisterInput, cookie: String, clientId: String?) async throws -> RegisteredImage {
+        try await registerImage(input, cookie: cookie)
+    }
 }
 
 /// `/api/v1/admin/*` 客户端。
@@ -223,7 +240,13 @@ public struct AdminImageClient: AdminImageAPI {
     }
 
     public func registerImage(_ input: AdminRegisterInput, cookie: String) async throws -> RegisteredImage {
-        let request = try Self.registerRequest(siteOrigin: configuration.siteOrigin, input: input, cookie: cookie)
+        try await registerImage(input, cookie: cookie, clientId: nil)
+    }
+
+    public func registerImage(_ input: AdminRegisterInput, cookie: String, clientId: String?) async throws -> RegisteredImage {
+        let request = try Self.registerRequest(
+            siteOrigin: configuration.siteOrigin, input: input, cookie: cookie, clientId: clientId
+        )
         return try await perform(request, as: RegisteredImage.self)
     }
 
@@ -280,8 +303,19 @@ public struct AdminImageClient: AdminImageAPI {
         return request
     }
 
-    static func registerRequest(siteOrigin: URL, input: AdminRegisterInput, cookie: String) throws -> URLRequest {
+    /// - Parameter clientId: 这台安装的稳定 id（`PushRegistrar.clientId`）。非空时作为
+    ///   `X-Felina-Client-Id` 发出 —— 服务端用它跳过"发起这次上传的那台设备"。
+    ///   默认 `nil`：行为与加这个头之前**逐字节相同**。
+    static func registerRequest(
+        siteOrigin: URL,
+        input: AdminRegisterInput,
+        cookie: String,
+        clientId: String? = nil
+    ) throws -> URLRequest {
         var request = try jsonRequest(url: url(base: siteOrigin, path: Endpoint.images), method: "POST", cookie: cookie)
+        if let clientId, !clientId.isEmpty {
+            request.setValue(clientId, forHTTPHeaderField: "X-Felina-Client-Id")
+        }
         request.httpBody = try encode(input)
         return request
     }

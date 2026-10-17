@@ -17,17 +17,28 @@ public struct GalleryHeader: View {
     private let photoCount: Int
     /// 标题被**连续点击三次**时触发。为 nil 表示这个页面不提供后台入口。
     private let onTitleTripleTap: (() -> Void)?
+    /// 当前排序（只影响计数胶囊点开后的勾选态，不影响任何布局）
+    private let sort: GallerySort
+    /// 用户选了某个排序时回调。为 nil 表示这个页面不提供排序入口。
+    private let onSelectSort: ((GallerySort) -> Void)?
+
+    /// 排序菜单是否展开。放在视图里：它纯粹是界面状态。
+    @State private var isSortDialogPresented = false
 
     public init(
         title: String,
         subtitle: String,
         photoCount: Int,
-        onTitleTripleTap: (() -> Void)? = nil
+        sort: GallerySort = .serverDefault,
+        onTitleTripleTap: (() -> Void)? = nil,
+        onSelectSort: ((GallerySort) -> Void)? = nil
     ) {
         self.title = title
         self.subtitle = subtitle
         self.photoCount = photoCount
+        self.sort = sort
         self.onTitleTripleTap = onTitleTripleTap
+        self.onSelectSort = onSelectSort
     }
 
     /// 标题兜底值。
@@ -81,7 +92,7 @@ public struct GalleryHeader: View {
                 }
 
                 if photoCount > 0 {
-                    counterPill
+                    sortEntry
                 }
             }
             .padding(.top, 40)        // 2.5rem
@@ -101,6 +112,47 @@ public struct GalleryHeader: View {
             AnimalIcon(.critterpedia, size: 28)
             IslandRibbon(text: title, fontSize: fontSize)
             AnimalIcon(.camera, size: 28)
+        }
+    }
+
+    /// 计数胶囊 —— 顺带当**排序入口**。
+    ///
+    /// ## 为什么不新增一个常驻控件
+    /// 「展示效果 1:1」是这个项目的硬要求（`2026-10-04-ios-replica-design.md` §0.1：
+    /// 功能可以让步、像素不能让让步）。在头部加一个分段控件会直接破坏它，
+    /// 而计数器胶囊本来就在那里、本来就没有任何手势 —— 挂上去不改变任何一像素。
+    ///
+    /// ## 为什么不用 `Menu`
+    /// `Menu { } label: { counterPill }` 会让 label 走按钮样式（accent 着色、pressed 态），
+    /// 那正是"一个系统样式就能把胶囊颜色改掉"的风险。单击 + action sheet 的方案下，
+    /// 胶囊的视图树完全不变，只是多了一层命中区域与手势。
+    ///
+    /// ## 为什么不用长按
+    /// 与标题三击同一个理由（见上面那段注释）：长按在 `ScrollView` 里会与滚动竞争。
+    @ViewBuilder
+    private var sortEntry: some View {
+        if let onSelectSort {
+            counterPill
+                // 胶囊是自绘形状，不铺命中矩形的话点在透明缝隙上不响应
+                .contentShape(Rectangle())
+                .onTapGesture { isSortDialogPresented = true }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityIdentifier("gallery-sort-pill")
+                .confirmationDialog(
+                    IslandStrings.text("Album.sort"),
+                    isPresented: $isSortDialogPresented,
+                    titleVisibility: .visible
+                ) {
+                    ForEach(GallerySort.selectable, id: \.self) { option in
+                        Button(IslandStrings.text(option.labelKey)) {
+                            onSelectSort(option)
+                        }
+                    }
+                    // 文案复用既有 key（`Button.canal` 是仓库里既有的"取消"，拼写如此）
+                    Button(IslandStrings.text("Button.canal"), role: .cancel) {}
+                }
+        } else {
+            counterPill
         }
     }
 

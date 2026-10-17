@@ -39,4 +39,12 @@ public enum APILog {
     public static func credentials(_ message: String) {
         emit("cred \(message)")
     }
+
+    /// 推送层。
+    ///
+    /// ⚠️ **绝不打印完整的 device token**：它决定"往哪台设备推"，与凭证同级；
+    /// 调用方只准写长度或后 4 位（见 `PushRegistrar`）。
+    public static func push(_ message: String) {
+        emit("push \(message)")
+    }
 }

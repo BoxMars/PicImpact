@@ -33,12 +33,18 @@ public final class GalleryStore {
     public let album: String?
     public let tag: String?
 
+    /// 当前排序。**必须是 `var`** —— `album` / `tag` 是 init 时固定的，而排序要能在运行时切。
+    public private(set) var sort: GallerySort
+
     private let dataSource: GalleryDataSource
     /// 首屏磁盘缓存，用来"先出缓存、再后台校验"。为 nil 时行为与以前完全一致。
     private let cache: FirstPageCache?
     /// 图片缓存。传进来是为了**安装打包种子**（把包内的预览图灌进缓存）。
     /// 为 nil 时跳过安装，行为与以前完全一致。
     private let imageCache: ImageCache?
+    /// 排序偏好的落盘回调。抽成闭包注入（而不是在这里直接读写 UserDefaults）：
+    /// 这样这个类不依赖具体存储，单测里传一个把值记下来的闭包即可。
+    private let persistSort: (@Sendable (GallerySort) -> Void)?
     private var currentPage = 0
     /// 防止同一时刻发起多次加载（滚动时最容易触发）
     private var isLoading = false
@@ -63,14 +69,35 @@ public final class GalleryStore {
         dataSource: GalleryDataSource,
         album: String? = nil,
         tag: String? = nil,
+        sort: GallerySort = .serverDefault,
         cache: FirstPageCache? = nil,
-        imageCache: ImageCache? = nil
+        imageCache: ImageCache? = nil,
+        persistSort: (@Sendable (GallerySort) -> Void)? = nil
     ) {
         self.dataSource = dataSource
         self.album = album
         self.tag = tag
+        self.sort = sort
         self.cache = cache
         self.imageCache = imageCache
+        self.persistSort = persistSort
+    }
+
+    /// 切换排序。三件事必须一起做，少一件就会出问题：
+    ///
+    /// 1. 换掉 `sort`（之后所有请求都带上新参数）；
+    /// 2. **作废轮询判据** `knownPageTotal` —— 它是**旧排序**下拿到的总页数，
+    ///    留着的话下一次 `pollForUpdates()` 会拿"新排序的第一页"跟它比，误判成"有新内容"多刷一次；
+    /// 3. **清磁盘缓存再重拉**（`invalidateCacheAndRefresh`）—— 首屏缓存只按 `"first-page"`
+    ///    一个 key 存（不含查询条件），不清掉的话重启会把**旧排序**的第一页先铺出来。
+    ///
+    /// 有请求在飞时不用自己排队：`refresh()` 内部有 `pendingRefresh` 机制（既有实现）。
+    public func setSort(_ newSort: GallerySort) async {
+        guard newSort != sort else { return }
+        sort = newSort
+        knownPageTotal = nil
+        persistSort?(newSort)
+        await invalidateCacheAndRefresh()
     }
 
     /// 首屏前几张要最高下载优先级（对应 Web 的 fetchPriority=high）。
@@ -145,7 +172,7 @@ public final class GalleryStore {
         guard !isLoading else { return }        // 有请求在飞就不叠加
         do {
             let latest = try await dataSource.images(
-                album: album, tag: tag, camera: nil, lens: nil, page: 1
+                album: album, tag: tag, camera: nil, lens: nil, page: 1, sort: sort.queryValue
             )
             let latestIDs = latest.list.map(\.id)
             let currentIDs = images.prefix(latestIDs.count).map(\.id)
@@ -214,7 +241,8 @@ public final class GalleryStore {
                 tag: tag,
                 camera: nil,
                 lens: nil,
-                page: page
+                page: page,
+                sort: sort.queryValue
             )
             pageSize = result.pageSize
             hasMore = result.hasMore

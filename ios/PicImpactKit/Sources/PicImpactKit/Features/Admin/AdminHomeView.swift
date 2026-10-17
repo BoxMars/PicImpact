@@ -22,6 +22,9 @@ public struct AdminHomeView: View {
     private let isBusy: Bool
     /// 凭证持久化失败时的告警（本次会话可用，重启后要重新登录）
     private let storageWarning: String?
+    /// 系统通知权限被关闭 —— 管理页给出"去系统设置"的入口（规格 §2.8：权限是用户随时可撤销的）
+    private let pushDenied: Bool
+    private let onOpenNotificationSettings: () -> Void
     private let onSignOut: () -> Void
     private let onClose: () -> Void
     /// 图库变了（上传成功 / 删除）之后通知外面刷新公开画廊
@@ -34,6 +37,8 @@ public struct AdminHomeView: View {
         loader: ImageLoader,
         isBusy: Bool = false,
         storageWarning: String? = nil,
+        pushDenied: Bool = false,
+        onOpenNotificationSettings: @escaping () -> Void = {},
         onSignOut: @escaping () -> Void,
         onClose: @escaping () -> Void,
         onLibraryChanged: @escaping () async -> Void = {}
@@ -44,6 +49,8 @@ public struct AdminHomeView: View {
         self.loader = loader
         self.isBusy = isBusy
         self.storageWarning = storageWarning
+        self.pushDenied = pushDenied
+        self.onOpenNotificationSettings = onOpenNotificationSettings
         self.onSignOut = onSignOut
         self.onClose = onClose
         self.onLibraryChanged = onLibraryChanged
@@ -58,6 +65,8 @@ public struct AdminHomeView: View {
                 loader: loader,
                 isBusy: isBusy,
                 storageWarning: storageWarning,
+                pushDenied: pushDenied,
+                onOpenNotificationSettings: onOpenNotificationSettings,
                 onSignOut: onSignOut,
                 onClose: onClose,
                 onLibraryChanged: onLibraryChanged
@@ -84,6 +93,9 @@ struct AdminHomeContent: View {
     let isBusy: Bool
     /// 凭证持久化失败时的告警（本次会话可用，重启后要重新登录）
     let storageWarning: String?
+    /// 系统通知权限被关闭
+    let pushDenied: Bool
+    let onOpenNotificationSettings: () -> Void
     let onSignOut: () -> Void
     let onClose: () -> Void
     let onLibraryChanged: () async -> Void
@@ -198,6 +210,20 @@ struct AdminHomeContent: View {
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(AnimalTokens.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+
+                // 通知权限被关掉时给一个**出口**：权限是用户随时可撤销的（规格 §2.8），
+                // 但"没有权限"本身不是错误 —— 上传/浏览一切照旧，只是少一声提醒。
+                // 系统不允许 App 再弹一次授权框，唯一的出路是引导到系统设置。
+                if pushDenied {
+                    VStack(alignment: .leading, spacing: AnimalTokens.spacingSM) {
+                        Text("通知已关闭，新照片上传后不会提醒")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(AnimalTokens.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        IslandActionButton("去系统设置", tone: .primary, isEnabled: true, action: onOpenNotificationSettings)
+                            .accessibilityIdentifier("admin-open-notification-settings")
+                    }
                 }
             }
             .padding(AnimalTokens.spacingLG)

@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import PicImpactKit
+import UIKit
 
 /// 应用级依赖与站点配置。
 ///
@@ -25,6 +26,10 @@ final class AppEnvironment {
     let adminList: AdminImageListStore
     /// 上传队列（选图 → 直传 R2 → 登记）
     let uploads: UploadCoordinator
+    /// 推送设备注册（clientId / 心跳节流 / 登出停用）。纯逻辑，可在 `swift test` 里覆盖。
+    let push: PushRegistrar
+    /// 点通知要打开的那张图。冷启动时回调早于界面出现，所以必须有个地方先存住（规格 §5.4）。
+    let pushRoutes: PushRouteInbox
 
     private(set) var config: SiteConfigDTO?
     private(set) var configError: String?
@@ -39,15 +44,31 @@ final class AppEnvironment {
         self.loader = loader
         self.downloader = DefaultDownloadService(loader: loader)
         // 首屏缓存：实现"先加载缓存数据，再后台检查是否更新"
+        let sortPreference = GallerySortPreference()
         self.gallery = GalleryStore(
             dataSource: client,
             album: nil,
+            sort: sortPreference.load(),
             cache: FirstPageCache(key: "first-page"),
-            imageCache: imageCache
+            imageCache: imageCache,
+            // 排序偏好落盘。UserDefaults 而不是 Keychain：它不是秘密，且要能被单测用独立 suite 隔离。
+            persistSort: { sortPreference.save($0) }
         )
         // 会话 Cookie 存 Keychain（不能用 UserDefaults：明文、会随备份带走）
         let auth = AuthStore(api: AuthClient(), keychain: KeychainStore())
         self.auth = auth
+
+        // 推送设备注册。clientId 与心跳记录都落 Keychain（与会话同一个 service，account 各不相同）：
+        // 它们不该出现在明文 plist / 备份里，规则与"会话 Cookie 放 Keychain"一致。
+        //
+        // ⚠️ 注册**不需要会话**：推送发给所有装了 App 的人（家人/朋友），登录只用于上传/管理。
+        // 所以这里不再注入 Cookie —— 早先那版把设备绑在管理员账号上，是设计错误。
+        let push = PushRegistrar(
+            api: PushClient(),
+            keychain: KeychainStore()
+        )
+        self.push = push
+        self.pushRoutes = PushRouteInbox()
 
         #if DEBUG
         // 只在 DEBUG 构建里存在的测试钩子：把会话或故障注入进去（见文件末尾的说明）
@@ -64,11 +85,12 @@ final class AppEnvironment {
         self.adminImages = adminImages
         self.ledger = UploadLedger()
         // 会话 Cookie 由 auth 一处持有：管理接口每次请求都现取，登出/过期后立刻失效
-        self.adminList = AdminImageListStore(
+        let adminList = AdminImageListStore(
             api: adminAPI,
             albumSource: client,
             cookie: { [weak auth] in auth?.sessionCookieHeader }
         )
+        self.adminList = adminList
         self.uploads = UploadCoordinator(
             api: adminAPI,
             cookie: { [weak auth] in auth?.sessionCookieHeader },
@@ -93,8 +115,42 @@ final class AppEnvironment {
                         title
                     )
                 }
+            },
+            // 登记请求带上 X-Felina-Client-Id：服务端据此跳过"发起这次上传的那台设备"（规格 §4.5）
+            clientId: { [weak push] in push?.clientId }
+        )
+
+        // 登出 → 停用这台设备的推送。钩子挂在 AuthStore 的 signOut 里，且在服务端吊销会话**之前**
+        // 执行（DELETE 要带一个仍然有效的 Cookie，见 AuthStore.onSignOut 的说明）。
+        auth.onSignOut = { [weak push] in await push?.unregister() }
+
+        // AppDelegate 与业务之间**唯一**的接线点（见 PushCoordinator 的说明）。
+        // 前台推送 = 立刻刷新的信号：画廊马上查一次更新；
+        // 管理列表是带会话的接口，没登录时不调它 —— 否则只会往管理页写一句"登录状态已失效"。
+        PushCoordinator.shared.bind(
+            registrar: push,
+            inbox: self.pushRoutes,
+            onForegroundPush: { [weak gallery, weak auth] in
+                await gallery?.pollForUpdates()
+                if auth?.isSignedIn == true {
+                    await adminList.refreshAfterUpload()
+                }
             }
         )
+    }
+
+    /// 推送心跳 / 首次授权：**启动时**与每次回前台各调一次，**不需要登录**。
+    ///
+    /// 装了 App 的人都该收到「有新照片」的通知（登录只是上传/管理才需要），
+    /// 所以第一次进来就会申请系统权限；之后每次启动只是静默续一次 token。
+    func startPush() async {
+        await PushCoordinator.shared.start()
+    }
+
+    /// 打开系统设置里的本 App 页面。系统不会再弹第二次授权框，这是用户唯一的出路（规格 §2.8）。
+    func openNotificationSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 
     #if DEBUG
@@ -179,6 +235,9 @@ final class AppEnvironment {
     }
 
     func bootstrap() async {
+        // clientId 要在**任何上传之前**就绪：它要进登记的请求头（用户可能一起来就进管理页传图）。
+        // 这里不等它失败/成功 —— 首次生成后它就是 Keychain 里的一条稳定记录。
+        await push.prepareClientId()
         do {
             config = try await client.siteConfig()
             configError = nil
