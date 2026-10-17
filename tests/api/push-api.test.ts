@@ -35,6 +35,7 @@ interface Captured {
   isPushEnabledCalls: number
   existsChecks: string[]
   liveCountCalls: number
+  sentPush: { notice: Record<string, any>; body?: string | null } | null
 }
 
 function makeDeps(
@@ -44,6 +45,7 @@ function makeDeps(
     rows?: Record<string, any>[]
     deviceExists?: boolean
     liveDevices?: number
+    imageFound?: boolean
   } = {}
 ) {
   const captured: Captured = {
@@ -53,6 +55,7 @@ function makeDeps(
     isPushEnabledCalls: 0,
     existsChecks: [],
     liveCountCalls: 0,
+    sentPush: null,
   }
 
   const deps: PushApiDeps = {
@@ -108,6 +111,22 @@ function makeDeps(
     async countLiveDevices() {
       captured.liveCountCalls += 1
       return options.liveDevices ?? 0
+    },
+    async loadImageForPush(imageId) {
+      if (options.imageFound === false) return null
+      return {
+        id: imageId,
+        title: '海边日落',
+        imageName: 'photo-20261017.jpg',
+        previewUrl: 'https://felina-asset.boxz.dev/images/daily/preview/x.webp',
+        albumValue: '/daily',
+        show: 0,
+        del: 0,
+      }
+    },
+    async sendPushNow(notice, sendOptions) {
+      captured.sentPush = { notice: notice as Record<string, any>, body: sendOptions.body }
+      return { status: 'sent', sent: 2, skipped: 0, failed: 0 }
     },
   }
 
@@ -231,6 +250,54 @@ test('停用：缺 clientId 或形状不对 → 400', async () => {
     assert.deepEqual(await res.json(), { code: 400, message: 'invalid_client_id' })
   }
   assert.deepEqual(captured.disabled, [])
+})
+
+// ---------------------------------------------------------------------------
+// 对指定照片发通知（需要登录）
+// ---------------------------------------------------------------------------
+
+const SEND_BODY = { imageId: 'clx0000000000000000000001' }
+
+test('发通知：未登录 401，且不会真的发', async () => {
+  const { api, captured } = makeDeps({ session: null })
+
+  const res = await api.request('/send', json(SEND_BODY))
+
+  assert.equal(res.status, 401)
+  assert.equal(captured.sentPush, null)
+})
+
+test('发通知：图片不存在 → 404', async () => {
+  const { api, captured } = makeDeps({ imageFound: false })
+
+  const res = await api.request('/send', json(SEND_BODY))
+
+  assert.equal(res.status, 404)
+  assert.deepEqual(await res.json(), { code: 404, message: 'image_not_found' })
+  assert.equal(captured.sentPush, null)
+})
+
+test('发通知：正常发送，回传 sent/failed 统计；正文透传', async () => {
+  const { api, captured } = makeDeps()
+
+  const res = await api.request('/send', json({ ...SEND_BODY, body: '{{album}} 上新' }))
+
+  assert.equal(res.status, 200)
+  const payload = await res.json()
+  assert.deepEqual(payload.data, { status: 'sent', sent: 2, skipped: 0, failed: 0 })
+  assert.equal(captured.sentPush?.notice.id, SEND_BODY.imageId)
+  assert.equal(captured.sentPush?.body, '{{album}} 上新', '正文原样交给模板渲染，不在这一层替换')
+})
+
+test('发通知：imageId 形状非法 → 400；不带 body 也能发（用模板）', async () => {
+  const { api, captured } = makeDeps()
+
+  const bad = await api.request('/send', json({ imageId: '../../etc/passwd' }))
+  assert.equal(bad.status, 400)
+
+  const ok = await api.request('/send', json(SEND_BODY))
+  assert.equal(ok.status, 200)
+  assert.equal(captured.sentPush?.body, null)
 })
 
 // ---------------------------------------------------------------------------

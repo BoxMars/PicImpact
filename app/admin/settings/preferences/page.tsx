@@ -33,6 +33,8 @@ export default function Preferences() {
   const [adminImagesPerPage, setAdminImagesPerPage] = useState('8')
   const [pushEnabled, setPushEnabled] = useState(false)
   const [pushCooldownSeconds, setPushCooldownSeconds] = useState('120')
+  // 通知正文模板：`{{title}}` 照片标题、`{{album}}` 相册名（服务端 server/lib/push-template.ts 渲染）
+  const [pushBodyTemplate, setPushBodyTemplate] = useState('')
   const [pushLoading, setPushLoading] = useState(false)
   const t = useTranslations()
 
@@ -110,6 +112,7 @@ export default function Preferences() {
         body: JSON.stringify([
           { config_key: 'push_enabled', config_value: pushEnabled ? 'true' : 'false' },
           { config_key: 'push_cooldown_seconds', config_value: String(cooldown) },
+          { config_key: 'push_body_template', config_value: pushBodyTemplate.trim() },
         ]),
       }).then(res => res.json())
       toast.success(t('Config.updateSuccess'))
@@ -142,6 +145,7 @@ export default function Preferences() {
   useEffect(() => {
     setPushEnabled(pushData?.find((item) => item.config_key === 'push_enabled')?.config_value === 'true')
     setPushCooldownSeconds(pushData?.find((item) => item.config_key === 'push_cooldown_seconds')?.config_value || '120')
+    setPushBodyTemplate(pushData?.find((item) => item.config_key === 'push_body_template')?.config_value || '')
   }, [pushData])
 
   return (
@@ -420,6 +424,17 @@ export default function Preferences() {
               onChange={(e) => setPushCooldownSeconds(e.target.value)}
             />
             <span className="text-tiny text-default-400">{t('Config.pushCooldownSecondsDesc')}</span>
+          </div>
+          <div className="grid w-full items-center gap-1.5">
+            <Label htmlFor="pushBodyTemplate">{t('Config.pushBodyTemplate')}</Label>
+            <Input
+              id="pushBodyTemplate"
+              disabled={pushValidating}
+              value={pushBodyTemplate}
+              placeholder="「{{title}}」刚刚上传"
+              onChange={(e) => setPushBodyTemplate(e.target.value)}
+            />
+            <span className="text-tiny text-default-400">{t('Config.pushBodyTemplateDesc')}</span>
           </div>
         </div>
       </Card>

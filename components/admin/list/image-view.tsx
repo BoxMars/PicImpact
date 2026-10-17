@@ -12,6 +12,10 @@ import { Badge } from '~/components/ui/badge'
 import { useTranslations } from 'next-intl'
 import { useBlurImageDataUrl } from '~/hooks/use-blurhash'
 import { isProxyImageUrl, toProxyImageUrl } from '~/lib/utils/image-proxy'
+import { Button } from '~/components/ui/button'
+import { Input } from '~/components/ui/input'
+import { ReloadIcon } from '@radix-ui/react-icons'
+import { toast } from 'sonner'
 import { useEffect, useState } from 'react'
 
 export default function ImageView() {
@@ -28,6 +32,36 @@ export default function ImageView() {
   const rawMediaUrl = imageViewData.preview_url || imageViewData.url || ''
   const proxyMediaUrl = toProxyImageUrl(rawMediaUrl)
   const [resolvedMediaUrl, setResolvedMediaUrl] = useState(proxyMediaUrl || rawMediaUrl)
+  // 「给这张照片发通知」：正文留空就用后台配的模板（服务端仍会做 {{title}} / {{album}} 替换）
+  const [pushBody, setPushBody] = useState('')
+  const [pushSending, setPushSending] = useState(false)
+
+  async function sendPhotoPush() {
+    if (!imageViewData?.id) return
+    setPushSending(true)
+    try {
+      const res = await fetch('/api/v1/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageId: imageViewData.id,
+          ...(pushBody.trim() ? { body: pushBody.trim() } : {}),
+        }),
+      }).then((r) => r.json())
+      if (res?.code === 200) {
+        const sent = Number(res.data?.sent ?? 0)
+        const failed = Number(res.data?.failed ?? 0)
+        if (sent + failed === 0) toast.warning(t('Config.pushSendEmpty'))
+        else toast.success(t('Config.pushSendResult', { sent, failed }))
+      } else {
+        toast.error(res?.message || t('Config.pushSendFailed'))
+      }
+    } catch {
+      toast.error(t('Config.pushSendFailed'))
+    } finally {
+      setPushSending(false)
+    }
+  }
 
   useEffect(() => {
     setResolvedMediaUrl(proxyMediaUrl || rawMediaUrl)
@@ -48,6 +82,23 @@ export default function ImageView() {
         <SheetHeader>
           <SheetTitle>{imageViewData.title}</SheetTitle>
         </SheetHeader>
+        <div className="mt-3 space-y-2 rounded-lg border p-3 shadow-sm">
+          <div className="text-xs font-medium text-gray-700">{t('Config.pushSendTitle')}</div>
+          <Input
+            value={pushBody}
+            disabled={pushSending}
+            placeholder={t('Config.pushSendPlaceholder')}
+            onChange={(e) => setPushBody(e.target.value)}
+          />
+          <Button
+            className="w-full cursor-pointer"
+            disabled={pushSending}
+            onClick={() => sendPhotoPush()}
+          >
+            {pushSending && <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />}
+            {t('Config.pushSendButton')}
+          </Button>
+        </div>
         <div className="mt-4 space-y-2">
           {imageViewData?.type === 1 ?
             <MotionImage

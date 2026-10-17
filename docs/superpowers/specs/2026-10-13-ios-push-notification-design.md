@@ -328,7 +328,7 @@ authorization     bearer <JWT>
 ```json
 {
   "aps": {
-    "alert": { "title": "大福映画", "subtitle": "日常", "body": "「海边日落」刚刚上传" },
+    "alert": { "title": "大福映画 Felina Gallery", "body": "「海边日落」刚刚上传" },
     "sound": "default",
     "thread-id": "new-images",
     "interruption-level": "active",
@@ -341,7 +341,10 @@ authorization     bearer <JWT>
 }
 ```
 
-- 标题用 `custom_title`（`server/db/query/configs.ts:58-73 fetchSiteBranding`），副标题用相册名，正文用图片标题（空则用文件名）。
+- 标题用 `custom_title`（`server/db/query/configs.ts:58-73 fetchSiteBranding`）。
+- 正文由**后台可配的模板** `configs.push_body_template` 渲染（默认 `「{{title}}」刚刚上传`），
+  占位符 `{{title}}`（照片标题，空则文件名，再空则「一张新照片」）与 `{{album}}`（相册名）。
+  → **2026-10-17 变更**：原先相册名占一个 `subtitle` 位，用户要求去掉；想看相册名就写进模板。
 - **不放 `badge`**（不做未读数，见 §10）；**不放原图 `url`**（没必要，且减少载荷）。
 - `mutable-content: 1` 现在没有 Extension 会被忽略，是为 P4 的缩略图预留（无副作用）。
 - **4 KB 预算**：正文标题最长 200（`Images.title @db.VarChar(200)`），加 URL 与其余字段仍远小于 4 KB；
@@ -420,7 +423,16 @@ DELETE /api/v1/push/devices?clientId=<id>   # 登出 / 关闭通知时置 enable
 GET /api/v1/push/devices            # 诊断：本用户的设备列表（不返回完整 token，只回后 8 位）
   → 200 { code:200, data:{ pushEnabled:<服务端能不能推>, devices:[ { id, deviceName, systemVersion,
                                      appVersion, environment, enabled, clientId, lastSeenAt, tokenSuffix } ] } }
+
+POST /api/v1/push/send              # 对指定照片手动发一条（后台用）—— **需要登录**
+  body: { imageId, body? }          # body 省略 = 用模板渲染；给了也仍做 {{title}}/{{album}} 替换
+  → 200 { code:200, data:{ status, sent, skipped, failed } }
+  语义：跳过冷却（人主动点的动作）、只允许 public+未删除的图、复用自动触发那套发送逻辑
+  错误：400 invalid_request；401 authentication_failed；404 image_not_found；500 push_failed
 ```
+
+> **实现回填（2026-10-17）**：`POST /devices` 与 `DELETE /devices` 公开（`proxy.ts` 加了唯一放行点：
+> 路径精确等于 `/api/v1/push/devices` 且方法不是 GET）；`GET /devices` 与 `POST /send` 需要登录。
 
 > **实现回填（2026-10-13）**：与本文档初稿相比有三处按实现固定下来的差异：
 > 1. 请求体**不接受 `bundleId`** —— 它同时是 `apns-topic`，只能由服务端从 `APNS_BUNDLE_ID` 填，
@@ -450,6 +462,7 @@ GET /api/v1/push/devices            # 诊断：本用户的设备列表（不返
 | bundle id | 环境变量（与凭据同组） | `APNS_BUNDLE_ID` | `dev.boxz.felina` |
 | 总开关 | `configs` 表 | `push_enabled` | `"false"` |
 | 冷却秒数 | `configs` 表 | `push_cooldown_seconds` | `"120"` |
+| 通知正文模板 | `configs` 表 | `push_body_template` | `「{{title}}」刚刚上传`（占位符 `{{title}}` / `{{album}}`，渲染见 `server/lib/push-template.ts`） |
 
 **为什么这次不学 R2 把凭据放表里**（`server/lib/preview-storage.ts:26-33` 是既有范例）：
 R2 的 secret 已经在库里了，但那是历史选择；`.p8` 是**签名密钥**——拿到它就能给全站设备推任意通知（虽读不到数据，但能冒充官方发消息）。

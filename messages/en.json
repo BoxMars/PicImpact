@@ -176,7 +176,7 @@
   },
   "Upload": {
     "simple": "Single File Upload",
-    "livephoto": "LivePhoto Upload", 
+    "livephoto": "LivePhoto Upload",
     "multiple": "Multiple Files Upload",
     "manualUpload": "Manual Upload",
     "uploadTips1": "Click to upload file or drag file here",
@@ -190,7 +190,7 @@
     "videoUrl": "LivePhoto Video URL",
     "width": "Image Width px",
     "height": "Image Height px",
-    "lon": "Longitude", 
+    "lon": "Longitude",
     "lat": "Latitude",
     "inputLon": "Enter Longitude",
     "inputLat": "Enter Latitude",
@@ -331,8 +331,16 @@
     "pushEnabled": "Push notifications",
     "pushEnabledDesc": "Whether to send a push notification to registered iOS devices after a new photo is uploaded",
     "pushCooldownSeconds": "Push cooldown (seconds)",
-    "pushCooldownSecondsDesc": "A user receives at most one push within this many seconds, preventing spam from batch uploads",
-    "pushCooldownInvalid": "Cooldown must be an integer between 0 and 3600"
+    "pushCooldownSecondsDesc": "At most one notification per device within this window (prevents spam when uploading in bulk)",
+    "pushCooldownInvalid": "Cooldown must be an integer between 0 and 3600",
+    "pushBodyTemplate": "Notification body template",
+    "pushBodyTemplateDesc": "Placeholders: {{title}} photo title, {{album}} album name. Leave empty to use the default.",
+    "pushSendTitle": "Send a notification for this photo",
+    "pushSendPlaceholder": "Body (empty = use the template above)",
+    "pushSendButton": "Send notification",
+    "pushSendEmpty": "No registered devices yet — ask your family to open the app and allow notifications.",
+    "pushSendResult": "Sent: {sent} succeeded, {failed} failed",
+    "pushSendFailed": "Send failed — check server logs or the push_delivery table"
   },
   "Command": {
     "placeholder": "Type a command or search...",

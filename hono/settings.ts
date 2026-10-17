@@ -8,6 +8,7 @@ import { HTTPException } from 'hono/http-exception'
 import { updateOpenListConfig, updateCustomInfo, updateR2Config, updateS3Config, updatePushConfig } from '~/server/db/operate/configs'
 import { revalidateTag } from 'next/cache'
 import { CONFIGS_TAG } from '~/server/db/query/configs'
+import { DEFAULT_PUSH_BODY_TEMPLATE, isValidPushTemplate } from '~/server/lib/push-template'
 
 const app = new Hono()
 
@@ -15,6 +16,8 @@ const app = new Hono()
 const PUSH_CONFIG_DEFAULTS: Record<string, string> = {
   push_enabled: 'false',
   push_cooldown_seconds: '120',
+  // 通知正文模板：`{{title}}` 照片标题、`{{album}}` 相册名（见 server/lib/push-template.ts）
+  push_body_template: DEFAULT_PUSH_BODY_TEMPLATE,
 }
 
 /** 冷却秒数上限：再大也没有意义，还能挡住误填的巨型数字 */
@@ -159,6 +162,7 @@ app.put('/update-push-info', async (c) => {
 
   const pushEnabled = query?.find((item: Config) => item.config_key === 'push_enabled').config_value
   const pushCooldownSeconds = query?.find((item: Config) => item.config_key === 'push_cooldown_seconds').config_value
+  const pushBodyTemplate = query?.find((item: Config) => item.config_key === 'push_body_template')?.config_value
 
   // 只收字符串字面量 'true'/'false'（表里的布尔语义，见 updatePushConfig）；
   // 冷却只收十进制整数：'12.5' / '1e3' / '' 一律拒绝，别让 parseInt 式的宽松解析漏进来
@@ -169,7 +173,18 @@ app.put('/update-push-info', async (c) => {
     throw new HTTPException(400, { message: `push_cooldown_seconds must be an integer between 0 and ${PUSH_COOLDOWN_SECONDS_MAX}` })
   }
 
-  const data = await updatePushConfig({ pushEnabled, pushCooldownSeconds: String(Number(pushCooldownSeconds)) })
+  // 模板允许留空（= 用默认），但不允许全空白/超长/带控制字符
+  if (pushBodyTemplate !== undefined && pushBodyTemplate !== null && String(pushBodyTemplate).trim() !== ''
+    && !isValidPushTemplate(String(pushBodyTemplate))) {
+    throw new HTTPException(400, { message: 'push_body_template must be 1-300 characters' })
+  }
+  const template = String(pushBodyTemplate ?? '').trim() || DEFAULT_PUSH_BODY_TEMPLATE
+
+  const data = await updatePushConfig({
+    pushEnabled,
+    pushCooldownSeconds: String(Number(pushCooldownSeconds)),
+    pushBodyTemplate: template,
+  })
   invalidateConfigsImmediately()
   return c.json(data)
 })

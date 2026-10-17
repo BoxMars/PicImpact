@@ -385,6 +385,31 @@ ORDER BY image.sort DESC, <HOME_IMAGE_SORTING_ORDER>
 
 ---
 
+## 追加需求（2026-10-17 晚）：文案可配 + 手动推送
+
+用户收到推送后提的三点，已实现：
+
+1. **去掉相册名副标题** —— 载荷只剩 `title` + `body`。相册名不再占一行，想看就写进模板。
+2. **正文模板可配** —— 新增 `configs.push_body_template`（后台「偏好设置 → 推送」可改），
+   占位符 `{{title}}`（照片标题 → 文件名 → 「一张新照片」三级兜底）与 `{{album}}`（相册名）。
+   渲染是纯函数（`server/lib/push-template.ts`），**整句被替空时回落默认文案**，不会发空正文。
+3. **后台可对指定照片手动发通知** —— `POST /api/v1/push/send`（需登录，`{ imageId, body? }`），
+   复用自动触发的同一套发送逻辑，但**跳过冷却**（人主动点的动作被冷却挡掉会很费解）；
+   只允许 `show=0 && del=0` 的图。界面入口在后台图片详情抽屉顶部（正文留空 = 用模板）。
+
+### 验证
+
+- 单测 **100 passed**（新增 `push-template` 7 条、`/send` 4 条、手动发送 2 条）。
+- `next build` **Compiled successfully**（两个改动过的 React 页面都过编译）。
+- 真打生产（本机 dev + 真库 + 真 APNs 凭据）：
+  - `POST /push/send` 不带 body → `{status:"sent", sent:1}`；带 `{{album}} 上新啦：{{title}}` → 同样 `sent`
+  - 不存在的图 → `404 image_not_found`；未登录 → `401`
+  - `push_delivery` 落 3 条 `sent`（其中一条是**生产 Vercel 自己**在图片入库后 679ms 触发的 ——
+    说明生产的环境变量与开关都已就位，早先"没收到"确实只是开关被我清理脚本复位过）
+- 文案四语言同步，`ios-strings` 两个 `--check` 都过（379 key）。
+
+---
+
 ## 实施时顺带发现的既有问题（记录，不在本批次修）
 
 1. ~~**`scripts/ios-strings.mjs:18` 的输出路径是错的**~~ —— **本批次已修**：改成

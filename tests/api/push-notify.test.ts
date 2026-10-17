@@ -208,6 +208,23 @@ test('刚好越过冷却窗口：会发（边界按 >= 处理，不是 >）', as
   assert.equal(outcome.sent, 1)
 })
 
+test('手动发送：options.body 整句覆盖模板（仍做占位符替换）', async () => {
+  const { notify, captured } = makeDeps()
+  await notify(NOTICE, { body: '{{album}} 上新：{{title}}' })
+
+  const payload = captured.sent[0].notification.payload as any
+  assert.equal(payload.aps.alert.body, '日常 上新：海边日落')
+})
+
+test('手动发送：ignoreCooldown 会绕过冷却（人主动点的一次动作）', async () => {
+  const { notify, captured } = makeDeps({ cooldownSeconds: 600, lastSentAt: { dev_1: NOW - 1000 } })
+
+  const outcome = await notify(NOTICE, { ignoreCooldown: true })
+
+  assert.equal(outcome.sent, 1, '手动发送不该被冷却挡下')
+  assert.equal(captured.sent.length, 1)
+})
+
 test('冷却 = 0 表示不冷却', async () => {
   const { notify } = makeDeps({ cooldownSeconds: 0, lastSentAt: { dev_1: NOW } })
   assert.equal((await notify(NOTICE)).sent, 1)
@@ -255,14 +272,14 @@ test('其它失败（网络/超时/服务端 5xx）：记 failed 但**不停用*
 // 载荷
 // ---------------------------------------------------------------------------
 
-test('载荷：站点标题 / 相册名 / 图片标题齐全，且带 imageId 供点击跳转', async () => {
+test('载荷：只有标题 + 正文（相册名不再作副标题），且带 imageId 供点击跳转', async () => {
   const { notify, captured } = makeDeps()
   await notify(NOTICE)
 
   const payload = captured.sent[0].notification.payload as any
   assert.equal(payload.aps.alert.title, '大福映画 Felina Gallery')
-  assert.equal(payload.aps.alert.subtitle, '日常')
-  assert.equal(payload.aps.alert.body, '「海边日落」刚刚上传')
+  assert.equal('subtitle' in payload.aps.alert, false, '相册名不再占副标题位（用户要求）')
+  assert.equal(payload.aps.alert.body, '「海边日落」刚刚上传', '默认模板渲染')
   assert.equal(payload.aps['thread-id'], 'new-images')
   assert.equal(payload.aps.sound, 'default')
   assert.equal(payload.v, 1)
@@ -283,12 +300,17 @@ test('载荷：没有标题时用文件名；都没有时给一句兜底文案',
   assert.equal((captured.sent.at(-1)!.notification.payload as any).aps.alert.body, '「photo-20261013-120000-abcd.jpg」刚刚上传')
 
   await notify({ ...NOTICE, title: '', imageName: '' })
-  assert.equal((captured.sent.at(-1)!.notification.payload as any).aps.alert.body, '刚刚上传了一张新照片')
+  assert.equal((captured.sent.at(-1)!.notification.payload as any).aps.alert.body, '「一张新照片」刚刚上传')
 })
 
-test('载荷：相册名取不到时省掉 subtitle，而不是塞一个 null 进去', () => {
-  const payload = buildNewImagePayload(NOTICE, { siteTitle: 'T', albumName: null }) as any
-  assert.equal('subtitle' in payload.aps.alert, false)
+test('载荷：相册名仍然会作为 {{album}} 的取值（想显示就写进模板）', () => {
+  const withAlbum = buildNewImagePayload(NOTICE, {
+    siteTitle: 'T',
+    albumName: '日常',
+    bodyTemplate: '{{album}} 有新照片：{{title}}',
+  }) as any
+  assert.equal(withAlbum.aps.alert.body, '日常 有新照片：海边日落')
+  assert.equal('subtitle' in withAlbum.aps.alert, false, '副标题永远不发，避免和正文重复')
 })
 
 test('载荷：极端长标题也压得进 4 KB（超限 APNs 是直接拒，不是截断）', () => {

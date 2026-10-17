@@ -331,8 +331,16 @@
     "pushEnabled": "プッシュ通知の総合スイッチ",
     "pushEnabledDesc": "新しい写真のアップロード後、登録済みの iOS デバイスにプッシュ通知を送信するかどうか",
     "pushCooldownSeconds": "プッシュ通知のクールダウン（秒）",
-    "pushCooldownSecondsDesc": "同一ユーザーがこの秒数内に受け取るプッシュは最大 1 件で、一括アップロードによる通知の氾濫を防ぎます",
-    "pushCooldownInvalid": "クールダウンは 0〜3600 の整数で指定してください"
+    "pushCooldownSecondsDesc": "同じ端末がこの秒数内に受け取る通知は最大 1 件（まとめてアップロードした時の連投を防ぐ）",
+    "pushCooldownInvalid": "クールダウンは 0〜3600 の整数で指定してください",
+    "pushBodyTemplate": "通知本文のテンプレート",
+    "pushBodyTemplateDesc": "プレースホルダー：{{title}} 写真タイトル、{{album}} アルバム名。空欄なら既定値を使用",
+    "pushSendTitle": "この写真の通知を送信",
+    "pushSendPlaceholder": "本文（空欄なら上のテンプレート）",
+    "pushSendButton": "通知を送信",
+    "pushSendEmpty": "登録済みの端末がありません。アプリを開いて通知を許可してもらってください",
+    "pushSendResult": "送信結果：成功 {sent} 台、失敗 {failed} 台",
+    "pushSendFailed": "送信に失敗しました。サーバーログか push_delivery を確認してください"
   },
   "Command": {
     "placeholder": "コマンドまたは検索を入力...",

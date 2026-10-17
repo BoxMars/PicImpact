@@ -1,4 +1,5 @@
 import { APNS_MAX_PAYLOAD_BYTES, type APNsConfig, type APNsNotification, type APNsResult } from '~/server/lib/apns'
+import { DEFAULT_PUSH_BODY_TEMPLATE, renderPushBody } from '~/server/lib/push-template'
 
 /**
  * 「有新照片入库」→ 推送通知。
@@ -75,7 +76,13 @@ export interface DeliveryLogRow {
 
 export interface NotifyDeps {
   now(): number
-  loadConfig(): Promise<{ enabled: boolean; cooldownSeconds: number; siteTitle: string }>
+  loadConfig(): Promise<{
+    enabled: boolean
+    cooldownSeconds: number
+    siteTitle: string
+    /** 正文模板（`configs.push_body_template`），空则用默认 */
+    bodyTemplate: string
+  }>
   apnsConfig(): APNsConfig | null
   listDevices(): Promise<PushDeviceRow[]>
   albumName(albumValue: string): Promise<string | null>
@@ -96,16 +103,26 @@ export interface NotifyOutcome {
 
 export function buildNewImagePayload(
   notice: NewImageNotice,
-  context: { siteTitle: string; albumName: string | null }
+  context: {
+    siteTitle: string
+    /** 相册名：**不再作副标题**（用户要求），只作为 `{{album}}` 占位符的取值 */
+    albumName: string | null
+    /** 后台可配的正文模板（`configs.push_body_template`） */
+    bodyTemplate?: string | null
+    /** 手动发送时整句覆盖（仍然会做占位符替换，方便直接写模板） */
+    bodyOverride?: string | null
+  }
 ): Record<string, unknown> {
-  const label = (notice.title || notice.imageName || '').trim()
-  const body = label ? `「${label}」刚刚上传` : '刚刚上传了一张新照片'
+  const body = renderPushBody(context.bodyOverride ?? context.bodyTemplate, {
+    title: notice.title || notice.imageName,
+    album: context.albumName,
+  })
 
   const payload: Record<string, unknown> = {
     aps: {
+      // 只有标题 + 正文；相册名不再占一个副标题位（想看的话写进模板的 {{album}} 即可）
       alert: {
         title: context.siteTitle,
-        ...(context.albumName ? { subtitle: context.albumName } : {}),
         body,
       },
       sound: 'default',
@@ -211,13 +228,15 @@ export function createNewImageNotifier(deps: NotifyDeps) {
     const context = {
       siteTitle: settings.siteTitle,
       albumName: notice.albumValue ? await deps.albumName(notice.albumValue) : null,
+      bodyTemplate: settings.bodyTemplate,
+      bodyOverride: options.body ?? null,
     }
     const payload = buildNewImagePayload(notice, context)
 
     const outcome: NotifyOutcome = { status: 'sent', sent: 0, skipped: 0, failed: 0 }
 
     for (const device of devices) {
-      const lastSentAt = await deps.lastSentAt(device.id)
+      const lastSentAt = options.ignoreCooldown ? null : await deps.lastSentAt(device.id)
       if (lastSentAt !== null && nowMs - lastSentAt < settings.cooldownSeconds * 1000) {
         // 冷却期内直接跳过：**不写日志**。否则一次批量上传能在日志表里塞进几十条噪声。
         outcome.skipped += 1
@@ -285,6 +304,13 @@ export function createNewImageNotifier(deps: NotifyDeps) {
 export interface NotifyOptions {
   /** 发起这次上传的客户端标识（请求头 `X-Felina-Client-Id`），用来排除"自己传的不通知自己" */
   clientId?: string | null
+  /** 整句正文覆盖（后台「发送通知」用）；仍会做 `{{title}}` / `{{album}}` 替换 */
+  body?: string | null
+  /**
+   * 跳过冷却。**只给手动发送用**：那是人主动点的一次动作，被"两分钟内刚推过"挡掉会很费解。
+   * 自动触发（新图入库）永远不传这个。
+   */
+  ignoreCooldown?: boolean
 }
 
 /**
@@ -310,15 +336,17 @@ export async function notifyNewImage(
     const notifier = createNewImageNotifier({
       now: () => Date.now(),
       async loadConfig() {
-        const [enabled, cooldown, siteTitle] = await Promise.all([
+        const [enabled, cooldown, siteTitle, bodyTemplate] = await Promise.all([
           fetchConfigValue('push_enabled', 'false'),
           fetchConfigValue('push_cooldown_seconds', String(DEFAULT_COOLDOWN_SECONDS)),
           fetchConfigValue('custom_title', '大福映画 Felina Gallery'),
+          fetchConfigValue('push_body_template', DEFAULT_PUSH_BODY_TEMPLATE),
         ])
         return {
           enabled: enabled === 'true',
           cooldownSeconds: parseCooldownSeconds(cooldown),
           siteTitle: siteTitle || '大福映画 Felina Gallery',
+          bodyTemplate: bodyTemplate || DEFAULT_PUSH_BODY_TEMPLATE,
         }
       },
       apnsConfig: () => apnsModule.readAPNsConfigFromEnv(),

@@ -39,7 +39,8 @@ const INITIAL_CONFIGS = [
   { config_key: 'umami_host', config_value: '', detail: 'Umami Cloud Analytics' },
   { config_key: 'admin_images_per_page', config_value: '8', detail: '管理界面每页显示的图片数量' },
   { config_key: 'push_enabled', config_value: 'false', detail: '新照片上传后是否向已注册的 iOS 设备发送推送通知' },
-  { config_key: 'push_cooldown_seconds', config_value: '120', detail: '同一用户在该秒数内最多收到一条推送，防止批量上传刷屏' },
+  { config_key: 'push_cooldown_seconds', config_value: '120', detail: '同一设备在该秒数内最多收到一条推送，防止批量上传刷屏' },
+  { config_key: 'push_body_template', config_value: '「{{title}}」刚刚上传', detail: '通知正文模板：{{title}} 照片标题、{{album}} 相册名' },
 ]
 
 export async function main() {

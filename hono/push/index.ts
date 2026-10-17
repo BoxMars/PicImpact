@@ -4,7 +4,7 @@ import { auth } from '~/server/auth'
 import { fetchConfigValue } from '~/server/db/query/configs'
 import { apnsBundleId, isAPNsConfigured, readAPNsConfigFromEnv } from '~/server/lib/apns'
 import { db } from '~/server/lib/db'
-import { STALE_DEVICE_MS } from '~/server/lib/new-image-notify'
+import { STALE_DEVICE_MS, notifyNewImage } from '~/server/lib/new-image-notify'
 
 import { createPushApi } from './api'
 
@@ -85,6 +85,35 @@ export default createPushApi({
   async deviceExists(token) {
     const row = await db.pushDevice.findUnique({ where: { token }, select: { id: true } })
     return Boolean(row)
+  },
+
+  async loadImageForPush(imageId) {
+    // 只允许推**公开且未删除**的图：通知里会带标题与预览图 URL，未公开的图不该露出去
+    const image = await db.images.findFirst({
+      where: { id: imageId, del: 0, show: 0 },
+      select: { id: true, title: true, image_name: true, preview_url: true, show: true, del: true },
+    })
+    if (!image) return null
+
+    const relation = await db.imagesAlbumsRelation.findFirst({
+      where: { imageId },
+      select: { album_value: true },
+    })
+
+    return {
+      id: image.id,
+      title: image.title,
+      imageName: image.image_name,
+      previewUrl: image.preview_url,
+      albumValue: relation?.album_value ?? null,
+      show: image.show,
+      del: image.del,
+    }
+  },
+
+  async sendPushNow(notice, options) {
+    // 与自动触发共用同一份实现：冷却、失败隔离、日志都在里面；这里只多传 body 与跳过冷却
+    return await notifyNewImage(notice, { body: options.body ?? null, ignoreCooldown: true })
   },
 
   async countLiveDevices() {

@@ -6,7 +6,7 @@
 import Foundation
 
 extension IslandStrings {
-    /// 简体中文回退表（371 条）
+    /// 简体中文回退表（379 条）
     static let fallback: [String: String] = [
         "Account.avatar": "头像",
         "Account.email": "邮箱",
@@ -85,12 +85,20 @@ extension IslandStrings {
         "Config.openListTitle": "Open List 配置",
         "Config.open_list_token": "Open List 令牌",
         "Config.open_list_url": "Open List 地址，如：https://openlist.example.com",
+        "Config.pushBodyTemplate": "通知正文模板",
+        "Config.pushBodyTemplateDesc": "可用占位符：{{title}} 照片标题、{{album}} 相册名。留空则用默认「{{title}}」刚刚上传",
         "Config.pushCooldownInvalid": "冷却秒数只支持 0-3600 的整数",
         "Config.pushCooldownSeconds": "推送冷却秒数",
-        "Config.pushCooldownSecondsDesc": "同一用户在该秒数内最多收到一条推送，防止批量上传刷屏",
+        "Config.pushCooldownSecondsDesc": "同一台设备在该秒数内最多收到一条推送，防止批量上传刷屏",
         "Config.pushEnabled": "推送总开关",
         "Config.pushEnabledDesc": "新照片上传后是否向已注册的 iOS 设备发送推送通知",
         "Config.pushSection": "推送通知",
+        "Config.pushSendButton": "发送通知",
+        "Config.pushSendEmpty": "没有已注册的设备，先让家人朋友打开 App 并允许通知",
+        "Config.pushSendFailed": "发送失败，请看服务端日志或 push_delivery 表",
+        "Config.pushSendPlaceholder": "正文（留空用上面的模板）",
+        "Config.pushSendResult": "已发送：成功 {sent} 台，失败 {failed} 台",
+        "Config.pushSendTitle": "给这张照片发一条通知",
         "Config.r2Title": "Cloudflare R2 配置",
         "Config.r2_accesskey_id": "Cloudflare AccessKey_ID",
         "Config.r2_accesskey_secret": "Cloudflare AccessKey_Secret",

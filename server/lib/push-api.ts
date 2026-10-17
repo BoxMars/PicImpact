@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { apiError } from '~/server/lib/admin-api'
+import { IMAGE_ID_PATTERN, apiError } from '~/server/lib/admin-api'
 
 /**
  * 推送接口（`/api/v1/push/*`）的请求校验与出参映射。
@@ -51,6 +51,19 @@ export type RegisterDeviceInput = z.infer<typeof registerDeviceSchema>
 export const deviceQuerySchema = z.object({
   clientId: z.string().regex(CLIENT_ID_PATTERN),
 })
+
+/**
+ * 「对指定照片发一条通知」的请求体。
+ *
+ * `imageId` 决定点开通知跳到哪张图；`body` 可选 —— 不传就用后台配的模板渲染。
+ * 传了也仍然会做 `{{title}}` / `{{album}}` 替换，所以可以直接写模板。
+ */
+export const sendNotificationSchema = z.object({
+  imageId: z.string().regex(IMAGE_ID_PATTERN),
+  body: z.string().trim().min(1).max(300).optional(),
+})
+
+export type SendNotificationInput = z.infer<typeof sendNotificationSchema>
 
 export type PushDeviceSummary = {
   id: string

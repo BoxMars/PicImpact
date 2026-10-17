@@ -331,8 +331,16 @@
     "pushEnabled": "推送總開關",
     "pushEnabledDesc": "新照片上傳後是否向已註冊的 iOS 裝置發送推送通知",
     "pushCooldownSeconds": "推送冷卻秒數",
-    "pushCooldownSecondsDesc": "同一使用者在該秒數內最多收到一則推送，防止批次上傳刷屏",
-    "pushCooldownInvalid": "冷卻秒數只支援 0-3600 的整數"
+    "pushCooldownSecondsDesc": "同一台裝置在該秒數內最多收到一則推播，避免批次上傳時連續通知",
+    "pushCooldownInvalid": "冷卻秒數只支援 0-3600 的整數",
+    "pushBodyTemplate": "通知內文範本",
+    "pushBodyTemplateDesc": "可用佔位符：{{title}} 照片標題、{{album}} 相簿名稱。留空則用預設值",
+    "pushSendTitle": "為這張照片發送通知",
+    "pushSendPlaceholder": "內文（留空用上面的範本）",
+    "pushSendButton": "發送通知",
+    "pushSendEmpty": "還沒有已註冊的裝置，請家人朋友開啟 App 並允許通知",
+    "pushSendResult": "已發送：成功 {sent} 台，失敗 {failed} 台",
+    "pushSendFailed": "發送失敗，請看伺服器日誌或 push_delivery 表"
   },
   "Command": {
     "placeholder": "輸入命令或搜尋...",

@@ -64,10 +64,11 @@ export async function updatePushConfig(configs: any) {
     SET config_value = CASE
        WHEN config_key = 'push_enabled' THEN ${configs.pushEnabled}
        WHEN config_key = 'push_cooldown_seconds' THEN ${configs.pushCooldownSeconds}
+       WHEN config_key = 'push_body_template' THEN ${configs.pushBodyTemplate}
        ELSE 'N&A'
     END,
         updated_at = NOW()
-    WHERE config_key IN ('push_enabled', 'push_cooldown_seconds');
+    WHERE config_key IN ('push_enabled', 'push_cooldown_seconds', 'push_body_template');
   `
 }
 

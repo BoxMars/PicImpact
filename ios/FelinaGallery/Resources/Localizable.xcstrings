@@ -2234,6 +2234,64 @@
         }
       }
     },
+    "Config.pushBodyTemplate": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知正文模板"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notification body template"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知本文のテンプレート"
+          }
+        },
+        "zh-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知內文範本"
+          }
+        }
+      }
+    },
+    "Config.pushBodyTemplateDesc": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可用占位符：{{title}} 照片标题、{{album}} 相册名。留空则用默认「{{title}}」刚刚上传"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Placeholders: {{title}} photo title, {{album}} album name. Leave empty to use the default."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレースホルダー：{{title}} 写真タイトル、{{album}} アルバム名。空欄なら既定値を使用"
+          }
+        },
+        "zh-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可用佔位符：{{title}} 照片標題、{{album}} 相簿名稱。留空則用預設值"
+          }
+        }
+      }
+    },
     "Config.pushCooldownInvalid": {
       "extractionState": "manual",
       "localizations": {
@@ -2298,25 +2356,25 @@
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "同一用户在该秒数内最多收到一条推送，防止批量上传刷屏"
+            "value": "同一台设备在该秒数内最多收到一条推送，防止批量上传刷屏"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A user receives at most one push within this many seconds, preventing spam from batch uploads"
+            "value": "At most one notification per device within this window (prevents spam when uploading in bulk)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "同一ユーザーがこの秒数内に受け取るプッシュは最大 1 件で、一括アップロードによる通知の氾濫を防ぎます"
+            "value": "同じ端末がこの秒数内に受け取る通知は最大 1 件（まとめてアップロードした時の連投を防ぐ）"
           }
         },
         "zh-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "同一使用者在該秒數內最多收到一則推送，防止批次上傳刷屏"
+            "value": "同一台裝置在該秒數內最多收到一則推播，避免批次上傳時連續通知"
           }
         }
       }
@@ -2404,6 +2462,180 @@
           "stringUnit": {
             "state": "translated",
             "value": "推送通知"
+          }
+        }
+      }
+    },
+    "Config.pushSendButton": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发送通知"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send notification"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知を送信"
+          }
+        },
+        "zh-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發送通知"
+          }
+        }
+      }
+    },
+    "Config.pushSendEmpty": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有已注册的设备，先让家人朋友打开 App 并允许通知"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No registered devices yet — ask your family to open the app and allow notifications."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登録済みの端末がありません。アプリを開いて通知を許可してもらってください"
+          }
+        },
+        "zh-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還沒有已註冊的裝置，請家人朋友開啟 App 並允許通知"
+          }
+        }
+      }
+    },
+    "Config.pushSendFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发送失败，请看服务端日志或 push_delivery 表"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send failed — check server logs or the push_delivery table"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "送信に失敗しました。サーバーログか push_delivery を確認してください"
+          }
+        },
+        "zh-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發送失敗，請看伺服器日誌或 push_delivery 表"
+          }
+        }
+      }
+    },
+    "Config.pushSendPlaceholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正文（留空用上面的模板）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Body (empty = use the template above)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本文（空欄なら上のテンプレート）"
+          }
+        },
+        "zh-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "內文（留空用上面的範本）"
+          }
+        }
+      }
+    },
+    "Config.pushSendResult": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已发送：成功 {sent} 台，失败 {failed} 台"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sent: {sent} succeeded, {failed} failed"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "送信結果：成功 {sent} 台、失敗 {failed} 台"
+          }
+        },
+        "zh-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已發送：成功 {sent} 台，失敗 {failed} 台"
+          }
+        }
+      }
+    },
+    "Config.pushSendTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "给这张照片发一条通知"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send a notification for this photo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この写真の通知を送信"
+          }
+        },
+        "zh-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "為這張照片發送通知"
           }
         }
       }

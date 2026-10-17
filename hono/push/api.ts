@@ -6,9 +6,11 @@ import {
   apiError,
   deviceQuerySchema,
   registerDeviceSchema,
+  sendNotificationSchema,
   toPushDeviceSummary,
   type RegisterDeviceInput,
 } from '~/server/lib/push-api'
+import type { NewImageNotice, NotifyOutcome } from '~/server/lib/new-image-notify'
 
 /**
  * 推送接口（`/api/v1/push/*`）。
@@ -49,6 +51,10 @@ export interface PushApiDeps {
   deviceExists(token: string): Promise<boolean>
   /** 「启用且未过期」的设备数，用于上限检查 */
   countLiveDevices(): Promise<number>
+  /** 按 id 取一张可以推送的图（含相册名）；不存在/已删除返回 null */
+  loadImageForPush(imageId: string): Promise<NewImageNotice | null>
+  /** 真的发（真实实现是 `notifyNewImage`）；手动发送要跳过冷却 */
+  sendPushNow(notice: NewImageNotice, options: { body?: string | null }): Promise<NotifyOutcome | null>
 }
 
 export function createPushApi(deps: PushApiDeps): Hono<{ Variables: SessionVariables }> {
@@ -107,7 +113,24 @@ export function createPushApi(deps: PushApiDeps): Hono<{ Variables: SessionVaria
   })
 
   // -------------------------------------------------------------------------
-  // 3. 设备列表（诊断：到底注册上了没有、最近什么时候活过）—— 需要登录
+  // 3. 对**指定照片**发一条通知（后台手动推送）—— 需要登录
+  // -------------------------------------------------------------------------
+  app.post('/send', requireSession, async (c) => {
+    const parsed = sendNotificationSchema.safeParse(await readJson(c))
+    if (!parsed.success) throw apiError(400, 'invalid_request')
+
+    const notice = await deps.loadImageForPush(parsed.data.imageId)
+    if (!notice) throw apiError(404, 'image_not_found')
+
+    // 手动发送**跳过冷却**：这是人主动点的一次动作，被"两分钟内刚推过"挡掉会很费解
+    const outcome = await deps.sendPushNow(notice, { body: parsed.data.body ?? null })
+    if (!outcome) throw apiError(500, 'push_failed')
+
+    return c.json({ code: 200, message: 'ok', data: outcome })
+  })
+
+  // -------------------------------------------------------------------------
+  // 4. 设备列表（诊断：到底注册上了没有、最近什么时候活过）—— 需要登录
   // -------------------------------------------------------------------------
   app.get('/devices', requireSession, async (c) => {
     const [rows, pushEnabled] = await Promise.all([deps.listDevices(), deps.isPushEnabled()])
